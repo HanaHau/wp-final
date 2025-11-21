@@ -4,9 +4,9 @@ import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
 const transactionSchema = z.object({
-  amount: z.number().positive().optional(),
-  category: z.string().min(1).optional(),
-  type: z.enum(['EXPENSE', 'INCOME', 'DEPOSIT']).optional(),
+  amount: z.number().positive(),
+  category: z.string().min(1),
+  type: z.enum(['EXPENSE', 'INCOME', 'DEPOSIT']),
   date: z.string().datetime().optional(),
   note: z.string().optional(),
 })

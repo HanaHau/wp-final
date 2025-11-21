@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { useSession, signOut } from 'next-auth/react'
-import Image from 'next/image'
 import { Button } from '@/components/ui/button'
-import PetDisplay from '@/components/pet/PetDisplay'
+import Room from '@/components/pet/Room'
 import TransactionDialog from '@/components/transaction/TransactionDialog'
 import Navigation from './Navigation'
-import { LogOut, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
+import HamburgerMenu from './HamburgerMenu'
 
 interface Pet {
   id: string
@@ -19,14 +19,26 @@ interface Pet {
   health: number
 }
 
+interface RoomSticker {
+  id: string
+  stickerId: string
+  positionX: number
+  positionY: number
+  rotation: number
+  scale: number
+  layer: 'floor' | 'wall-left' | 'wall-right'
+}
+
 export default function DashboardContent() {
   const { data: session } = useSession()
   const [pet, setPet] = useState<Pet | null>(null)
+  const [stickers, setStickers] = useState<RoomSticker[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetchPet()
+    fetchStickers()
   }, [])
 
   const fetchPet = async () => {
@@ -41,113 +53,81 @@ export default function DashboardContent() {
     }
   }
 
+  const fetchStickers = async () => {
+    try {
+      const res = await fetch('/api/pet/stickers')
+      if (res.ok) {
+        const data = await res.json()
+        setStickers(data)
+      }
+    } catch (error) {
+      console.error('取得貼紙失敗:', error)
+    }
+  }
+
   const handleTransactionAdded = () => {
     fetchPet()
+    fetchStickers()
     setIsDialogOpen(false)
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">載入中...</div>
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-lg text-black">載入中...</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* 房間背景 */}
-      <div className="fixed inset-0 z-0">
-        <Image
-          src="/room.jpg.webp"
-          alt="房間背景"
-          fill
-          className="object-cover"
-          priority
-        />
-      </div>
-
-      {/* 內容層 */}
-      <div className="relative z-10 min-h-screen flex flex-col">
-        {/* 頂部資源欄 - 浮動設計 */}
-        <div className="absolute top-4 left-4 right-4 z-20 flex justify-between items-start pointer-events-none">
-          {/* 左側：資源顯示 */}
-          <div className="flex flex-col gap-2 pointer-events-auto">
-            {/* 寵物點數卡片 */}
-            <div className="bg-white/95 backdrop-blur-sm rounded-2xl px-4 py-2.5 shadow-lg border-2 border-purple-200 flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center">
-                <span className="text-lg">💎</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs text-gray-500">點數</span>
-                <span className="text-lg font-bold text-purple-700">
-                  {pet?.points || 0}
-                </span>
-              </div>
-            </div>
-            
-            {/* 心情值卡片 */}
-            <div className="bg-white/95 backdrop-blur-sm rounded-2xl px-4 py-2.5 shadow-lg border-2 border-pink-200 flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-pink-400 to-red-400 rounded-full flex items-center justify-center">
-                <span className="text-lg">❤️</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs text-gray-500">心情</span>
-                <span className="text-lg font-bold text-pink-700">
-                  {pet?.mood || 50}%
-                </span>
-              </div>
-            </div>
+    <div className="min-h-screen bg-white relative overflow-hidden">
+      {/* 頂部資訊欄 - 極簡設計 */}
+      <div className="absolute top-0 left-0 right-0 z-20 flex justify-between items-start p-4 pointer-events-none">
+        {/* 左側：資源顯示 */}
+        <div className="flex gap-3 pointer-events-auto">
+          {/* 點數 */}
+          <div className="bg-white border-2 border-black px-3 py-2">
+            <div className="text-xs text-black/60 uppercase tracking-wide">Points</div>
+            <div className="text-lg font-bold text-black">{pet?.points || 0}</div>
           </div>
-
-          {/* 右側：操作按鈕 */}
-          <div className="flex flex-col gap-2 pointer-events-auto">
-            {/* 用戶選單 */}
-            <div className="bg-white/95 backdrop-blur-sm rounded-2xl px-3 py-2 shadow-lg border-2 border-gray-200">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-full flex items-center justify-center">
-                  <span className="text-sm font-bold text-white">
-                    {session?.user?.name?.charAt(0) || 'U'}
-                  </span>
-                </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => signOut()}
-                  className="h-8 px-2"
-                >
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-            
-            {/* 新增記帳按鈕 - 在個人帳號下方 */}
-            <Button
-              size="lg"
-              onClick={() => setIsDialogOpen(true)}
-              className="rounded-full w-14 h-14 shadow-2xl bg-gradient-to-br from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 border-2 border-white/50"
-            >
-              <Plus className="h-7 w-7 text-white" />
-            </Button>
+          
+          {/* 心情 */}
+          <div className="bg-white border-2 border-black px-3 py-2">
+            <div className="text-xs text-black/60 uppercase tracking-wide">Mood</div>
+            <div className="text-lg font-bold text-black">{pet?.mood || 50}%</div>
           </div>
         </div>
 
-        {/* 主內容區 - 寵物顯示 */}
-        <main className="flex-1 flex items-center justify-center px-4 pb-24">
-          <div className="relative">
-            <PetDisplay pet={pet} />
-          </div>
-        </main>
+        {/* 右側：漢堡選單 */}
+        <div className="pointer-events-auto">
+          <HamburgerMenu />
+        </div>
+      </div>
 
-        {/* 記帳對話框 */}
-        <TransactionDialog
-          open={isDialogOpen}
-          onOpenChange={setIsDialogOpen}
-          onSuccess={handleTransactionAdded}
-        />
+      {/* 主內容區 - 房間顯示 */}
+      <main className="flex-1 flex items-center justify-center px-4 pb-20 pt-24">
+        <Room pet={pet} stickers={stickers} />
+      </main>
 
-        {/* 底部導航 */}
-        <Navigation />
+      {/* 記帳對話框 */}
+      <TransactionDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        onSuccess={handleTransactionAdded}
+      />
+
+      {/* 底部導航 */}
+      <Navigation />
+
+      {/* 新增記帳按鈕 - 固定在底部 */}
+      <div className="fixed bottom-24 right-4 z-30">
+        <Button
+          size="icon"
+          onClick={() => setIsDialogOpen(true)}
+          className="w-14 h-14 border-2 border-black rounded-full"
+        >
+          <Plus className="h-6 w-6" />
+        </Button>
       </div>
     </div>
   )

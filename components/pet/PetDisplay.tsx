@@ -20,46 +20,43 @@ export default function PetDisplay({ pet }: PetDisplayProps) {
   if (!pet) {
     return (
       <div className="text-center py-12">
-        <div className="text-lg text-gray-500 bg-white/90 backdrop-blur-sm px-6 py-3 rounded-full">
-          載入寵物資訊中...
+        <div className="text-sm text-black/60 border-2 border-black px-6 py-3 uppercase tracking-wide">
+          Loading...
         </div>
       </div>
     )
   }
 
   const getMoodText = (mood: number) => {
-    if (mood >= 80) return '😄 今天心情不錯呢！'
-    if (mood >= 60) return '🙂 今天心情還不錯！'
-    if (mood >= 40) return '😐 今天心情普通'
-    if (mood >= 20) return '😔 今天心情不太好'
-    return '😢 今天心情很差'
+    if (mood >= 80) return 'Feeling Great!'
+    if (mood >= 60) return 'Feeling Good'
+    if (mood >= 40) return 'Feeling Okay'
+    if (mood >= 20) return 'Feeling Low'
+    return 'Feeling Bad'
   }
 
   return (
     <div className="flex flex-col items-center gap-4 relative">
-      {/* 對話框 - 從寵物口中說出 */}
-      <div className="relative mb-6">
-        <div className="bg-white/95 backdrop-blur-sm px-6 py-4 rounded-2xl shadow-lg border-2 border-purple-200 relative">
-          <p className="text-lg font-semibold text-purple-700 whitespace-nowrap">
+      {/* Speech bubble - minimalist */}
+      <div className="relative mb-4">
+        <div className="bg-white px-4 py-3 border-2 border-black relative">
+          <p className="text-sm font-bold text-black uppercase tracking-wide whitespace-nowrap">
             {getMoodText(pet.mood)}
           </p>
-          {/* 對話框尾巴指向寵物 */}
+          {/* Speech bubble tail */}
           <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full">
-            <div className="w-0 h-0 border-l-[12px] border-r-[12px] border-t-[16px] border-transparent border-t-white"></div>
-            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full -z-10">
-              <div className="w-0 h-0 border-l-[14px] border-r-[14px] border-t-[18px] border-transparent border-t-purple-200"></div>
-            </div>
+            <div className="w-0 h-0 border-l-[8px] border-r-[8px] border-t-[12px] border-transparent border-t-black"></div>
           </div>
         </div>
       </div>
 
-      {/* 寵物圖片 - 在房間中央 */}
-      <div className="relative w-64 h-64 md:w-80 md:h-80 rounded-full overflow-hidden border-4 border-purple-200 shadow-2xl">
+      {/* Pet image */}
+      <div className="relative w-48 h-48">
         <Image
           src={pet.imageUrl || '/cat.jpg'}
           alt={pet.name}
           fill
-          className="object-cover"
+          className="object-contain"
         />
       </div>
     </div>

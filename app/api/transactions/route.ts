@@ -97,6 +97,9 @@ export async function POST(request: NextRequest) {
     // 更新寵物狀態（根據記帳行為）
     await updatePetStatus(user.id, validatedData.type, validatedData.amount)
 
+    // 檢查並發放貼紙獎勵
+    await checkAndRewardStickers(user.id)
+
     return NextResponse.json(transaction, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -145,5 +148,62 @@ async function updatePetStatus(
       mood: Math.max(0, Math.min(100, pet.mood + moodDelta)),
     },
   })
+}
+
+// 檢查並發放貼紙獎勵
+async function checkAndRewardStickers(userId: string) {
+  const pet = await prisma.pet.findUnique({
+    where: { userId },
+    include: {
+      stickers: true,
+    },
+  })
+
+  if (!pet) return
+
+  // 取得所有交易記錄
+  const transactionCount = await prisma.transaction.count({
+    where: { userId },
+  })
+
+  const totalDeposits = await prisma.transaction.aggregate({
+    where: {
+      userId,
+      type: 'DEPOSIT',
+    },
+    _sum: {
+      amount: true,
+    },
+  })
+
+  const totalDepositAmount = totalDeposits._sum.amount || 0
+
+  // 定義獎勵條件
+  const rewards = [
+    { condition: transactionCount >= 1, stickerId: 'rug', layer: 'floor', positionX: 0.5, positionY: 0.7 },
+    { condition: transactionCount >= 5, stickerId: 'desk', layer: 'floor', positionX: 0.3, positionY: 0.5 },
+    { condition: transactionCount >= 10, stickerId: 'monitor', layer: 'floor', positionX: 0.3, positionY: 0.4 },
+    { condition: totalDepositAmount >= 1000, stickerId: 'poster', layer: 'wall-left', positionX: 0.5, positionY: 0.3 },
+    { condition: totalDepositAmount >= 5000, stickerId: 'cup', layer: 'floor', positionX: 0.7, positionY: 0.5 },
+    { condition: totalDepositAmount >= 10000, stickerId: 'speaker', layer: 'floor', positionX: 0.7, positionY: 0.6 },
+  ]
+
+  // 檢查並發放獎勵
+  for (const reward of rewards) {
+    const hasSticker = pet.stickers.some((s) => s.stickerId === reward.stickerId)
+    if (reward.condition && !hasSticker) {
+      await prisma.roomSticker.create({
+        data: {
+          petId: pet.id,
+          stickerId: reward.stickerId,
+          positionX: reward.positionX,
+          positionY: reward.positionY,
+          rotation: 0,
+          scale: 1,
+          layer: reward.layer as 'floor' | 'wall-left' | 'wall-right',
+        },
+      })
+    }
+  }
 }
 

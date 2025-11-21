@@ -1,17 +1,26 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import CalculatorInput from './CalculatorInput'
+
+interface Transaction {
+  id: string
+  amount: number
+  category: string
+  type: string
+  date: string
+  note: string | null
+}
 
 interface TransactionDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
+  editingTransaction?: Transaction | null
 }
 
 const defaultCategories = [
@@ -28,20 +37,41 @@ export default function TransactionDialog({
   open,
   onOpenChange,
   onSuccess,
+  editingTransaction,
 }: TransactionDialogProps) {
-  const [amount, setAmount] = useState('')
+  const [amount, setAmount] = useState('0')
   const [category, setCategory] = useState('')
   const [type, setType] = useState<'EXPENSE' | 'INCOME' | 'DEPOSIT'>('EXPENSE')
   const [note, setNote] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Populate form when editing
+  useEffect(() => {
+    if (editingTransaction) {
+      setAmount(editingTransaction.amount.toString())
+      setCategory(editingTransaction.category)
+      setType(editingTransaction.type as 'EXPENSE' | 'INCOME' | 'DEPOSIT')
+      setNote(editingTransaction.note || '')
+    } else {
+      setAmount('0')
+      setCategory('')
+      setType('EXPENSE')
+      setNote('')
+    }
+  }, [editingTransaction, open])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
     try {
-      const res = await fetch('/api/transactions', {
-        method: 'POST',
+      const url = editingTransaction
+        ? `/api/transactions/${editingTransaction.id}`
+        : '/api/transactions'
+      const method = editingTransaction ? 'PUT' : 'POST'
+
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: parseFloat(amount),
@@ -52,17 +82,17 @@ export default function TransactionDialog({
       })
 
       if (!res.ok) {
-        throw new Error('新增記帳失敗')
+        throw new Error(editingTransaction ? 'Update failed' : 'Create failed')
       }
 
-      // 重置表單
-      setAmount('')
+      // Reset form
+      setAmount('0')
       setCategory('')
       setNote('')
       onSuccess()
     } catch (error) {
-      console.error('新增記帳錯誤:', error)
-      alert('新增記帳失敗，請稍後再試')
+      console.error('Transaction error:', error)
+      alert(editingTransaction ? 'Update failed' : 'Create failed')
     } finally {
       setLoading(false)
     }
@@ -72,71 +102,76 @@ export default function TransactionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>新增記帳</DialogTitle>
+          <DialogTitle>{editingTransaction ? 'Edit Transaction' : 'New Transaction'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
-          <div className="space-y-4 py-4">
-            {/* 類型選擇 */}
+          <div className="space-y-6 py-4">
+            {/* Type Selection - Buttons */}
             <div>
-              <Label>類型</Label>
-              <Select
-                value={type}
-                onValueChange={(value) =>
-                  setType(value as 'EXPENSE' | 'INCOME' | 'DEPOSIT')
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="EXPENSE">支出</SelectItem>
-                  <SelectItem value="INCOME">收入</SelectItem>
-                  <SelectItem value="DEPOSIT">存款（轉為點數）</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label className="text-black uppercase text-xs tracking-wide mb-2 block">Type</Label>
+              <div className="grid grid-cols-3 gap-2">
+                <Button
+                  type="button"
+                  variant={type === 'EXPENSE' ? 'default' : 'outline'}
+                  onClick={() => setType('EXPENSE')}
+                  className="border-2 border-black"
+                >
+                  Expense
+                </Button>
+                <Button
+                  type="button"
+                  variant={type === 'INCOME' ? 'default' : 'outline'}
+                  onClick={() => setType('INCOME')}
+                  className="border-2 border-black"
+                >
+                  Income
+                </Button>
+                <Button
+                  type="button"
+                  variant={type === 'DEPOSIT' ? 'default' : 'outline'}
+                  onClick={() => setType('DEPOSIT')}
+                  className="border-2 border-black"
+                >
+                  Deposit
+                </Button>
+              </div>
             </div>
 
-            {/* 金額 */}
+            {/* Calculator Input */}
             <div>
-              <Label htmlFor="amount">金額</Label>
-              <Input
-                id="amount"
-                type="number"
-                step="0.01"
-                min="0"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                required
-                placeholder="請輸入金額"
-              />
+              <Label className="text-black uppercase text-xs tracking-wide mb-2 block">Amount</Label>
+              <CalculatorInput value={amount} onChange={setAmount} />
             </div>
 
-            {/* 類別 */}
+            {/* Category Selection - Buttons Grid */}
             <div>
-              <Label>類別</Label>
-              <Select value={category} onValueChange={setCategory} required>
-                <SelectTrigger>
-                  <SelectValue placeholder="選擇類別" />
-                </SelectTrigger>
-                <SelectContent>
-                  {defaultCategories.map((cat) => (
-                    <SelectItem key={cat.name} value={cat.name}>
-                      {cat.icon} {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-black uppercase text-xs tracking-wide mb-2 block">Category</Label>
+              <div className="grid grid-cols-4 gap-2">
+                {defaultCategories.map((cat) => (
+                  <Button
+                    key={cat.name}
+                    type="button"
+                    variant={category === cat.name ? 'default' : 'outline'}
+                    onClick={() => setCategory(cat.name)}
+                    className="border-2 border-black flex flex-col items-center gap-1 h-auto py-3"
+                  >
+                    <span className="text-xl">{cat.icon}</span>
+                    <span className="text-xs">{cat.name}</span>
+                  </Button>
+                ))}
+              </div>
             </div>
 
-            {/* 備註 */}
+            {/* Note */}
             <div>
-              <Label htmlFor="note">備註（選填）</Label>
+              <Label htmlFor="note" className="text-black uppercase text-xs tracking-wide mb-2 block">Note (Optional)</Label>
               <Textarea
                 id="note"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="輸入備註..."
-                rows={3}
+                placeholder="Enter note..."
+                rows={2}
+                className="border-2 border-black"
               />
             </div>
           </div>
@@ -146,10 +181,10 @@ export default function TransactionDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              取消
+              Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? '處理中...' : '確認'}
+              {loading ? 'Processing...' : 'Confirm'}
             </Button>
           </DialogFooter>
         </form>

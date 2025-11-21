@@ -10,6 +10,7 @@ import Navigation from '@/components/dashboard/Navigation'
 import { formatCurrency } from '@/lib/utils'
 import { ArrowLeft, Upload, ShoppingBag } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 interface Pet {
   id: string
@@ -55,17 +56,54 @@ export default function PetSettingsContent() {
     }
   }
 
+  const removeBackground = async (file: File): Promise<string> => {
+    try {
+      // Use @imgly/background-removal for client-side background removal
+      const { removeBackground } = await import('@imgly/background-removal')
+      
+      const blob = await removeBackground(file)
+      const reader = new FileReader()
+      
+      return new Promise((resolve, reject) => {
+        reader.onloadend = () => {
+          resolve(reader.result as string)
+        }
+        reader.onerror = reject
+        reader.readAsDataURL(blob)
+      })
+    } catch (error) {
+      console.error('Background removal failed:', error)
+      // Fallback to original image if removal fails
+      const reader = new FileReader()
+      return new Promise((resolve, reject) => {
+        reader.onloadend = () => {
+          resolve(reader.result as string)
+        }
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+    }
+  }
+
   const handleSave = async () => {
     setSaving(true)
     try {
       let imageUrl = pet?.imageUrl
 
-      // 如果有上傳圖片，這裡應該上傳到雲端儲存（如 Cloudinary、AWS S3）
-      // 目前先只更新名稱
+      // If image file is uploaded, remove background and convert to data URL
       if (imageFile) {
-        // TODO: 實作圖片上傳
-        alert('圖片上傳功能待實作')
-        return
+        try {
+          imageUrl = await removeBackground(imageFile)
+        } catch (error) {
+          console.error('Background removal error:', error)
+          // Fallback: convert to data URL without removal
+          const reader = new FileReader()
+          imageUrl = await new Promise((resolve, reject) => {
+            reader.onloadend = () => resolve(reader.result as string)
+            reader.onerror = reject
+            reader.readAsDataURL(imageFile)
+          })
+        }
       }
 
       const res = await fetch('/api/pet', {
@@ -77,48 +115,18 @@ export default function PetSettingsContent() {
         }),
       })
 
-      if (!res.ok) throw new Error('更新失敗')
+      if (!res.ok) throw new Error('Update failed')
 
       await fetchPet()
-      alert('更新成功！')
+      alert('Updated successfully!')
     } catch (error) {
-      console.error('更新寵物資訊錯誤:', error)
-      alert('更新失敗，請稍後再試')
+      console.error('Update error:', error)
+      alert('Update failed, please try again')
     } finally {
       setSaving(false)
     }
   }
 
-  const handlePurchase = async () => {
-    const itemName = prompt('請輸入物品名稱：')
-    const costStr = prompt('請輸入點數：')
-
-    if (!itemName || !costStr) return
-
-    const cost = parseInt(costStr)
-    if (isNaN(cost) || cost <= 0) {
-      alert('請輸入有效的點數')
-      return
-    }
-
-    try {
-      const res = await fetch('/api/pet/purchase', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ itemName, cost }),
-      })
-
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || '購買失敗')
-      }
-
-      await fetchPet()
-      alert('購買成功！')
-    } catch (error: any) {
-      alert(error.message || '購買失敗')
-    }
-  }
 
   if (loading) {
     return (
@@ -129,53 +137,90 @@ export default function PetSettingsContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col">
-      <div className="flex-1 overflow-hidden flex flex-col max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-4">
-        {/* 標題和返回按鈕 - 緊湊 */}
-        <div className="flex items-center justify-between mb-4">
+    <div className="min-h-screen bg-white flex flex-col pb-20">
+      <div className="flex-1 overflow-y-auto max-w-7xl mx-auto w-full px-4 py-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold uppercase tracking-wide">Pet Settings</h1>
           <Button
             variant="ghost"
             onClick={() => router.push('/dashboard')}
             size="sm"
+            className="border-2 border-black"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            返回
+            Back
           </Button>
-          <h1 className="text-2xl font-bold">寵物設定</h1>
-          <div className="w-20"></div> {/* 平衡布局 */}
         </div>
 
-        {/* 主要內容區域 - 使用 grid 布局 */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 overflow-hidden">
-          {/* 左側：寵物顯示和設定 */}
-          <div className="flex flex-col gap-4 overflow-hidden">
-            {/* 寵物顯示 - 縮小 */}
-            <Card className="bg-white">
-              <CardContent className="p-4">
+        {/* Pet Status Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <Card className="border-2 border-black">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs uppercase tracking-wide text-black/60">Points</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-black">{pet?.points || 0}</div>
+            </CardContent>
+          </Card>
+          <Card className="border-2 border-black">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs uppercase tracking-wide text-black/60">Mood</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-black">{pet?.mood || 50}%</div>
+            </CardContent>
+          </Card>
+          <Card className="border-2 border-black">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs uppercase tracking-wide text-black/60">Fullness</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-black">{pet?.fullness || 50}%</div>
+            </CardContent>
+          </Card>
+          <Card className="border-2 border-black">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs uppercase tracking-wide text-black/60">Health</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-black">{pet?.health || 100}%</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Main Content - Pet Display with Edit on Right */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          {/* Left: Pet Display */}
+          <div className="lg:col-span-2">
+            <Card className="border-2 border-black">
+              <CardContent className="p-8">
                 <PetDisplay pet={pet} />
               </CardContent>
             </Card>
+          </div>
 
-            {/* 寵物設定表單 - 緊湊 */}
-            <Card className="flex-1 flex flex-col overflow-hidden bg-white">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">編輯寵物資訊</CardTitle>
+          {/* Right: Edit Pet */}
+          <div>
+            <Card className="border-2 border-black">
+              <CardHeader>
+                <CardTitle className="text-sm uppercase tracking-wide">Edit Pet</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3 flex-1">
+              <CardContent className="space-y-4">
                 <div>
-                  <Label htmlFor="petName" className="text-sm">寵物名稱</Label>
+                  <Label htmlFor="petName" className="text-xs uppercase tracking-wide text-black/60">Name</Label>
                   <Input
                     id="petName"
                     value={petName}
                     onChange={(e) => setPetName(e.target.value)}
-                    placeholder="輸入寵物名稱"
-                    className="mt-1"
+                    placeholder="Enter pet name"
+                    className="mt-2"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="petImage" className="text-sm">寵物圖片</Label>
-                  <div className="flex items-center gap-2 mt-1">
+                  <Label htmlFor="petImage" className="text-xs uppercase tracking-wide text-black/60">Image</Label>
+                  <div className="flex items-center gap-2 mt-2">
                     <Input
                       id="petImage"
                       type="file"
@@ -183,75 +228,70 @@ export default function PetSettingsContent() {
                       onChange={(e) =>
                         setImageFile(e.target.files?.[0] || null)
                       }
-                      className="text-sm"
                     />
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" className="border-2 border-black">
                       <Upload className="h-3 w-3 mr-1" />
-                      上傳
+                      Upload
                     </Button>
                   </div>
                 </div>
 
                 <Button onClick={handleSave} disabled={saving} className="w-full">
-                  {saving ? '儲存中...' : '儲存變更'}
+                  {saving ? 'Saving...' : 'Save Changes'}
                 </Button>
               </CardContent>
             </Card>
           </div>
+        </div>
 
-          {/* 右側：購買物品和記錄 */}
-          <div className="flex flex-col gap-4 overflow-hidden">
-            {/* 購買物品 - 緊湊 */}
-            <Card className="bg-white">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">購買物品給寵物</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <p className="text-sm text-gray-600">
-                    目前點數: <span className="font-bold text-purple-600">{pet?.points || 0} 點</span>
-                  </p>
-                </div>
-                <Button onClick={handlePurchase} className="w-full">
+        {/* Purchase Section - Below */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="border-2 border-black">
+            <CardHeader>
+              <CardTitle className="text-sm uppercase tracking-wide">Shop</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Link href="/shop">
+                <Button className="w-full">
                   <ShoppingBag className="h-4 w-4 mr-2" />
-                  購買物品
+                  Go to Shop
                 </Button>
-              </CardContent>
-            </Card>
+              </Link>
+            </CardContent>
+          </Card>
 
-            {/* 購買記錄 - 可捲動 */}
-            {purchases.length > 0 && (
-              <Card className="flex-1 flex flex-col overflow-hidden bg-white">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">購買記錄</CardTitle>
-                </CardHeader>
-                <CardContent className="flex-1 min-h-0 overflow-y-auto">
-                  <div className="space-y-1.5">
-                    {purchases.map((purchase) => (
-                      <div
-                        key={purchase.id}
-                        className="flex justify-between items-center p-2 border rounded text-sm"
-                      >
-                        <div>
-                          <span className="font-medium">{purchase.itemName}</span>
-                          <span className="text-xs text-gray-500 ml-2">
-                            {new Date(purchase.purchasedAt).toLocaleDateString('zh-TW')}
-                          </span>
-                        </div>
-                        <span className="text-purple-600 font-semibold text-sm">
-                          -{purchase.cost} 點
+          {/* Purchase History */}
+          {purchases.length > 0 && (
+            <Card className="border-2 border-black">
+              <CardHeader>
+                <CardTitle className="text-sm uppercase tracking-wide">Recent Purchases</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {purchases.slice(0, 5).map((purchase) => (
+                    <div
+                      key={purchase.id}
+                      className="flex justify-between items-center p-3 border-2 border-black"
+                    >
+                      <div>
+                        <span className="font-bold text-sm">{purchase.itemName}</span>
+                        <span className="text-xs text-black/60 ml-2 block">
+                          {new Date(purchase.purchasedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </span>
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+                      <span className="font-bold text-sm">
+                        -{purchase.cost} pts
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 
-      {/* 底部導航 */}
+      {/* Bottom Navigation */}
       <Navigation />
     </div>
   )

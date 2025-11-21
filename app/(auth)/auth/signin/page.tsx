@@ -34,32 +34,32 @@ export default function SignInPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <Card className="w-full max-w-md border-2 border-black">
         <CardHeader className="text-center">
-          <CardTitle className="text-3xl">🐾 寵物記帳 APP</CardTitle>
-          <CardDescription>
-            用寵物陪著你記帳，存錢就是儲值虛擬點數
+          <CardTitle className="text-3xl font-bold uppercase tracking-wide">Pet Accounting</CardTitle>
+          <CardDescription className="text-black/60">
+            Track expenses, earn points, decorate your pet's room
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-black uppercase text-xs tracking-wide">Email</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="輸入你的 email"
+                placeholder="Enter your email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
-              <p className="text-xs text-gray-500 mt-1">
-                輸入任意 email 即可登入（開發模式）
+              <p className="text-xs text-black/40 mt-1">
+                Enter any email to sign in (development mode)
               </p>
             </div>
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
-              {loading ? '登入中...' : '登入'}
+              {loading ? 'Signing in...' : 'Sign In'}
             </Button>
           </form>
         </CardContent>

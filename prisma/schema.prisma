@@ -82,6 +82,7 @@ model Pet {
 
   user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   purchases PetPurchase[]
+  stickers  RoomSticker[]
 
   @@map("pets")
 }
@@ -126,5 +127,22 @@ model PetPurchase {
   pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
 
   @@map("pet_purchases")
+}
+
+model RoomSticker {
+  id        String   @id @default(cuid())
+  petId     String
+  stickerId String   // 貼紙類型識別碼
+  positionX Float    @default(0.5) // 位置 X (0-1)
+  positionY Float    @default(0.5) // 位置 Y (0-1)
+  rotation  Float    @default(0) // 旋轉角度
+  scale     Float    @default(1) // 縮放比例
+  layer     String   @default("floor") // floor, wall-left, wall-right
+  unlockedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@map("room_stickers")
 }
 
