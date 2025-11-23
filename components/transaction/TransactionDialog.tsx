@@ -264,7 +264,17 @@ export default function TransactionDialog({
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}))
-        const errorMessage = errorData.error || errorData.message || (editingTransaction ? 'Failed to update transaction' : 'Failed to create transaction')
+        let errorMessage = errorData.error || errorData.message || (editingTransaction ? 'Failed to update transaction' : 'Failed to create transaction')
+        
+        // If there are validation details, include them
+        if (errorData.details && Array.isArray(errorData.details)) {
+          const details = errorData.details.map((d: any) => d.message || d.path?.join('.')).join(', ')
+          if (details) {
+            errorMessage += `: ${details}`
+          }
+        }
+        
+        console.error('Transaction error:', errorData)
         
         toast({
           title: 'Transaction Failed',

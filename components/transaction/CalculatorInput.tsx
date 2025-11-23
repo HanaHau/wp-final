@@ -89,12 +89,10 @@ export default function CalculatorInput({ value, onChange, onEnter }: Calculator
         return
       }
 
-      // Handle Enter
+      // Handle Enter - blur the input instead of triggering submit
       if (e.key === 'Enter') {
         e.preventDefault()
-        if (onEnter) {
-          onEnter()
-        }
+        inputRef.current?.blur()
         return
       }
     }

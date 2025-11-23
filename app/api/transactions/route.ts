@@ -5,13 +5,19 @@ import { z } from 'zod'
 
 const transactionSchema = z.object({
   amount: z.number().positive(),
-  category: z.string().min(1), // Category name (will be resolved to categoryId)
+  category: z.string().min(1).optional(), // Category name (will be resolved to categoryId)
   type: z.enum(['EXPENSE', 'INCOME', 'DEPOSIT']), // For backward compatibility
   typeId: z.number().int().min(1).max(3).optional(), // 1=支出, 2=收入, 3=存錢
   categoryId: z.string().optional(), // Direct categoryId (optional, will resolve from category name if not provided)
   date: z.string().datetime().optional(),
   note: z.string().optional(),
-})
+}).refine(
+  (data) => data.categoryId || data.category,
+  {
+    message: 'Either categoryId or category must be provided',
+    path: ['categoryId'],
+  }
+)
 
 // Helper function to map type string to typeId
 function getTypeId(type: string): number {
