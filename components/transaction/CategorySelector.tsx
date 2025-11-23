@@ -94,14 +94,16 @@ function SortableCategoryItem({
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.3 : 1, // 拖曳時稍微透明，讓使用者知道正在拖曳
+    // 只對 transform 使用 transition，opacity 不使用 transition 避免閃爍
+    transition: isDragging ? 'none' : 'transform 200ms ease',
+    opacity: isDragging ? 0 : 1, // 拖曳時完全消失，由 DragOverlay 取代（無 transition）
     zIndex: isDragging ? 50 : 'auto',
   }
 
   return (
     <div
       ref={setNodeRef}
+      data-id={category.id}
       style={style}
       {...attributes}
       {...listeners}   // ← 重要！要放在 item 本體上
@@ -152,7 +154,9 @@ function SortableCategoryItem({
 
       <div className="flex flex-col items-center gap-1">
         <span className="text-2xl">{category.icon || '📝'}</span>
-        <span className="text-xs font-medium text-center">{category.name}</span>
+        <span className={`text-xs font-medium text-center ${
+          selectedCategoryId === category.id ? 'text-white' : 'text-black'
+        }`}>{category.name}</span>
       </div>
     </div>
   )
@@ -176,6 +180,8 @@ export default function CategorySelector({
   const [showIconPicker, setShowIconPicker] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [cursorOffset, setCursorOffset] = useState({ x: 0, y: 0 })
+  const [cardSize, setCardSize] = useState({ width: 0, height: 0 })
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
   const { toast } = useToast()
@@ -203,6 +209,8 @@ export default function CategorySelector({
       setNewCategoryColor(null)
       setEditingCategory(null)
       setActiveId(null)
+      setCursorOffset({ x: 0, y: 0 })
+      setCardSize({ width: 0, height: 0 })
       setShowDeleteDialog(false)
       setCategoryToDelete(null)
     }
@@ -426,18 +434,70 @@ export default function CategorySelector({
 
   // Drag and drop handlers with @dnd-kit
   const handleDragStart = (event: DragStartEvent) => {
-    const { active } = event
+    const { active, activatorEvent } = event
     const activeCategory = categories.find(c => c.id === active.id)
     // Only allow dragging user custom categories
     if (activeCategory && activeCategory.userId !== null) {
       setActiveId(active.id as string)
-      console.log('Drag started, activeId:', active.id) // Debug
+      
+      // 從 DOM 元素直接獲取精確位置
+      const node = document.querySelector(`[data-id="${active.id}"]`) as HTMLElement
+      if (node && activatorEvent) {
+        const rect = node.getBoundingClientRect()
+        let clientX = 0
+        let clientY = 0
+        
+        if (activatorEvent instanceof MouseEvent) {
+          clientX = activatorEvent.clientX
+          clientY = activatorEvent.clientY
+        } else if (activatorEvent instanceof TouchEvent && activatorEvent.touches.length > 0) {
+          clientX = activatorEvent.touches[0].clientX
+          clientY = activatorEvent.touches[0].clientY
+        }
+        
+        if (clientX > 0 && clientY > 0) {
+          // 計算鼠標相對於卡片的位置（考慮邊框和 padding）
+          // 使用 getBoundingClientRect 獲取的位置已經包含了 border，所以不需要額外調整
+          const offsetX = clientX - rect.left
+          const offsetY = clientY - rect.top
+          setCursorOffset({
+            x: offsetX,
+            y: offsetY,
+          })
+          setCardSize({
+            width: rect.width,
+            height: rect.height,
+          })
+        } else {
+          // 預設使用卡片中心
+          setCursorOffset({
+            x: rect.width / 2,
+            y: rect.height / 2,
+          })
+          setCardSize({
+            width: rect.width,
+            height: rect.height,
+          })
+        }
+      } else {
+        // 備用方案：使用 dnd-kit 提供的 rect
+        const rect = active.rect.current.initial
+        if (rect) {
+          setCursorOffset({
+            x: rect.width / 2,
+            y: rect.height / 2,
+          })
+        } else {
+          setCursorOffset({ x: 50, y: 50 })
+        }
+      }
     }
   }
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
     
+    // 立即清除 activeId，讓 DragOverlay 立即消失
     setActiveId(null)
 
     if (!over || active.id === over.id) {
@@ -656,23 +716,26 @@ export default function CategorySelector({
                         <DragOverlay 
                           dropAnimation={null} 
                           style={{ cursor: 'grabbing', zIndex: 1000 }}
-                          modifiers={[snapCenterToCursor]}
                         >
                           {activeId ? (() => {
                             const activeCategory = categories.find(c => c.id === activeId)
                             if (!activeCategory) return null
+                            // DragOverlay 會將卡片左上角對齊到鼠標
+                            // 我們需要將卡片向左上移動 offset 距離，讓點擊位置對齊到鼠標
+                            // 考慮 scale(1.05) 的影響，需要稍微調整
                             return (
                               <div 
-                                className="border-2 border-black bg-white p-3 rounded-md shadow-2xl"
+                                className="border-2 border-black bg-white p-3 rounded-md shadow-2xl text-black"
                                 style={{
-                                  transform: 'scale(1.1) rotate(2deg)',
+                                  transform: `translate(-${cursorOffset.x}px, -${cursorOffset.y}px) scale(1.05) rotate(2deg)`,
+                                  transformOrigin: `${cursorOffset.x}px ${cursorOffset.y}px`,
                                   cursor: 'grabbing',
                                   pointerEvents: 'none',
                                 }}
                               >
                                 <div className="flex flex-col items-center gap-1">
                                   <span className="text-2xl">{activeCategory.icon || '📝'}</span>
-                                  <span className="text-xs font-medium text-center">{activeCategory.name}</span>
+                                  <span className="text-xs font-medium text-center text-black">{activeCategory.name}</span>
                                 </div>
                               </div>
                             )
