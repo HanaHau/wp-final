@@ -5,11 +5,67 @@ import { z } from 'zod'
 
 const transactionSchema = z.object({
   amount: z.number().positive(),
-  category: z.string().min(1),
-  type: z.enum(['EXPENSE', 'INCOME', 'DEPOSIT']),
+  category: z.string().min(1), // Category name (will be resolved to categoryId)
+  type: z.enum(['EXPENSE', 'INCOME', 'DEPOSIT']), // For backward compatibility
+  typeId: z.number().int().min(1).max(3).optional(), // 1=支出, 2=收入, 3=存錢
+  categoryId: z.string().optional(), // Direct categoryId (optional, will resolve from category name if not provided)
   date: z.string().datetime().optional(),
   note: z.string().optional(),
 })
+
+// Helper function to map type string to typeId
+function getTypeId(type: string): number {
+  switch (type) {
+    case 'EXPENSE':
+      return 1
+    case 'INCOME':
+      return 2
+    case 'DEPOSIT':
+      return 3
+    default:
+      return 1
+  }
+}
+
+// Helper function to find or create category
+async function findOrCreateCategory(
+  userId: string,
+  categoryName: string,
+  typeId: number
+): Promise<string> {
+  // First, try to find existing category (user's custom or system default)
+  let category = await prisma.category.findFirst({
+    where: {
+      name: categoryName,
+      typeId: typeId,
+      OR: [
+        { userId: userId },
+        { userId: null }, // System default
+      ],
+    },
+    orderBy: [
+      { userId: 'desc' }, // Prefer user's custom category
+    ],
+  })
+
+  // If not found, use the fallback "其他" category
+  if (!category) {
+    category = await prisma.category.findFirst({
+      where: {
+        typeId: typeId,
+        userId: null,
+        isDefault: true,
+        name: '其他',
+      },
+    })
+
+    if (!category) {
+      throw new Error(`找不到類別: ${categoryName}，且找不到 fallback 類別`)
+    }
+  }
+
+  return category.id
+}
 
 // GET /api/transactions - 取得記帳列表
 export async function GET(request: NextRequest) {
@@ -35,15 +91,41 @@ export async function GET(request: NextRequest) {
     }
 
     if (type && ['EXPENSE', 'INCOME', 'DEPOSIT'].includes(type)) {
-      where.type = type
+      where.typeId = getTypeId(type)
     }
 
     const transactions = await prisma.transaction.findMany({
       where,
+      include: {
+        category: {
+          include: {
+            type: true,
+          },
+        },
+        type: true,
+      },
       orderBy: { date: 'desc' },
     })
 
-    return NextResponse.json(transactions)
+    // Transform to match frontend interface (for backward compatibility)
+    const transformedTransactions = transactions.map((t) => ({
+      id: t.id,
+      userId: t.userId,
+      amount: t.amount,
+      category: t.category.name, // Keep category as string for backward compatibility
+      type: t.type.name === '支出' ? 'EXPENSE' : t.type.name === '收入' ? 'INCOME' : 'DEPOSIT', // Map back to string (Type model)
+      date: t.date.toISOString(),
+      note: t.note,
+      createdAt: t.createdAt.toISOString(),
+      updatedAt: t.updatedAt.toISOString(),
+      // Also include full data for future use
+      categoryId: t.categoryId,
+      typeId: t.typeId,
+      categoryData: t.category,
+      typeData: t.type,
+    }))
+
+    return NextResponse.json(transformedTransactions)
   } catch (error) {
     console.error('取得記帳列表錯誤:', error)
     return NextResponse.json(
@@ -64,20 +146,41 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = transactionSchema.parse(body)
 
+    // Determine typeId
+    const typeId = validatedData.typeId || getTypeId(validatedData.type)
+
+    // Find or get categoryId
+    let categoryId = validatedData.categoryId
+    if (!categoryId && validatedData.category) {
+      categoryId = await findOrCreateCategory(user.id, validatedData.category, typeId)
+    }
+
+    if (!categoryId) {
+      return NextResponse.json({ error: '找不到類別' }, { status: 400 })
+    }
+
     // 建立記帳記錄
     const transaction = await prisma.transaction.create({
       data: {
         userId: user.id,
         amount: validatedData.amount,
-        category: validatedData.category,
-        type: validatedData.type,
+        categoryId: categoryId,
+        typeId: typeId,
         date: validatedData.date ? new Date(validatedData.date) : new Date(),
         note: validatedData.note,
+      },
+      include: {
+        category: {
+          include: {
+            type: true,
+          },
+        },
+        type: true,
       },
     })
 
     // 如果是存款，更新寵物點數
-    if (validatedData.type === 'DEPOSIT') {
+    if (typeId === 3) { // DEPOSIT
       const pet = await prisma.pet.findUnique({
         where: { userId: user.id },
       })
@@ -95,7 +198,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 更新寵物狀態（根據記帳行為）
-    await updatePetStatus(user.id, validatedData.type, validatedData.amount)
+    await updatePetStatus(user.id, typeId, validatedData.amount)
 
     // 檢查並發放貼紙獎勵
     await checkAndRewardStickers(user.id)
@@ -116,7 +219,7 @@ export async function POST(request: NextRequest) {
 // 更新寵物狀態的輔助函數
 async function updatePetStatus(
   userId: string,
-  type: string,
+  typeId: number,
   amount: number
 ) {
   const pet = await prisma.pet.findUnique({
@@ -129,14 +232,15 @@ async function updatePetStatus(
   let moodDelta = 0
 
   // 根據記帳行為調整寵物狀態
-  if (type === 'DEPOSIT') {
+  // typeId: 1=支出, 2=收入, 3=存錢
+  if (typeId === 3) { // DEPOSIT
     // 存款增加飽足感和心情
     fullnessDelta = Math.min(5, Math.floor(amount / 100))
     moodDelta = Math.min(5, Math.floor(amount / 100))
-  } else if (type === 'EXPENSE') {
+  } else if (typeId === 1) { // EXPENSE
     // 支出稍微降低心情（但不會太低）
     moodDelta = -Math.min(2, Math.floor(amount / 500))
-  } else if (type === 'INCOME') {
+  } else if (typeId === 2) { // INCOME
     // 收入增加心情
     moodDelta = Math.min(3, Math.floor(amount / 1000))
   }
@@ -169,7 +273,7 @@ async function checkAndRewardStickers(userId: string) {
   const totalDeposits = await prisma.transaction.aggregate({
     where: {
       userId,
-      type: 'DEPOSIT',
+      typeId: 3, // DEPOSIT
     },
     _sum: {
       amount: true,

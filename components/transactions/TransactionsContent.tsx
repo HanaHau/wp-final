@@ -34,15 +34,26 @@ export default function TransactionsContent() {
 
   const fetchTransactions = async () => {
     try {
+      setLoading(true)
       const params = new URLSearchParams()
       if (filterType !== 'ALL') {
         params.append('type', filterType)
       }
       const res = await fetch(`/api/transactions?${params.toString()}`)
+      if (!res.ok) {
+        throw new Error('Failed to fetch transactions')
+      }
       const data = await res.json()
-      setTransactions(data)
+      // Ensure data is an array
+      if (Array.isArray(data)) {
+        setTransactions(data)
+      } else {
+        console.error('API returned non-array data:', data)
+        setTransactions([])
+      }
     } catch (error) {
       console.error('Failed to fetch transactions:', error)
+      setTransactions([])
     } finally {
       setLoading(false)
     }
@@ -75,12 +86,15 @@ export default function TransactionsContent() {
     fetchTransactions()
   }
 
-  const paginatedTransactions = transactions.slice(
+  // Ensure transactions is always an array
+  const safeTransactions: Transaction[] = Array.isArray(transactions) ? transactions : []
+  
+  const paginatedTransactions = safeTransactions.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   )
 
-  const totalPages = Math.ceil(transactions.length / itemsPerPage)
+  const totalPages = Math.ceil(safeTransactions.length / itemsPerPage)
 
   if (loading) {
     return (
@@ -125,7 +139,7 @@ export default function TransactionsContent() {
         <Card className="border-2 border-black">
           <CardHeader>
             <CardTitle className="text-sm uppercase tracking-wide">
-              {transactions.length} Transactions
+              {safeTransactions.length} Transactions
             </CardTitle>
           </CardHeader>
           <CardContent>

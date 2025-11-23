@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 
 interface CalculatorInputProps {
@@ -12,6 +12,10 @@ interface CalculatorInputProps {
 export default function CalculatorInput({ value, onChange, onEnter }: CalculatorInputProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const keyboardRef = useRef<HTMLDivElement>(null)
+  const [isFocused, setIsFocused] = useState(false)
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false)
+  const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const handleNumber = (num: string) => {
     if (value === '0' || value === '') {
@@ -101,6 +105,45 @@ export default function CalculatorInput({ value, onChange, onEnter }: Calculator
     }
   }, [value, onChange, onEnter])
 
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (blurTimeoutRef.current) {
+        clearTimeout(blurTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  // Handle focus and blur
+  const handleFocus = () => {
+    // Clear any pending blur timeout
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current)
+      blurTimeoutRef.current = null
+    }
+    setIsFocused(true)
+    setIsKeyboardVisible(true)
+  }
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    // Delay blur to check if the next focus is within the keyboard area
+    blurTimeoutRef.current = setTimeout(() => {
+      const activeElement = document.activeElement
+      // Check if the active element is within the keyboard container
+      if (keyboardRef.current && activeElement && keyboardRef.current.contains(activeElement)) {
+        // If clicking on keyboard buttons, keep it focused
+        inputRef.current?.focus()
+        return
+      }
+      // Otherwise, hide the keyboard with animation
+      setIsFocused(false)
+      // Delay hiding the keyboard to allow exit animation
+      setTimeout(() => {
+        setIsKeyboardVisible(false)
+      }, 200) // Match animation duration
+    }, 100)
+  }
+
   // Focus the input when clicking on the display
   const handleDisplayClick = () => {
     inputRef.current?.focus()
@@ -111,7 +154,9 @@ export default function CalculatorInput({ value, onChange, onEnter }: Calculator
       {/* Display - Clickable to focus */}
       <div 
         ref={containerRef}
-        className="border-2 border-black p-4 text-right cursor-text relative focus-within:ring-2 focus-within:ring-black focus-within:ring-offset-2"
+        className={`border-2 border-black p-4 text-right cursor-text relative transition-all ${
+          isFocused ? 'ring-2 ring-black ring-offset-2' : ''
+        }`}
         onClick={handleDisplayClick}
       >
         {/* Hidden input for keyboard focus */}
@@ -122,12 +167,29 @@ export default function CalculatorInput({ value, onChange, onEnter }: Calculator
           tabIndex={0}
           aria-label="Amount input"
           readOnly
+          onFocus={handleFocus}
+          onBlur={handleBlur}
         />
         <div className="text-3xl font-bold pointer-events-none">{value || '0'}</div>
       </div>
 
-      {/* Calculator buttons */}
-      <div className="space-y-2">
+      {/* Calculator buttons - Show with animation */}
+      {isKeyboardVisible && (
+        <div 
+          ref={keyboardRef}
+          className={`space-y-2 p-4 bg-white border-2 border-black rounded-md duration-200 ${
+            isFocused 
+              ? 'animate-in fade-in slide-in-from-top-2' 
+              : 'animate-out fade-out slide-out-to-top-2'
+          }`}
+          style={{
+            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+          }}
+          onMouseDown={(e) => {
+            // Prevent blur when clicking on keyboard buttons
+            e.preventDefault()
+          }}
+        >
         {/* Top row - Clear, Backspace, Decimal */}
         <div className="grid grid-cols-3 gap-2">
           <Button
@@ -182,7 +244,8 @@ export default function CalculatorInput({ value, onChange, onEnter }: Calculator
             .
           </Button>
         </div>
-      </div>
+        </div>
+      )}
     </div>
   )
 }

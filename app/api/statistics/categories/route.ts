@@ -18,21 +18,33 @@ export async function GET(request: NextRequest) {
     const startDate = new Date(year, month - 1, 1)
     const endDate = new Date(year, month, 0, 23, 59, 59)
 
+    // Map type string to typeId
+    const typeIdMap: Record<string, number> = {
+      'EXPENSE': 1,
+      'INCOME': 2,
+      'DEPOSIT': 3,
+    }
+    const typeId = typeIdMap[type] || 1
+
     const transactions = await prisma.transaction.findMany({
       where: {
         userId: user.id,
-        type: type as 'EXPENSE' | 'INCOME' | 'DEPOSIT',
+        typeId: typeId,
         date: {
           gte: startDate,
           lte: endDate,
         },
+      },
+      include: {
+        category: true,
       },
     })
 
     // 按類別統計
     const categoryStats: Record<string, number> = {}
     transactions.forEach((t) => {
-      categoryStats[t.category] = (categoryStats[t.category] || 0) + t.amount
+      const categoryName = t.category.name
+      categoryStats[categoryName] = (categoryStats[categoryName] || 0) + t.amount
     })
 
     // 轉換為陣列格式供圖表使用

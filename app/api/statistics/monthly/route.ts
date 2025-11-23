@@ -37,15 +37,15 @@ export async function GET(request: NextRequest) {
     })
 
     const totalExpense = transactions
-      .filter((t) => t.type === 'EXPENSE')
+      .filter((t) => t.typeId === 1) // 1 = 支出
       .reduce((sum, t) => sum + t.amount, 0)
 
     const totalIncome = transactions
-      .filter((t) => t.type === 'INCOME')
+      .filter((t) => t.typeId === 2) // 2 = 收入
       .reduce((sum, t) => sum + t.amount, 0)
 
     const totalDeposit = transactions
-      .filter((t) => t.type === 'DEPOSIT')
+      .filter((t) => t.typeId === 3) // 3 = 存錢
       .reduce((sum, t) => sum + t.amount, 0)
 
     // 每日統計 - 轉換為台灣時區 (GMT+8)
@@ -60,9 +60,10 @@ export async function GET(request: NextRequest) {
       if (!dailyStats[dateKey]) {
         dailyStats[dateKey] = { expense: 0, income: 0, deposit: 0 }
       }
-      if (t.type === 'EXPENSE') dailyStats[dateKey].expense += t.amount
-      if (t.type === 'INCOME') dailyStats[dateKey].income += t.amount
-      if (t.type === 'DEPOSIT') dailyStats[dateKey].deposit += t.amount
+      // 使用 typeId 判斷：1=支出, 2=收入, 3=存錢
+      if (t.typeId === 1) dailyStats[dateKey].expense += t.amount
+      if (t.typeId === 2) dailyStats[dateKey].income += t.amount
+      if (t.typeId === 3) dailyStats[dateKey].deposit += t.amount
     })
 
     return NextResponse.json({

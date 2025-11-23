@@ -51,13 +51,31 @@ export default function StatisticsContent() {
 
   const fetchStats = async () => {
     try {
+      setLoading(true)
       const res = await fetch(
         `/api/statistics/monthly?year=${selectedYear}&month=${selectedMonth}`
       )
+      if (!res.ok) {
+        throw new Error('Failed to fetch stats')
+      }
       const data = await res.json()
+      // Ensure dailyStats exists even if empty
+      if (!data.dailyStats) {
+        data.dailyStats = {}
+      }
       setMonthlyStats(data)
     } catch (error) {
       console.error('取得統計失敗:', error)
+      // Set default empty stats on error
+      setMonthlyStats({
+        year: selectedYear,
+        month: selectedMonth,
+        totalExpense: 0,
+        totalIncome: 0,
+        totalDeposit: 0,
+        dailyStats: {},
+        transactionCount: 0,
+      })
     } finally {
       setLoading(false)
     }
@@ -147,13 +165,13 @@ export default function StatisticsContent() {
   }
 
   const daysInMonth = getDaysInMonth(selectedYear, selectedMonth)
-  const daysWithData = monthlyStats ? Object.keys(monthlyStats.dailyStats).length : 0
+  const daysWithData = monthlyStats?.dailyStats ? Object.keys(monthlyStats.dailyStats).length : 0
   const hasOnlyOneDay = daysWithData === 1
 
   // Prepare bar chart data with all days
   const barChartData = daysInMonth.map(day => {
     const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-    const dayStats = monthlyStats?.dailyStats[dateStr]
+    const dayStats = monthlyStats?.dailyStats?.[dateStr]
     return {
       date: day,
       expense: dayStats?.expense || 0,
@@ -373,7 +391,7 @@ export default function StatisticsContent() {
               )}
             </CardHeader>
             <CardContent>
-              {monthlyStats && Object.keys(monthlyStats.dailyStats).length > 0 ? (
+              {monthlyStats?.dailyStats && Object.keys(monthlyStats.dailyStats).length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={barChartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#000" opacity={0.1} />
@@ -399,14 +417,14 @@ export default function StatisticsContent() {
         </div>
 
         {/* Daily Transactions List */}
-        {monthlyStats && Object.keys(monthlyStats.dailyStats).length > 0 && (
+        {monthlyStats?.dailyStats && Object.keys(monthlyStats.dailyStats).length > 0 && (
           <Card className="border-2 border-black">
             <CardHeader>
               <CardTitle className="text-sm uppercase tracking-wide">Daily Breakdown</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {Object.entries(monthlyStats.dailyStats)
+                {Object.entries(monthlyStats.dailyStats || {})
                   .sort(([a], [b]) => b.localeCompare(a))
                   .map(([date, stats]) => (
                     <div

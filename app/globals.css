@@ -51,6 +51,19 @@
   .animate-fade-in {
     animation: fade-in 0.3s ease-in-out;
   }
+
+  /* Shake animation for editable categories - slower and gentler */
+  @keyframes shake {
+    0%, 100% {
+      transform: translateX(0);
+    }
+    25% {
+      transform: translateX(-1px);
+    }
+    75% {
+      transform: translateX(1px);
+    }
+  }
   
 }
 

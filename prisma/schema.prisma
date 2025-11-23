@@ -87,33 +87,57 @@ model Pet {
   @@map("pets")
 }
 
+model Type {
+  id   Int    @id // 1=支出, 2=收入, 3=存錢
+  name String // 支出/收入/存錢
+
+  categories   Category[]
+  transactions Transaction[]
+
+  @@map("types")
+}
+
 model Transaction {
-  id        String   @id @default(cuid())
-  userId    String
-  amount    Float
-  category  String
-  type      String   // EXPENSE, INCOME, or DEPOSIT
-  date      DateTime @default(now())
-  note      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String      @id @default(cuid())
+  userId      String
+  amount      Float
+  categoryId  String      // FK to Category
+  category    Category    @relation(fields: [categoryId], references: [id])
+  typeId      Int         // FK to Type (1=支出, 2=收入, 3=存錢)
+  type        Type        @relation(fields: [typeId], references: [id])
+  date        DateTime    @default(now())
+  note        String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, date])
+  @@index([categoryId])
+  @@index([typeId])
   @@map("transactions")
 }
 
 model Category {
-  id        String   @id @default(cuid())
-  userId    String?
+  id        String      @id @default(cuid())
   name      String
-  icon      String?  // emoji 或 icon 名稱
-  isDefault Boolean  @default(false)
-  createdAt DateTime @default(now())
+  typeId    Int         // FK to Type
+  type      Type        @relation(fields: [typeId], references: [id])
+  userId    String?     // null = 系統預設, non-null = 使用者自訂
+  isDefault Boolean     @default(false) // fallback 類別標記
+  sortOrder Int         @default(0) // 排序順序，fallback 類別為 0
+  color     String?
+  icon      String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 
-  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
 
+  @@unique([userId, typeId, name])
+  @@index([typeId])
+  @@index([userId])
+  @@index([typeId, sortOrder])
   @@map("categories")
 }
 
