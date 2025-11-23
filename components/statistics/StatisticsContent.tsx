@@ -6,8 +6,10 @@ import { Button } from '@/components/ui/button'
 import Navigation from '@/components/dashboard/Navigation'
 import { formatCurrency } from '@/lib/utils'
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
-import { ChevronLeft, ChevronRight, Download } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ArrowUp, ArrowDown } from 'lucide-react'
 import Link from 'next/link'
+import { MonthPicker } from '@/components/ui/month-picker'
+import DailyTransactionsDialog from './DailyTransactionsDialog'
 
 interface CategoryData {
   name: string
@@ -24,15 +26,25 @@ interface MonthlyStats {
   transactionCount: number
 }
 
+const COLORS = ['#000000', '#4A4A4A', '#808080', '#A0A0A0', '#C0C0C0', '#E0E0E0']
+const GREEN_TINT = '#2D5016' // Dark green for positive
+const RED_TINT = '#5A1F1F' // Dark red for negative
+
 export default function StatisticsContent() {
   const [monthlyStats, setMonthlyStats] = useState<MonthlyStats | null>(null)
+  const [prevMonthStats, setPrevMonthStats] = useState<MonthlyStats | null>(null)
   const [categoryData, setCategoryData] = useState<CategoryData[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+  const [showMonthPicker, setShowMonthPicker] = useState(false)
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [showDailyDialog, setShowDailyDialog] = useState(false)
+  const [budget, setBudget] = useState(50000) // Default budget, can be made configurable
 
   useEffect(() => {
     fetchStats()
+    fetchPrevMonthStats()
     fetchCategoryStats()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMonth, selectedYear])
@@ -48,6 +60,24 @@ export default function StatisticsContent() {
       console.error('取得統計失敗:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchPrevMonthStats = async () => {
+    try {
+      let prevMonth = selectedMonth - 1
+      let prevYear = selectedYear
+      if (prevMonth === 0) {
+        prevMonth = 12
+        prevYear = prevYear - 1
+      }
+      const res = await fetch(
+        `/api/statistics/monthly?year=${prevYear}&month=${prevMonth}`
+      )
+      const data = await res.json()
+      setPrevMonthStats(data)
+    } catch (error) {
+      console.error('取得上月統計失敗:', error)
     }
   }
 
@@ -83,10 +113,54 @@ export default function StatisticsContent() {
     }
   }
 
+  const handleMonthSelect = (year: number, month: number) => {
+    setSelectedYear(year)
+    setSelectedMonth(month)
+  }
+
+  const handleDateClick = (date: string) => {
+    setSelectedDate(date)
+    setShowDailyDialog(true)
+  }
+
   const netIncome = (monthlyStats?.totalIncome || 0) - (monthlyStats?.totalExpense || 0)
-  const savingsRate = monthlyStats?.totalIncome 
-    ? ((monthlyStats.totalDeposit / monthlyStats.totalIncome) * 100).toFixed(1)
+  const prevNetIncome = (prevMonthStats?.totalIncome || 0) - (prevMonthStats?.totalExpense || 0)
+  const netChange = prevNetIncome !== 0 
+    ? ((netIncome - prevNetIncome) / Math.abs(prevNetIncome) * 100).toFixed(1)
     : '0'
+  const netChangeValue = netIncome - prevNetIncome
+
+  const savingsRate = monthlyStats?.totalIncome 
+    ? parseFloat(((monthlyStats.totalDeposit / monthlyStats.totalIncome) * 100).toFixed(1))
+    : 0
+
+  // Calculate expense change
+  const expenseChange = prevMonthStats?.totalExpense 
+    ? ((monthlyStats?.totalExpense || 0) - prevMonthStats.totalExpense) / prevMonthStats.totalExpense * 100
+    : 0
+
+
+  // Get all days in month for bar chart
+  const getDaysInMonth = (year: number, month: number) => {
+    const daysInMonth = new Date(year, month, 0).getDate()
+    return Array.from({ length: daysInMonth }, (_, i) => i + 1)
+  }
+
+  const daysInMonth = getDaysInMonth(selectedYear, selectedMonth)
+  const daysWithData = monthlyStats ? Object.keys(monthlyStats.dailyStats).length : 0
+  const hasOnlyOneDay = daysWithData === 1
+
+  // Prepare bar chart data with all days
+  const barChartData = daysInMonth.map(day => {
+    const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    const dayStats = monthlyStats?.dailyStats[dateStr]
+    return {
+      date: day,
+      expense: dayStats?.expense || 0,
+      hasData: !!dayStats,
+      opacity: dayStats ? 1 : 0.2,
+    }
+  })
 
   if (loading) {
     return (
@@ -114,7 +188,10 @@ export default function StatisticsContent() {
           <Button variant="ghost" size="icon" onClick={handlePrevMonth} className="border-2 border-black">
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <div className="text-center">
+          <div 
+            className="text-center cursor-pointer hover:opacity-70 transition-opacity"
+            onClick={() => setShowMonthPicker(true)}
+          >
             <div className="text-lg font-bold uppercase">{monthNames[selectedMonth - 1]} {selectedYear}</div>
             <div className="text-xs text-black/60">{monthlyStats?.transactionCount || 0} transactions</div>
           </div>
@@ -122,6 +199,37 @@ export default function StatisticsContent() {
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
+
+        {/* Month vs Previous Month Comparison */}
+        {prevMonthStats && (
+          <Card className="border-2 border-black mb-6">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs uppercase tracking-wide text-black/60">Month Comparison</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">Expense:</span>
+                  <span className={`text-sm font-bold flex items-center gap-1 ${
+                    expenseChange > 0 ? 'text-red-700' : expenseChange < 0 ? 'text-green-700' : 'text-black'
+                  }`}>
+                    {expenseChange > 0 ? <ArrowUp className="h-4 w-4" /> : expenseChange < 0 ? <ArrowDown className="h-4 w-4" /> : null}
+                    {Math.abs(expenseChange).toFixed(1)}%
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">Net:</span>
+                  <span className={`text-sm font-bold flex items-center gap-1 ${
+                    netChangeValue > 0 ? 'text-green-700' : netChangeValue < 0 ? 'text-red-700' : 'text-black'
+                  }`}>
+                    {netChangeValue > 0 ? <ArrowUp className="h-4 w-4" /> : netChangeValue < 0 ? <ArrowDown className="h-4 w-4" /> : null}
+                    {Math.abs(parseFloat(netChange)).toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -152,7 +260,9 @@ export default function StatisticsContent() {
               <CardTitle className="text-xs uppercase tracking-wide text-black/60">Net</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className={`text-2xl font-bold ${netIncome >= 0 ? 'text-black' : 'text-black'}`}>
+              <div className={`text-2xl font-bold ${
+                netIncome > 0 ? 'text-green-700' : netIncome < 0 ? 'text-red-700' : 'text-black'
+              }`}>
                 {formatCurrency(netIncome)}
               </div>
             </CardContent>
@@ -163,8 +273,26 @@ export default function StatisticsContent() {
               <CardTitle className="text-xs uppercase tracking-wide text-black/60">Savings Rate</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-black">
-                {savingsRate}%
+              <div className="space-y-1">
+                <div className={`text-2xl font-bold ${
+                  savingsRate >= 20 ? 'text-green-700' : 
+                  savingsRate >= 10 ? 'text-yellow-600' : 
+                  savingsRate > 0 ? 'text-orange-600' : 
+                  'text-red-700'
+                }`}>
+                  {savingsRate.toFixed(1)}%
+                </div>
+                <div className="w-full h-2 border border-black bg-white relative overflow-hidden">
+                  <div 
+                    className={`h-full ${
+                      savingsRate >= 20 ? 'bg-green-700' : 
+                      savingsRate >= 10 ? 'bg-yellow-600' : 
+                      savingsRate > 0 ? 'bg-orange-600' : 
+                      'bg-red-700'
+                    }`}
+                    style={{ width: `${Math.min(savingsRate, 100)}%` }}
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -173,64 +301,101 @@ export default function StatisticsContent() {
         {/* Charts Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* Category Pie Chart */}
-          {categoryData.length > 0 && (
-            <Card className="border-2 border-black">
-              <CardHeader>
-                <CardTitle className="text-sm uppercase tracking-wide">Expense by Category</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={categoryData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={100}
-                      fill="#000"
-                      dataKey="value"
-                    >
-                      {categoryData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={index % 2 === 0 ? '#000' : '#666'}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          )}
+          <Card className="border-2 border-black">
+            <CardHeader>
+              <CardTitle className="text-sm uppercase tracking-wide">Expense by Category</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {categoryData.length > 0 ? (
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={categoryData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          outerRadius={100}
+                          fill="#000"
+                          dataKey="value"
+                        >
+                          {categoryData.map((entry, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={COLORS[index % COLORS.length]}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="w-48 flex flex-col justify-center gap-2">
+                    {categoryData.map((entry, index) => {
+                      const total = categoryData.reduce((sum, item) => sum + item.value, 0)
+                      const percentage = total > 0 ? ((entry.value / total) * 100).toFixed(1) : '0'
+                      return (
+                        <div key={entry.name} className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <div 
+                              className="w-3 h-3 border border-black flex-shrink-0"
+                              style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                            />
+                            <span className="text-xs font-medium truncate">{entry.name}</span>
+                            <span className="text-xs font-bold">({percentage}%)</span>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            
+                            <span className="text-xs font-bold">{formatCurrency(entry.value)}</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-[300px] text-center">
+                  <div className="text-4xl mb-4">📊</div>
+                  <div className="text-lg font-bold mb-2">No Records This Month</div>
+                  <div className="text-sm text-black/60">Start tracking your expenses to see category breakdown</div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Daily Expense Bar Chart */}
-          {monthlyStats && Object.keys(monthlyStats.dailyStats).length > 0 && (
-            <Card className="border-2 border-black">
-              <CardHeader>
-                <CardTitle className="text-sm uppercase tracking-wide">Daily Expenses</CardTitle>
-              </CardHeader>
-              <CardContent>
+          <Card className="border-2 border-black">
+            <CardHeader>
+              <CardTitle className="text-sm uppercase tracking-wide">Daily Expenses</CardTitle>
+              {hasOnlyOneDay && (
+                <p className="text-xs text-black/60 mt-1">Only 1 day recorded this month</p>
+              )}
+            </CardHeader>
+            <CardContent>
+              {monthlyStats && Object.keys(monthlyStats.dailyStats).length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
-                  <BarChart
-                    data={Object.entries(monthlyStats.dailyStats)
-                      .sort(([a], [b]) => a.localeCompare(b))
-                      .map(([date, stats]) => ({
-                        date: new Date(date).getDate(),
-                        expense: stats.expense,
-                      }))}
-                  >
+                  <BarChart data={barChartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#000" opacity={0.1} />
                     <XAxis dataKey="date" stroke="#000" />
                     <YAxis stroke="#000" />
                     <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                    <Bar dataKey="expense" fill="#000" />
+                    <Bar dataKey="expense" fill="#000">
+                      {barChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill="#000" opacity={entry.opacity} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          )}
+              ) : (
+                <div className="flex flex-col items-center justify-center h-[300px] text-center">
+                  <div className="text-4xl mb-4">📈</div>
+                  <div className="text-lg font-bold mb-2">No Daily Data</div>
+                  <div className="text-sm text-black/60">No expenses recorded this month</div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Daily Transactions List */}
@@ -246,19 +411,20 @@ export default function StatisticsContent() {
                   .map(([date, stats]) => (
                     <div
                       key={date}
-                      className="flex justify-between items-center p-3 border-2 border-black"
+                      onClick={() => handleDateClick(date)}
+                      className="flex justify-between items-center p-3 border-2 border-black cursor-pointer hover:bg-black/5 transition-colors"
                     >
                       <div className="flex flex-col">
                         <span className="font-bold text-sm uppercase">{new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                       </div>
                       <div className="flex gap-4 text-sm">
                         {stats.income > 0 && (
-                          <span className="font-medium">
+                          <span className="font-medium text-green-700">
                             +{formatCurrency(stats.income)}
                           </span>
                         )}
                         {stats.expense > 0 && (
-                          <span className="font-medium">
+                          <span className="font-medium text-red-700">
                             -{formatCurrency(stats.expense)}
                           </span>
                         )}
@@ -276,9 +442,29 @@ export default function StatisticsContent() {
         )}
       </div>
 
+      {/* Month Picker Modal */}
+      {showMonthPicker && (
+        <MonthPicker
+          selectedYear={selectedYear}
+          selectedMonth={selectedMonth}
+          onSelect={handleMonthSelect}
+          onClose={() => setShowMonthPicker(false)}
+        />
+      )}
+
+      {/* Daily Transactions Dialog */}
+      <DailyTransactionsDialog
+        open={showDailyDialog}
+        onOpenChange={setShowDailyDialog}
+        date={selectedDate}
+        onTransactionUpdate={() => {
+          fetchStats()
+          fetchCategoryStats()
+        }}
+      />
+
       {/* Bottom Navigation */}
       <Navigation />
     </div>
   )
 }
-

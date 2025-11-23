@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Navigation from '@/components/dashboard/Navigation'
 import TransactionDialog from '@/components/transaction/TransactionDialog'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatTransactionDate } from '@/lib/utils'
 import { Plus, Edit, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
@@ -145,7 +145,15 @@ export default function TransactionsContent() {
                         <span className="font-bold text-sm uppercase">
                           {transaction.category}
                         </span>
-                        <span className="text-xs text-black/60 uppercase">
+                        <span className={`text-xs uppercase font-medium ${
+                          transaction.type === 'EXPENSE'
+                            ? 'text-red-700'
+                            : transaction.type === 'INCOME'
+                            ? 'text-green-700'
+                            : transaction.type === 'DEPOSIT'
+                            ? 'text-green-700'
+                            : 'text-black/60'
+                        }`}>
                           {transaction.type}
                         </span>
                       </div>
@@ -153,24 +161,22 @@ export default function TransactionsContent() {
                         <p className="text-xs text-black/60 mt-1">{transaction.note}</p>
                       )}
                       <p className="text-xs text-black/40 mt-1">
-                        {new Date(transaction.date).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                        })}
+                        {formatTransactionDate(transaction.date)}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
                       <span
                         className={`font-bold text-lg ${
                           transaction.type === 'EXPENSE'
-                            ? 'text-black'
+                            ? 'text-red-700'
                             : transaction.type === 'INCOME'
-                            ? 'text-black'
+                            ? 'text-green-700'
+                            : transaction.type === 'DEPOSIT'
+                            ? 'text-green-700'
                             : 'text-black'
                         }`}
                       >
-                        {transaction.type === 'EXPENSE' ? '-' : '+'}
+                        {transaction.type === 'EXPENSE' ? '-' : transaction.type === 'DEPOSIT' ? '' : '+'}
                         {formatCurrency(transaction.amount)}
                       </span>
                       <div className="flex gap-1">

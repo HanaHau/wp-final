@@ -14,8 +14,17 @@ export async function GET(request: NextRequest) {
     const year = parseInt(searchParams.get('year') || new Date().getFullYear().toString())
     const month = parseInt(searchParams.get('month') || (new Date().getMonth() + 1).toString())
 
-    const startDate = new Date(year, month - 1, 1)
-    const endDate = new Date(year, month, 0, 23, 59, 59)
+    // 使用台灣時區 (GMT+8) 來計算日期範圍
+    // 台灣時間的月初 00:00:00 對應到 UTC 的前一天 16:00:00
+    // 台灣時間的月末 23:59:59 對應到 UTC 的當天 15:59:59
+    // 台灣時間 year-month-01 00:00:00 = UTC (year-month-01 00:00:00) - 8小時 = UTC (year-(month-1)-lastDay 16:00:00)
+    const startDateTaiwan = new Date(year, month - 1, 1, 0, 0, 0, 0) // 台灣時間月初
+    const startDate = new Date(startDateTaiwan.getTime() - 8 * 60 * 60 * 1000) // 轉為 UTC
+    
+    // 台灣時間 year-month-lastDay 23:59:59 = UTC (year-month-lastDay 23:59:59) - 8小時 = UTC (year-month-lastDay 15:59:59)
+    const lastDay = new Date(year, month, 0).getDate()
+    const endDateTaiwan = new Date(year, month - 1, lastDay, 23, 59, 59, 999) // 台灣時間月末
+    const endDate = new Date(endDateTaiwan.getTime() - 8 * 60 * 60 * 1000) // 轉為 UTC
 
     const transactions = await prisma.transaction.findMany({
       where: {
@@ -39,10 +48,15 @@ export async function GET(request: NextRequest) {
       .filter((t) => t.type === 'DEPOSIT')
       .reduce((sum, t) => sum + t.amount, 0)
 
-    // 每日統計
+    // 每日統計 - 轉換為台灣時區 (GMT+8)
     const dailyStats: Record<string, { expense: number; income: number; deposit: number }> = {}
     transactions.forEach((t) => {
-      const dateKey = t.date.toISOString().split('T')[0]
+      // 將 UTC 時間轉換為台灣時區 (GMT+8)
+      // t.date 是 UTC 時間，需要加上 8 小時得到台灣時間
+      const utcTime = t.date.getTime()
+      const taiwanTime = utcTime + (8 * 60 * 60 * 1000) // 加上 8 小時
+      const taiwanDate = new Date(taiwanTime)
+      const dateKey = taiwanDate.toISOString().split('T')[0]
       if (!dailyStats[dateKey]) {
         dailyStats[dateKey] = { expense: 0, income: 0, deposit: 0 }
       }
