@@ -1,0 +1,296 @@
+'use client'
+
+import { useState } from 'react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Plus, Upload, X } from 'lucide-react'
+import { useToast } from '@/components/ui/use-toast'
+import { ShopItemCategory } from '@/data/shop-items'
+
+interface CustomStickerDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSuccess: () => void
+  petPoints?: number
+}
+
+const COST = 100
+
+export default function CustomStickerDialog({
+  open,
+  onOpenChange,
+  onSuccess,
+  petPoints = 0,
+}: CustomStickerDialogProps) {
+  const [name, setName] = useState('')
+  const [category, setCategory] = useState<ShopItemCategory | ''>('')
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [isPublic, setIsPublic] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const { toast } = useToast()
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Check file type - only allow common image formats
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: 'Invalid File Type',
+        description: 'Please select a JPEG, PNG, GIF, or WebP image file.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // Check file size - limit to 2MB for better performance
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: 'File Too Large',
+        description: 'Image must be less than 2MB. Please compress your image.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setImageFile(file)
+    const reader = new FileReader()
+    reader.onerror = () => {
+      toast({
+        title: 'File Read Error',
+        description: 'Failed to read the image file. Please try again.',
+        variant: 'destructive',
+      })
+      setImageFile(null)
+      setImagePreview(null)
+    }
+    reader.onloadend = () => {
+      if (reader.result) {
+        setImagePreview(reader.result as string)
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleRemoveImage = () => {
+    setImageFile(null)
+    setImagePreview(null)
+  }
+
+  const handleSubmit = async () => {
+    if (!name.trim()) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please enter a sticker name.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (!category) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please select a category.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (!imageFile) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please upload an image.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (petPoints < COST) {
+      toast({
+        title: 'Not Enough Points',
+        description: `Custom stickers cost ${COST} points. You have ${petPoints} points.`,
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setUploading(true)
+    try {
+      // Convert image to base64
+      const reader = new FileReader()
+      const imageUrl = await new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => resolve(reader.result as string)
+        reader.onerror = reject
+        reader.readAsDataURL(imageFile)
+      })
+
+      const res = await fetch('/api/custom-stickers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name.trim(),
+          imageUrl,
+          category,
+          isPublic,
+        }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        const errorMsg = data.details || data.error || 'Failed to create sticker'
+        throw new Error(errorMsg)
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Custom sticker created successfully!',
+      })
+
+      // Reset form
+      setName('')
+      setCategory('')
+      setImageFile(null)
+      setImagePreview(null)
+      setIsPublic(false)
+      onOpenChange(false)
+      onSuccess()
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to create sticker',
+        variant: 'destructive',
+      })
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="border-2 border-black max-h-[90vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="text-sm uppercase tracking-wide">Make Your Own Sticker</DialogTitle>
+          <DialogDescription>
+            Upload an image, enter a name, and select a category for your custom sticker.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-2" style={{ scrollbarWidth: 'thin' }}>
+          {/* Image Upload */}
+          <div>
+            <Label className="text-xs uppercase tracking-wide mb-2 block">Image</Label>
+            {imagePreview ? (
+              <div className="relative border-2 border-black p-4">
+                <img
+                  src={imagePreview}
+                  alt="Preview"
+                  className="w-full h-32 object-contain"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-2 right-2 w-6 h-6 border-2 border-black"
+                  onClick={handleRemoveImage}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center border-2 border-dashed border-black p-8 cursor-pointer hover:bg-black/5 transition-colors">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                <Upload className="h-8 w-8 mb-2" />
+                <span className="text-xs uppercase tracking-wide">Click to upload</span>
+              </label>
+            )}
+          </div>
+
+          {/* Name Input */}
+          <div>
+            <Label htmlFor="sticker-name" className="text-xs uppercase tracking-wide mb-2 block">
+              Name <span className="text-red-600">*</span>
+            </Label>
+            <Input
+              id="sticker-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Enter sticker name"
+              className="border-2 border-black"
+              maxLength={50}
+            />
+          </div>
+
+          {/* Category Select */}
+          <div>
+            <Label className="text-xs uppercase tracking-wide mb-2 block">
+              Category <span className="text-red-600">*</span>
+            </Label>
+            <Select value={category} onValueChange={(value) => setCategory(value as ShopItemCategory)}>
+              <SelectTrigger className="border-2 border-black">
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="food">Food</SelectItem>
+                <SelectItem value="toy">Toy</SelectItem>
+                <SelectItem value="decoration">Decoration</SelectItem>
+                <SelectItem value="accessory">Accessory</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Public Option */}
+          <div className="flex items-center gap-2 p-3 border-2 border-black">
+            <input
+              type="checkbox"
+              id="is-public"
+              checked={isPublic}
+              onChange={(e) => setIsPublic(e.target.checked)}
+              className="w-4 h-4 border-2 border-black"
+            />
+            <Label htmlFor="is-public" className="text-xs uppercase tracking-wide cursor-pointer">
+              Make this sticker public (visible to all users)
+            </Label>
+          </div>
+
+          {/* Cost Display */}
+          <div className="flex items-center justify-between p-3 border-2 border-black bg-black/5">
+            <span className="text-xs uppercase tracking-wide text-black/60">Cost</span>
+            <span className="font-bold text-lg">{COST} pts</span>
+          </div>
+        </div>
+
+        <DialogFooter className="flex gap-2 pt-2">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="border-2 border-black"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={uploading || petPoints < COST}
+            className="border-2 border-black bg-black text-white hover:bg-black/90"
+          >
+            {uploading
+              ? 'Creating...'
+              : petPoints < COST
+                ? `Need ${COST} pts`
+                : `Create Sticker (${COST} pts)`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+

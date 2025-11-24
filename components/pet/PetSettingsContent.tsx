@@ -24,8 +24,10 @@ interface Pet {
 
 interface Purchase {
   id: string
+  itemId: string
   itemName: string
   cost: number
+  quantity: number
   purchasedAt: string
 }
 
@@ -131,7 +133,7 @@ export default function PetSettingsContent() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">載入中...</div>
+        <div className="text-lg">Loading...</div>
       </div>
     )
   }
@@ -274,8 +276,15 @@ export default function PetSettingsContent() {
                       className="flex justify-between items-center p-3 border-2 border-black"
                     >
                       <div>
-                        <span className="font-bold text-sm">{purchase.itemName}</span>
-                        <span className="text-xs text-black/60 ml-2 block">
+                        <span className="font-bold text-sm">
+                          {purchase.itemName}
+                          {purchase.quantity > 1 && (
+                            <span className="ml-2 text-xs font-normal text-black/60">
+                              ×{purchase.quantity}
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-xs text-black/60 block">
                           {new Date(purchase.purchasedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </span>
                       </div>

@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { SHOP_ITEM_MAP } from '@/data/shop-items'
 
 const purchaseSchema = z.object({
-  itemName: z.string().min(1),
-  cost: z.number().int().positive(),
+  itemId: z.string().min(1),
+  quantity: z.number().int().min(1).max(99),
 })
 
 // POST /api/pet/purchase - 寵物購買物品
@@ -18,6 +19,34 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const validatedData = purchaseSchema.parse(body)
+    
+    let item: { id: string; name: string; cost: number; category: string } | null = null
+    
+    // Check if it's a custom sticker
+    if (validatedData.itemId.startsWith('custom-')) {
+      const customStickerId = validatedData.itemId.replace('custom-', '')
+      const customSticker = await prisma.customSticker.findUnique({
+        where: { id: customStickerId },
+      })
+      
+      // Allow purchase if sticker exists and (is owned by user OR is public)
+      if (!customSticker || (!customSticker.isPublic && customSticker.userId !== user.id)) {
+        return NextResponse.json({ error: '找不到商品' }, { status: 404 })
+      }
+      
+      item = {
+        id: validatedData.itemId,
+        name: customSticker.name,
+        cost: 100,
+        category: customSticker.category,
+      }
+    } else {
+      // Regular shop item
+      item = SHOP_ITEM_MAP[validatedData.itemId]
+      if (!item) {
+        return NextResponse.json({ error: '找不到商品' }, { status: 404 })
+      }
+    }
 
     const pet = await prisma.pet.findUnique({
       where: { userId: user.id },
@@ -27,7 +56,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '找不到寵物' }, { status: 404 })
     }
 
-    if (pet.points < validatedData.cost) {
+    const totalCost = item.cost * validatedData.quantity
+
+    if (pet.points < totalCost) {
       return NextResponse.json(
         { error: '點數不足' },
         { status: 400 }
@@ -40,18 +71,21 @@ export async function POST(request: NextRequest) {
         where: { id: pet.id },
         data: {
           points: {
-            decrement: validatedData.cost,
+            decrement: totalCost,
           },
           mood: {
-            increment: Math.min(5, Math.floor(validatedData.cost / 10)), // 購買增加心情
+            increment: Math.min(5, Math.floor(totalCost / 10)), // 購買增加心情
           },
         },
       }),
       prisma.petPurchase.create({
         data: {
           petId: pet.id,
-          itemName: validatedData.itemName,
-          cost: validatedData.cost,
+          itemId: item.id,
+          itemName: item.name,
+          category: item.category,
+          cost: totalCost,
+          quantity: validatedData.quantity,
         },
       }),
     ])

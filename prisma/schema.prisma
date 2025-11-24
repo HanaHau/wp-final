@@ -25,6 +25,7 @@ model User {
   categories    Category[]
   accounts      Account[]
   sessions      Session[]
+  customStickers CustomSticker[]
 
   @@map("users")
 }
@@ -144,12 +145,16 @@ model Category {
 model PetPurchase {
   id         String   @id @default(cuid())
   petId      String
+  itemId     String   @default("unknown")
   itemName   String
-  cost       Int      // 花費的點數
+  category   String   @default("unknown")
+  cost       Int      // 總花費點數（cost * quantity）
+  quantity   Int      @default(1)
   purchasedAt DateTime @default(now())
 
   pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
 
+  @@index([petId, itemId])
   @@map("pet_purchases")
 }
 
@@ -168,5 +173,22 @@ model RoomSticker {
   pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
 
   @@map("room_stickers")
+}
+
+model CustomSticker {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  imageUrl  String   // 圖片 URL (base64 或上傳後的 URL)
+  category  String   // food, toy, decoration, accessory
+  isPublic  Boolean  @default(false) // 是否公開給所有使用者
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isPublic, category])
+  @@map("custom_stickers")
 }
 

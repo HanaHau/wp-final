@@ -877,7 +877,7 @@ export default function CategorySelector({
               Are you sure you want to delete &quot;{categoryToDelete?.name}&quot;?
             </p>
             <p className="text-xs text-black/60 mt-2">
-              All transactions using this category will be moved to &quot;其他&quot;.
+              All transactions using this category will be moved to &quot;Other&quot;.
             </p>
           </div>
           <div className="flex justify-end gap-2">

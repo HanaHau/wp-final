@@ -29,16 +29,25 @@ interface RoomSticker {
   layer: 'floor' | 'wall-left' | 'wall-right'
 }
 
+interface AvailableSticker {
+  stickerId: string
+  name: string
+  emoji: string
+  count: number
+}
+
 export default function DashboardContent() {
   const { data: session } = useSession()
   const [pet, setPet] = useState<Pet | null>(null)
   const [stickers, setStickers] = useState<RoomSticker[]>([])
+  const [availableStickers, setAvailableStickers] = useState<AvailableSticker[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetchPet()
     fetchStickers()
+    fetchStickerInventory()
   }, [])
 
   const fetchPet = async () => {
@@ -65,16 +74,34 @@ export default function DashboardContent() {
     }
   }
 
+  const fetchStickerInventory = async () => {
+    try {
+      const res = await fetch('/api/pet/stickers/inventory')
+      if (res.ok) {
+        const data = await res.json()
+        setAvailableStickers(data)
+      }
+    } catch (error) {
+      console.error('取得貼紙庫存失敗:', error)
+    }
+  }
+
   const handleTransactionAdded = () => {
     fetchPet()
     fetchStickers()
+    fetchStickerInventory()
     setIsDialogOpen(false)
+  }
+
+  const handleStickerPlaced = () => {
+    fetchStickers()
+    fetchStickerInventory()
   }
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-lg text-black">載入中...</div>
+        <div className="text-lg text-black">Loading...</div>
       </div>
     )
   }
@@ -106,7 +133,12 @@ export default function DashboardContent() {
 
       {/* 主內容區 - 房間顯示 */}
       <main className="flex-1 flex items-center justify-center px-4 pb-20 pt-24">
-        <Room pet={pet} stickers={stickers} />
+        <Room
+          pet={pet}
+          stickers={stickers}
+          availableStickers={availableStickers}
+          onStickerPlaced={handleStickerPlaced}
+        />
       </main>
 
       {/* 記帳對話框 */}

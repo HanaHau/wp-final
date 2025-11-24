@@ -4,53 +4,34 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Navigation from '@/components/dashboard/Navigation'
-import { ArrowLeft, ShoppingBag } from 'lucide-react'
+import { ArrowLeft, ShoppingBag, Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
+import { SHOP_ITEMS, ShopItem } from '@/data/shop-items'
+import CustomStickerDialog from './CustomStickerDialog'
 
 interface Pet {
   id: string
   points: number
 }
 
-interface ShopItem {
-  id: string
-  name: string
-  emoji: string
-  cost: number
-  description: string
-  category: 'food' | 'toy' | 'decoration' | 'accessory'
-}
-
-const shopItems: ShopItem[] = [
-  // Food items
-  { id: 'food1', name: 'Fish', emoji: '🐟', cost: 10, description: 'Delicious fish', category: 'food' },
-  { id: 'food2', name: 'Bowl', emoji: '🍽️', cost: 20, description: 'Food bowl', category: 'food' },
-  { id: 'food3', name: 'Treat', emoji: '🍖', cost: 15, description: 'Yummy treat', category: 'food' },
-  
-  // Toys
-  { id: 'toy1', name: 'Ball', emoji: '⚽', cost: 25, description: 'Play ball', category: 'toy' },
-  { id: 'toy2', name: 'Yarn', emoji: '🧶', cost: 30, description: 'Yarn ball', category: 'toy' },
-  { id: 'toy3', name: 'Mouse', emoji: '🐭', cost: 35, description: 'Toy mouse', category: 'toy' },
-  
-  // Decorations
-  { id: 'dec1', name: 'Rug', emoji: '⬜', cost: 50, description: 'Comfy rug', category: 'decoration' },
-  { id: 'dec2', name: 'Poster', emoji: '🖼️', cost: 40, description: 'Wall poster', category: 'decoration' },
-  { id: 'dec3', name: 'Plant', emoji: '🌿', cost: 45, description: 'Room plant', category: 'decoration' },
-  
-  // Accessories
-  { id: 'acc1', name: 'Collar', emoji: '🎀', cost: 60, description: 'Pretty collar', category: 'accessory' },
-  { id: 'acc2', name: 'Hat', emoji: '🎩', cost: 70, description: 'Stylish hat', category: 'accessory' },
-]
-
 export default function ShopContent() {
   const router = useRouter()
+  const { data: session } = useSession()
   const [pet, setPet] = useState<Pet | null>(null)
   const [loading, setLoading] = useState(true)
   const [purchasing, setPurchasing] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [quantities, setQuantities] = useState<Record<string, number>>({})
+  const [isCustomStickerDialogOpen, setIsCustomStickerDialogOpen] = useState(false)
+  const [customStickers, setCustomStickers] = useState<Array<{ id: string; name: string; imageUrl: string; category: ShopItemCategory; userId?: string }>>([])
+  const [publicStickers, setPublicStickers] = useState<Array<{ id: string; name: string; imageUrl: string; category: ShopItemCategory; userId: string; user: { name: string | null; email: string } }>>([])
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetchPet()
+    fetchCustomStickers()
+    fetchPublicStickers()
   }, [])
 
   const fetchPet = async () => {
@@ -65,8 +46,53 @@ export default function ShopContent() {
     }
   }
 
+  const fetchCustomStickers = async () => {
+    try {
+      const res = await fetch('/api/custom-stickers')
+      if (res.ok) {
+        const data = await res.json()
+        setCustomStickers(data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch custom stickers:', error)
+    }
+  }
+
+  const fetchPublicStickers = async () => {
+    try {
+      const res = await fetch('/api/custom-stickers/public')
+      if (res.ok) {
+        const data = await res.json()
+        setPublicStickers(data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch public stickers:', error)
+    }
+  }
+
+  const getQuantity = (itemId: string) => quantities[itemId] ?? 0
+
+  const adjustQuantity = (itemId: string, delta: number) => {
+    setQuantities((prev) => {
+      const current = prev[itemId] ?? 0
+      const next = Math.min(99, Math.max(0, current + delta))
+      if (next === current) return prev
+      return {
+        ...prev,
+        [itemId]: next,
+      }
+    })
+  }
+
   const handlePurchase = async (item: ShopItem) => {
-    if (!pet || pet.points < item.cost) {
+    const quantity = getQuantity(item.id)
+    if (quantity <= 0) {
+      alert('Please select a quantity.')
+      return
+    }
+
+    const totalCost = item.cost * quantity
+    if (!pet || pet.points < totalCost) {
       alert('Not enough points!')
       return
     }
@@ -77,8 +103,8 @@ export default function ShopContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          itemName: item.name,
-          cost: item.cost,
+          itemId: item.id,
+          quantity,
         }),
       })
 
@@ -88,6 +114,10 @@ export default function ShopContent() {
       }
 
       await fetchPet()
+      setQuantities((prev) => ({
+        ...prev,
+        [item.id]: 0,
+      }))
       alert(`Purchased ${item.name}!`)
     } catch (error: any) {
       alert(error.message || 'Purchase failed')
@@ -96,9 +126,42 @@ export default function ShopContent() {
     }
   }
 
+  // Convert custom stickers to shop items format
+  // First, convert own stickers (priority)
+  const ownCustomShopItems: ShopItem[] = customStickers.map((cs) => ({
+    id: `custom-${cs.id}`,
+    name: cs.name,
+    emoji: '🖼️',
+    cost: 100,
+    description: 'Custom sticker',
+    category: cs.category,
+    imageUrl: cs.imageUrl,
+    isOwn: true,
+  }))
+
+  // Then, convert public stickers (excluding own stickers to avoid duplicates)
+  const ownStickerIds = new Set(customStickers.map((cs) => cs.id))
+  const publicCustomShopItems: ShopItem[] = publicStickers
+    .filter((ps) => !ownStickerIds.has(ps.id)) // Exclude own stickers
+    .map((ps) => ({
+      id: `custom-${ps.id}`,
+      name: ps.name,
+      emoji: '🖼️',
+      cost: 100,
+      description: 'Custom sticker',
+      category: ps.category,
+      imageUrl: ps.imageUrl,
+      isOwn: false,
+      isPublic: true,
+      creatorName: ps.user.name || ps.user.email.split('@')[0],
+    }))
+
+  // Priority: own stickers first, then public stickers, then regular shop items
+  const allItems = [...ownCustomShopItems, ...publicCustomShopItems, ...SHOP_ITEMS]
+  
   const filteredItems = selectedCategory === 'all'
-    ? shopItems
-    : shopItems.filter(item => item.category === selectedCategory)
+    ? allItems
+    : allItems.filter(item => item.category === selectedCategory)
 
   if (loading) {
     return (
@@ -153,11 +216,50 @@ export default function ShopContent() {
 
         {/* Shop Items Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {filteredItems.map((item) => (
-            <Card key={item.id} className="border-2 border-black">
+          {/* Make Your Own Sticker - Only show in "All" category */}
+          {selectedCategory === 'all' && (
+            <Card className="border-2 border-black">
               <CardContent className="p-4">
                 <div className="text-center mb-4">
-                  <div className="text-5xl mb-2">{item.emoji}</div>
+                  <div className="text-5xl mb-2 flex items-center justify-center">
+                    <Plus className="h-12 w-12" />
+                  </div>
+                  <h3 className="font-bold text-sm uppercase tracking-wide">Make Your Own Sticker</h3>
+                  <p className="text-xs text-black/60 mt-1">Upload your custom sticker</p>
+                </div>
+                <Button
+                  onClick={() => setIsCustomStickerDialogOpen(true)}
+                  className="w-full border-2 border-black"
+                >
+                  Create Sticker
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+          {filteredItems.map((item) => (
+            <Card key={item.id} className="border-2 border-black relative">
+              {/* Public sticker badge */}
+              {item.isPublic && !item.isOwn && (
+                <div className="absolute top-2 right-2 bg-black text-white text-[8px] uppercase tracking-wide px-1.5 py-0.5 border border-white">
+                  By {item.creatorName}
+                </div>
+              )}
+              <CardContent className="p-4">
+                <div className="text-center mb-4">
+                  {item.imageUrl && !failedImages.has(item.id) ? (
+                    <div className="relative w-full h-20 mb-2 flex items-center justify-center">
+                      <img
+                        src={item.imageUrl}
+                        alt={item.name}
+                        className="max-w-full max-h-full object-contain"
+                        onError={() => {
+                          setFailedImages((prev) => new Set(prev).add(item.id))
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="text-5xl mb-2">{item.emoji}</div>
+                  )}
                   <h3 className="font-bold text-sm uppercase tracking-wide">{item.name}</h3>
                   <p className="text-xs text-black/60 mt-1">{item.description}</p>
                 </div>
@@ -165,12 +267,55 @@ export default function ShopContent() {
                   <span className="text-xs uppercase tracking-wide text-black/60">Cost</span>
                   <span className="font-bold text-lg">{item.cost} pts</span>
                 </div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs uppercase tracking-wide text-black/60">Quantity</span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="border-2 border-black h-7 w-7"
+                      onClick={() => adjustQuantity(item.id, -1)}
+                      disabled={getQuantity(item.id) === 0}
+                    >
+                      -
+                    </Button>
+                    <span className="w-6 text-center font-semibold text-sm">
+                      {getQuantity(item.id)}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="border-2 border-black h-7 w-7"
+                      onClick={() => adjustQuantity(item.id, 1)}
+                      disabled={getQuantity(item.id) >= 99}
+                    >
+                      +
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs uppercase tracking-wide text-black/60">Total</span>
+                  <span className="font-bold">
+                    {item.cost * getQuantity(item.id)} pts
+                  </span>
+                </div>
                 <Button
                   onClick={() => handlePurchase(item)}
-                  disabled={!pet || pet.points < item.cost || purchasing === item.id}
+                  disabled={
+                    !pet ||
+                    getQuantity(item.id) === 0 ||
+                    pet.points < item.cost * getQuantity(item.id) ||
+                    purchasing === item.id
+                  }
                   className="w-full"
                 >
-                  {purchasing === item.id ? 'Buying...' : pet && pet.points >= item.cost ? 'Buy' : 'Not Enough'}
+                  {purchasing === item.id
+                    ? 'Buying...'
+                    : getQuantity(item.id) === 0
+                      ? 'Select Qty'
+                      : pet && pet.points >= item.cost * getQuantity(item.id)
+                        ? `Buy (${item.cost * getQuantity(item.id)} pts)`
+                        : 'Not Enough'}
                 </Button>
               </CardContent>
             </Card>
@@ -180,6 +325,18 @@ export default function ShopContent() {
 
       {/* Bottom Navigation */}
       <Navigation />
+
+      {/* Custom Sticker Dialog */}
+      <CustomStickerDialog
+        open={isCustomStickerDialogOpen}
+        onOpenChange={setIsCustomStickerDialogOpen}
+        petPoints={pet?.points || 0}
+        onSuccess={() => {
+          fetchPet()
+          fetchCustomStickers()
+          fetchPublicStickers()
+        }}
+      />
     </div>
   )
 }

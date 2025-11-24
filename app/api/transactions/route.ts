@@ -206,8 +206,8 @@ export async function POST(request: NextRequest) {
     // 更新寵物狀態（根據記帳行為）
     await updatePetStatus(user.id, typeId, validatedData.amount)
 
-    // 檢查並發放貼紙獎勵
-    await checkAndRewardStickers(user.id)
+    // 檢查並發放貼紙獎勵 - 已禁用自動創建 sticker
+    // await checkAndRewardStickers(user.id)
 
     return NextResponse.json(transaction, { status: 201 })
   } catch (error) {

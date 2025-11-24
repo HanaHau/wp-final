@@ -63,7 +63,7 @@ wp-final/
    - id, userId, name, icon, isDefault, createdAt
 
 5. **PetPurchase** - 寵物購買記錄
-   - id, petId, itemName, cost, purchasedAt
+   - id, petId, itemId, itemName, category, cost, quantity, purchasedAt
 
 ## 🚀 開發步驟
 

@@ -139,7 +139,7 @@ wp-final/
 - `PUT /api/pet` - 更新寵物資訊
   - Body: `{ name?, imageUrl? }`
 - `POST /api/pet/purchase` - 寵物購買物品
-  - Body: `{ itemName, cost }`
+  - Body: `{ itemId, quantity }`
 
 ### 統計相關
 
