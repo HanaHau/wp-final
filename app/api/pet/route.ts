@@ -43,7 +43,44 @@ export async function GET() {
       })
     }
 
-    return NextResponse.json(pet)
+    // Check daily interaction and update pet stats if needed
+    const now = new Date()
+    const lastUpdate = pet.updatedAt
+    const hoursSinceUpdate = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60)
+    
+    // If more than 24 hours since last interaction, decrease stats
+    if (hoursSinceUpdate > 24) {
+      const daysSinceUpdate = Math.floor(hoursSinceUpdate / 24)
+      const moodDecrease = Math.min(daysSinceUpdate * 5, pet.mood)
+      const fullnessDecrease = Math.min(daysSinceUpdate * 5, pet.fullness)
+      const healthDecrease = Math.min(daysSinceUpdate * 2, pet.health)
+      
+      if (moodDecrease > 0 || fullnessDecrease > 0 || healthDecrease > 0) {
+        pet = await prisma.pet.update({
+          where: { id: pet.id },
+          data: {
+            mood: Math.max(0, pet.mood - moodDecrease),
+            fullness: Math.max(0, pet.fullness - fullnessDecrease),
+            health: Math.max(0, pet.health - healthDecrease),
+          },
+          include: {
+            purchases: true,
+          },
+        })
+      }
+    }
+
+    // Add warning flags
+    const petWithWarnings = {
+      ...pet,
+      needsAttention: hoursSinceUpdate > 24,
+      isSick: pet.health < 30,
+      isUnhappy: pet.mood < 30,
+      isHungry: pet.fullness < 30,
+      daysSinceInteraction: Math.floor(hoursSinceUpdate / 24),
+    }
+
+    return NextResponse.json(petWithWarnings)
   } catch (error) {
     console.error('取得寵物資訊錯誤:', error)
     return NextResponse.json({ error: '取得寵物資訊失敗' }, { status: 500 })

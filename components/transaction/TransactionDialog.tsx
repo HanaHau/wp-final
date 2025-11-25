@@ -397,14 +397,14 @@ export default function TransactionDialog({
                 type="button"
                 variant="outline"
                 onClick={() => setShowCategorySelector(true)}
-                className="w-full border-2 border-black justify-start h-auto py-3"
+                className="w-full border-2 border-black justify-start h-auto py-3 bg-white hover:bg-black/5"
               >
                 {categoryName ? (
                   <div className="flex items-center gap-2">
                     <span className="text-xl">
                       {categories.find(c => c.id === categoryId)?.icon || '📝'}
                     </span>
-                    <span className="text-sm">{categoryName}</span>
+                    <span className="text-sm text-black">{categoryName}</span>
                   </div>
                 ) : (
                   <span className="text-black/60">Select Category</span>

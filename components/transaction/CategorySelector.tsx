@@ -126,37 +126,37 @@ function SortableCategoryItem({
       )}
 
       {editMode && isUserCategory && (
-        <div className="absolute top-1 right-1 flex gap-1 z-20">
+        <div className="absolute top-1 right-1 flex flex-col gap-1 z-20">
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6 bg-white border border-black"
+            className="h-6 w-6 bg-white border border-black hover:bg-black/10"
             onClick={(e) => {
               e.stopPropagation()
               onEditClick(category)
             }}
           >
-            <Edit className="h-3 w-3" />
+            <Edit className="h-3 w-3 text-black" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6 bg-white border border-black"
+            className="h-6 w-6 bg-white border border-black hover:bg-black/10"
             onClick={(e) => {
               e.stopPropagation()
               onDeleteClick(category)
             }}
           >
-            <Trash2 className="h-3 w-3" />
+            <Trash2 className="h-3 w-3 text-black" />
           </Button>
         </div>
       )}
 
       <div className="flex flex-col items-center gap-1">
         <span className="text-2xl">{category.icon || '📝'}</span>
-        <span className={`text-xs font-medium text-center ${
-          selectedCategoryId === category.id ? 'text-white' : 'text-black'
-        }`}>{category.name}</span>
+        <span className="text-xs font-medium text-center text-black">
+          {category.name}
+        </span>
       </div>
     </div>
   )
@@ -671,10 +671,10 @@ export default function CategorySelector({
                               handleCategoryClick(category)
                             }}
                           >
-                            <div className="flex flex-col items-center gap-1">
-                              <span className="text-2xl">{category.icon || '📝'}</span>
-                              <span className="text-xs font-medium text-center">{category.name}</span>
-                            </div>
+        <div className="flex flex-col items-center gap-1">
+          <span className="text-2xl">{category.icon || '📝'}</span>
+          <span className="text-xs font-medium text-center text-black">{category.name}</span>
+        </div>
                           </div>
                         )
                       })}

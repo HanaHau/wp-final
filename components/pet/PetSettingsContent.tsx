@@ -170,7 +170,7 @@ export default function PetSettingsContent() {
               <CardTitle className="text-xs uppercase tracking-wide text-black/60">Mood</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-black">{pet?.mood || 50}%</div>
+              <div className="text-2xl font-bold text-black">{Math.min(pet?.mood || 50, 100)}%</div>
             </CardContent>
           </Card>
           <Card className="border-2 border-black">
@@ -178,7 +178,7 @@ export default function PetSettingsContent() {
               <CardTitle className="text-xs uppercase tracking-wide text-black/60">Fullness</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-black">{pet?.fullness || 50}%</div>
+              <div className="text-2xl font-bold text-black">{Math.min(pet?.fullness || 50, 100)}%</div>
             </CardContent>
           </Card>
           <Card className="border-2 border-black">
@@ -186,7 +186,7 @@ export default function PetSettingsContent() {
               <CardTitle className="text-xs uppercase tracking-wide text-black/60">Health</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-black">{pet?.health || 100}%</div>
+              <div className="text-2xl font-bold text-black">{Math.min(pet?.health || 100, 100)}%</div>
             </CardContent>
           </Card>
         </div>
@@ -196,8 +196,18 @@ export default function PetSettingsContent() {
           {/* Left: Pet Display */}
           <div className="lg:col-span-2">
             <Card className="border-2 border-black">
-              <CardContent className="p-8">
+              <CardContent className="p-8 relative">
                 <PetDisplay pet={pet} />
+                {/* Shop button as circular icon */}
+                <Link href="/shop">
+                  <Button
+                    size="icon"
+                    className="absolute top-4 right-4 w-12 h-12 rounded-full border-2 border-black bg-black text-white hover:bg-black/80 transition-colors"
+                    aria-label="Go to Shop"
+                  >
+                    <ShoppingBag className="h-5 w-5" />
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
           </div>
@@ -246,58 +256,6 @@ export default function PetSettingsContent() {
           </div>
         </div>
 
-        {/* Purchase Section - Below */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="border-2 border-black">
-            <CardHeader>
-              <CardTitle className="text-sm uppercase tracking-wide">Shop</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Link href="/shop">
-                <Button className="w-full">
-                  <ShoppingBag className="h-4 w-4 mr-2" />
-                  Go to Shop
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-
-          {/* Purchase History */}
-          {purchases.length > 0 && (
-            <Card className="border-2 border-black">
-              <CardHeader>
-                <CardTitle className="text-sm uppercase tracking-wide">Recent Purchases</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {purchases.slice(0, 5).map((purchase) => (
-                    <div
-                      key={purchase.id}
-                      className="flex justify-between items-center p-3 border-2 border-black"
-                    >
-                      <div>
-                        <span className="font-bold text-sm">
-                          {purchase.itemName}
-                          {purchase.quantity > 1 && (
-                            <span className="ml-2 text-xs font-normal text-black/60">
-                              ×{purchase.quantity}
-                            </span>
-                          )}
-                        </span>
-                        <span className="text-xs text-black/60 block">
-                          {new Date(purchase.purchasedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        </span>
-                      </div>
-                      <span className="font-bold text-sm">
-                        -{purchase.cost} pts
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
       </div>
 
       {/* Bottom Navigation */}

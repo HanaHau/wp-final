@@ -215,11 +215,11 @@ export default function ShopContent() {
         </div>
 
         {/* Shop Items Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Make Your Own Sticker - Only show in "All" category */}
+        <div className="grid grid-cols-3 gap-4">
+          {/* Make Your Own Sticker - centered in the grid */}
           {selectedCategory === 'all' && (
-            <Card className="border-2 border-black">
-              <CardContent className="p-4">
+            <Card className="border-2 border-black col-span-3 flex items-center justify-center">
+              <CardContent className="p-4" style={{ width: 'min(460px, 100%)' }}>
                 <div className="text-center mb-4">
                   <div className="text-5xl mb-2 flex items-center justify-center">
                     <Plus className="h-12 w-12" />
@@ -247,18 +247,19 @@ export default function ShopContent() {
               <CardContent className="p-4">
                 <div className="text-center mb-4">
                   {item.imageUrl && !failedImages.has(item.id) ? (
-                    <div className="relative w-full h-20 mb-2 flex items-center justify-center">
+                    <div className="relative w-full mb-2 flex items-center justify-center" style={{ height: '3rem' }}>
                       <img
                         src={item.imageUrl}
                         alt={item.name}
                         className="max-w-full max-h-full object-contain"
+                        style={{ maxHeight: '3rem', maxWidth: '3rem' }}
                         onError={() => {
                           setFailedImages((prev) => new Set(prev).add(item.id))
                         }}
                       />
                     </div>
                   ) : (
-                    <div className="text-5xl mb-2">{item.emoji}</div>
+                    <div className="text-5xl mb-2" style={{ height: '3rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{item.emoji}</div>
                   )}
                   <h3 className="font-bold text-sm uppercase tracking-wide">{item.name}</h3>
                   <p className="text-xs text-black/60 mt-1">{item.description}</p>

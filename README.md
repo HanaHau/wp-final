@@ -106,6 +106,7 @@ npm install
 # 初始化資料庫（SQLite）
 npx prisma generate
 npx prisma migrate dev
+npm run db:seed
 
 # 開發模式
 npm run dev

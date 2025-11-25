@@ -17,6 +17,11 @@ interface Pet {
   fullness: number
   mood: number
   health: number
+  needsAttention?: boolean
+  isSick?: boolean
+  isUnhappy?: boolean
+  isHungry?: boolean
+  daysSinceInteraction?: number
 }
 
 interface RoomSticker {
@@ -36,11 +41,19 @@ interface AvailableSticker {
   count: number
 }
 
+interface FoodItem {
+  itemId: string
+  name: string
+  emoji: string
+  count: number
+}
+
 export default function DashboardContent() {
   const { data: session } = useSession()
   const [pet, setPet] = useState<Pet | null>(null)
   const [stickers, setStickers] = useState<RoomSticker[]>([])
   const [availableStickers, setAvailableStickers] = useState<AvailableSticker[]>([])
+  const [foodItems, setFoodItems] = useState<FoodItem[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -48,6 +61,7 @@ export default function DashboardContent() {
     fetchPet()
     fetchStickers()
     fetchStickerInventory()
+    fetchFoodInventory()
   }, [])
 
   const fetchPet = async () => {
@@ -86,16 +100,64 @@ export default function DashboardContent() {
     }
   }
 
+  const fetchFoodInventory = async () => {
+    try {
+      const res = await fetch('/api/pet/food/inventory')
+      if (res.ok) {
+        const data = await res.json()
+        setFoodItems(data)
+      }
+    } catch (error) {
+      console.error('取得食物庫存失敗:', error)
+    }
+  }
+
   const handleTransactionAdded = () => {
     fetchPet()
     fetchStickers()
     fetchStickerInventory()
+    fetchFoodInventory()
     setIsDialogOpen(false)
   }
 
   const handleStickerPlaced = () => {
     fetchStickers()
     fetchStickerInventory()
+  }
+
+  const handlePetFed = () => {
+    fetchPet()
+    fetchFoodInventory()
+  }
+
+  const renderStatCard = (label: string, value: number | undefined) => {
+    const percentage = value ?? 0
+    const normalized = Math.min(Math.max(percentage, 0), 100)
+    const color =
+      normalized < 30 ? '#c0392b' : normalized < 50 ? '#f39c12' : '#0f172a'
+    return (
+      <div className="bg-white border-2 border-black px-4 py-2 min-w-[220px]">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-xs text-black/60 uppercase tracking-wide">{label}</span>
+          <span className="text-lg font-bold text-black">{normalized}%</span>
+        </div>
+        <div
+          className="relative w-full h-4 border-2 border-black overflow-hidden"
+          style={{
+            backgroundImage:
+              'repeating-linear-gradient(135deg, rgba(0,0,0,0.08) 0 6px, transparent 6px 12px)',
+          }}
+        >
+          <div
+            className="absolute inset-y-0 left-0 h-full transition-[width] duration-500"
+            style={{
+              width: `${normalized}%`,
+              backgroundColor: color,
+            }}
+          />
+        </div>
+      </div>
+    )
   }
 
   if (loading) {
@@ -118,11 +180,20 @@ export default function DashboardContent() {
             <div className="text-lg font-bold text-black">{pet?.points || 0}</div>
           </div>
           
-          {/* 心情 */}
-          <div className="bg-white border-2 border-black px-3 py-2">
-            <div className="text-xs text-black/60 uppercase tracking-wide">Mood</div>
-            <div className="text-lg font-bold text-black">{pet?.mood || 50}%</div>
+          <div className="flex gap-3 pointer-events-auto">
+            {renderStatCard('Mood', pet?.mood)}
+            {renderStatCard('Fullness', pet?.fullness)}
+            {renderStatCard('Health', pet?.health)}
           </div>
+
+          {/* Warning banner - separate if needed */}
+          {pet?.needsAttention && (
+            <div className="bg-red-100 border-2 border-red-500 px-2 py-1 pointer-events-auto">
+              <div className="text-xs font-bold text-red-700 uppercase tracking-wide">
+                ⚠️ {pet.daysSinceInteraction || 0} day{pet.daysSinceInteraction !== 1 ? 's' : ''} since last interaction!
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 右側：漢堡選單 */}
@@ -132,12 +203,14 @@ export default function DashboardContent() {
       </div>
 
       {/* 主內容區 - 房間顯示 */}
-      <main className="flex-1 flex items-center justify-center px-4 pb-20 pt-24">
+      <main className="flex-1 flex items-start justify-start px-4 pb-20 pt-24 gap-4">
         <Room
           pet={pet}
           stickers={stickers}
           availableStickers={availableStickers}
+          foodItems={foodItems}
           onStickerPlaced={handleStickerPlaced}
+          onPetFed={handlePetFed}
         />
       </main>
 
