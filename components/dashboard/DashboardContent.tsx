@@ -48,12 +48,24 @@ interface FoodItem {
   count: number
 }
 
+interface PetAccessory {
+  id: string
+  accessoryId: string
+  positionX: number
+  positionY: number
+  rotation: number
+  scale: number
+  imageUrl?: string | null
+}
+
 export default function DashboardContent() {
   const { data: session } = useSession()
   const [pet, setPet] = useState<Pet | null>(null)
   const [stickers, setStickers] = useState<RoomSticker[]>([])
   const [availableStickers, setAvailableStickers] = useState<AvailableSticker[]>([])
   const [foodItems, setFoodItems] = useState<FoodItem[]>([])
+  const [accessories, setAccessories] = useState<PetAccessory[]>([])
+  const [availableAccessories, setAvailableAccessories] = useState<AvailableAccessory[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -62,6 +74,8 @@ export default function DashboardContent() {
     fetchStickers()
     fetchStickerInventory()
     fetchFoodInventory()
+    fetchAccessories()
+    fetchAccessoryInventory()
   }, [])
 
   const fetchPet = async () => {
@@ -109,6 +123,30 @@ export default function DashboardContent() {
       }
     } catch (error) {
       console.error('取得食物庫存失敗:', error)
+    }
+  }
+
+  const fetchAccessories = async () => {
+    try {
+      const res = await fetch('/api/pet/accessories')
+      if (res.ok) {
+        const data = await res.json()
+        setAccessories(data)
+      }
+    } catch (error) {
+      console.error('取得配件失敗:', error)
+    }
+  }
+
+  const fetchAccessoryInventory = async () => {
+    try {
+      const res = await fetch('/api/pet/accessories/inventory')
+      if (res.ok) {
+        const data = await res.json()
+        setAvailableAccessories(data)
+      }
+    } catch (error) {
+      console.error('取得配件庫存失敗:', error)
     }
   }
 
@@ -209,8 +247,14 @@ export default function DashboardContent() {
           stickers={stickers}
           availableStickers={availableStickers}
           foodItems={foodItems}
+          accessories={accessories}
+          availableAccessories={availableAccessories}
           onStickerPlaced={handleStickerPlaced}
           onPetFed={handlePetFed}
+          onAccessoryPlaced={() => {
+            fetchAccessories()
+            fetchAccessoryInventory()
+          }}
         />
       </main>
 

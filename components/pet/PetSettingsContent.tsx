@@ -11,6 +11,7 @@ import { formatCurrency } from '@/lib/utils'
 import { ArrowLeft, Upload, ShoppingBag } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useToast } from '@/components/ui/use-toast'
 
 interface Pet {
   id: string
@@ -31,17 +32,39 @@ interface Purchase {
   purchasedAt: string
 }
 
+interface PetAccessory {
+  id: string
+  accessoryId: string
+  positionX: number
+  positionY: number
+  rotation: number
+  scale: number
+  imageUrl?: string | null
+}
+
+interface AvailableAccessory {
+  accessoryId: string
+  name: string
+  emoji: string
+  count: number
+  imageUrl?: string
+}
+
 export default function PetSettingsContent() {
   const router = useRouter()
+  const { toast } = useToast()
   const [pet, setPet] = useState<Pet | null>(null)
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [petName, setPetName] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [accessories, setAccessories] = useState<PetAccessory[]>([])
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetchPet()
+    fetchAccessories()
   }, [])
 
   const fetchPet = async () => {
@@ -57,6 +80,20 @@ export default function PetSettingsContent() {
       setLoading(false)
     }
   }
+
+  const fetchAccessories = async () => {
+    try {
+      const res = await fetch('/api/pet/accessories')
+      if (res.ok) {
+        const data = await res.json()
+        console.log('PetSettingsContent: Fetched accessories:', JSON.stringify(data.map((a: any) => ({ id: a.id, accessoryId: a.accessoryId, positionX: a.positionX, positionY: a.positionY })), null, 2))
+        setAccessories(data)
+      }
+    } catch (error) {
+      console.error('取得配件失敗:', error)
+    }
+  }
+
 
   const removeBackground = async (file: File): Promise<string> => {
     try {
@@ -129,6 +166,141 @@ export default function PetSettingsContent() {
     }
   }
 
+  const handleDragStart = (event: React.DragEvent<HTMLDivElement>, accessoryId: string, count: number) => {
+    if (count <= 0) {
+      event.preventDefault()
+      return
+    }
+    // Set data similar to how food drag works - use type to distinguish
+    const dragData = { type: 'accessory', accessoryId }
+    event.dataTransfer.setData('application/json', JSON.stringify(dragData))
+    event.dataTransfer.effectAllowed = 'copy'
+    console.log('Drag started:', dragData)
+  }
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'copy'
+  }
+
+  const handleDrop = async (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+
+    const data = event.dataTransfer.getData('application/json')
+    if (!data) {
+      return
+    }
+
+    let accessoryId: string | null = null
+    try {
+      const parsed = JSON.parse(data)
+      // Check if it's an accessory (similar to how food is checked)
+      if (parsed.type === 'accessory') {
+        accessoryId = parsed.accessoryId
+      } else if (parsed.accessoryId) {
+        // Fallback for old format
+        accessoryId = parsed.accessoryId
+      } else {
+        return // Not an accessory drop
+      }
+    } catch (error) {
+      console.error('Invalid accessory data:', error)
+      return
+    }
+
+    if (!accessoryId) return
+
+    // Calculate position relative to the pet image container
+    // event.currentTarget is the pet image container div (w-48 h-48)
+    const rect = event.currentTarget.getBoundingClientRect()
+    const positionX = (event.clientX - rect.left) / rect.width
+    const positionY = (event.clientY - rect.top) / rect.height
+
+    // Clamp position to 0-1 range
+    const clampedX = Math.min(Math.max(positionX, 0), 1)
+    const clampedY = Math.min(Math.max(positionY, 0), 1)
+
+    // Optimistically add accessory to state immediately
+    const tempId = `temp-${Date.now()}`
+    const optimisticAccessory: PetAccessory = {
+      id: tempId,
+      accessoryId: accessoryId!,
+      positionX: clampedX,
+      positionY: clampedY,
+      rotation: 0,
+      scale: 1,
+    }
+    setAccessories(prev => [...prev, optimisticAccessory])
+
+    try {
+      const res = await fetch('/api/pet/accessories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accessoryId,
+          positionX: clampedX,
+          positionY: clampedY,
+        }),
+      })
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}))
+        throw new Error(error.error || 'Failed to place accessory')
+      }
+
+      const newAccessory = await res.json()
+      
+      // Replace optimistic accessory with real one
+      setAccessories(prev => prev.map(a => a.id === tempId ? newAccessory : a))
+
+      toast({
+        title: 'Accessory Placed!',
+        description: 'Successfully added accessory to pet.',
+      })
+    } catch (error: any) {
+      // Remove optimistic accessory on error
+      setAccessories(prev => prev.filter(a => a.id !== tempId))
+      toast({
+        title: 'Placement Failed',
+        description: error?.message || 'Please try again later',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const handleDeleteAccessory = async (accessoryId: string) => {
+    // Optimistically remove accessory immediately
+    const accessoryToDelete = accessories.find(a => a.id === accessoryId)
+    setAccessories(prev => prev.filter(a => a.id !== accessoryId))
+
+    try {
+      const res = await fetch(`/api/pet/accessories/${accessoryId}`, {
+        method: 'DELETE',
+      })
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}))
+        throw new Error(error.error || 'Failed to delete accessory')
+      }
+
+      toast({
+        title: 'Accessory Removed',
+        description: 'Accessory has been removed and returned to your inventory.',
+      })
+    } catch (error: any) {
+      // Restore accessory on error
+      if (accessoryToDelete) {
+        setAccessories(prev => [...prev, accessoryToDelete])
+      }
+      toast({
+        title: 'Delete Failed',
+        description: error?.message || 'Please try again later',
+        variant: 'destructive',
+      })
+    }
+  }
+
 
   if (loading) {
     return (
@@ -197,7 +369,14 @@ export default function PetSettingsContent() {
           <div className="lg:col-span-2">
             <Card className="border-2 border-black">
               <CardContent className="p-8 relative">
-                <PetDisplay pet={pet} />
+                <PetDisplay 
+                  pet={pet} 
+                  accessories={accessories}
+                  onAccessoryDelete={handleDeleteAccessory}
+                  showDeleteButtons={true}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                />
                 {/* Shop button as circular icon */}
                 <Link href="/shop">
                   <Button
@@ -212,8 +391,8 @@ export default function PetSettingsContent() {
             </Card>
           </div>
 
-          {/* Right: Edit Pet */}
-          <div>
+          {/* Right: Edit Pet and Accessories */}
+          <div className="space-y-4">
             <Card className="border-2 border-black">
               <CardHeader>
                 <CardTitle className="text-sm uppercase tracking-wide">Edit Pet</CardTitle>

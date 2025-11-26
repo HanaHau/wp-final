@@ -42,13 +42,34 @@ interface Pet {
   health: number
 }
 
+interface PetAccessory {
+  id: string
+  accessoryId: string
+  positionX: number
+  positionY: number
+  rotation: number
+  scale: number
+  imageUrl?: string | null
+}
+
+interface AvailableAccessory {
+  accessoryId: string
+  name: string
+  emoji: string
+  count: number
+  imageUrl?: string | null
+}
+
 interface RoomProps {
   pet: Pet | null
   stickers?: RoomSticker[]
   availableStickers?: AvailableSticker[]
   foodItems?: FoodItem[]
+  accessories?: PetAccessory[]
+  availableAccessories?: AvailableAccessory[]
   onStickerPlaced?: () => void
   onPetFed?: () => void
+  onAccessoryPlaced?: () => void
 }
 
 const BASE_STICKERS: Record<string, { emoji: string; name: string }> = {
@@ -73,7 +94,7 @@ const STICKER_TYPES: Record<string, { emoji: string; name: string }> = {
   ...SHOP_STICKERS,
 }
 
-export default function Room({ pet, stickers = [], availableStickers = [], foodItems = [], onStickerPlaced, onPetFed }: RoomProps) {
+export default function Room({ pet, stickers = [], availableStickers = [], foodItems = [], accessories = [], availableAccessories = [], onStickerPlaced, onPetFed, onAccessoryPlaced }: RoomProps) {
   const [hoveredStickerId, setHoveredStickerId] = useState<string | null>(null)
   const { toast } = useToast()
   const [placingStickers, setPlacingStickers] = useState<Set<string>>(new Set())
@@ -122,6 +143,48 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
     if (count <= 0) return
     event.dataTransfer.setData('application/json', JSON.stringify({ type: 'food', itemId }))
     event.dataTransfer.effectAllowed = 'copy'
+  }
+
+  const handleAccessoryDragStart = (event: React.DragEvent<HTMLDivElement>, accessoryId: string, count: number) => {
+    if (count <= 0) return
+    event.dataTransfer.setData('application/json', JSON.stringify({ type: 'accessory', accessoryId }))
+    event.dataTransfer.effectAllowed = 'copy'
+  }
+
+  const handlePlaceAccessory = async (accessoryId: string, positionX: number, positionY: number) => {
+    try {
+      const res = await fetch('/api/pet/accessories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accessoryId,
+          positionX,
+          positionY,
+          rotation: 0,
+          scale: 1,
+        }),
+      })
+
+      if (res.ok) {
+        if (onAccessoryPlaced) {
+          onAccessoryPlaced()
+        }
+      } else {
+        const error = await res.json()
+        toast({
+          title: 'Failed to place accessory',
+          description: error.error || 'Please try again',
+          variant: 'destructive',
+        })
+      }
+    } catch (error) {
+      console.error('Place accessory error:', error)
+      toast({
+        title: 'Failed to place accessory',
+        description: 'Please try again',
+        variant: 'destructive',
+      })
+    }
   }
 
   const handleFeedPet = async (itemId: string) => {
@@ -316,74 +379,16 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
     <div className="relative w-full h-full flex items-start justify-start gap-4 min-h-[400px] mt-4">
       {/* Room on left (big) - moved down */}
       <div className="flex-1 flex items-start justify-start min-w-0">
-      {/* One-Point Perspective Room - Simple: square + 4 perspective lines */}
+      {/* Room image */}
       <div className="relative" style={{ width: '100%', maxWidth: '700px', height: '500px' }}>
-        <svg
-          width="600"
-          height="450"
-          viewBox="0 0 800 600"
-          className="w-full h-full"
-        >
-          {/* Outer rectangle (room boundaries) - visible border */}
-          <rect
-            x="50"
-            y="50"
-            width="700"
-            height="500"
-            fill="none"
-            stroke="black"
-            strokeWidth="4"
-          />
-
-          {/* Back wall - center square (bigger) */}
-          <rect
-            x="250"
-            y="150"
-            width="300"
-            height="300"
-            fill="white"
-            stroke="black"
-            strokeWidth="4"
-          />
-
-          {/* 4 perspective lines connecting corners of square to corners of rectangle */}
-          {/* Top-left corner */}
-          <line
-            x1="50"
-            y1="50"
-            x2="250"
-            y2="150"
-            stroke="black"
-            strokeWidth="4"
-          />
-          {/* Top-right corner */}
-          <line
-            x1="750"
-            y1="50"
-            x2="550"
-            y2="150"
-            stroke="black"
-            strokeWidth="4"
-          />
-          {/* Bottom-left corner */}
-          <line
-            x1="50"
-            y1="550"
-            x2="250"
-            y2="450"
-            stroke="black"
-            strokeWidth="4"
-          />
-          {/* Bottom-right corner */}
-          <line
-            x1="750"
-            y1="550"
-            x2="550"
-            y2="450"
-            stroke="black"
-            strokeWidth="4"
-          />
-        </svg>
+        <Image
+          src="/room.png"
+          alt="Room"
+          fill
+          sizes="700px"
+          className="object-contain"
+          priority
+        />
 
         {/* Entire room area for stickers and pet - full droppable area */}
         <div
@@ -411,6 +416,33 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                 toast({
                   title: 'Move nearer the pet',
                   description: 'Drop food closer to the pet to feed it.',
+                  variant: 'destructive',
+                })
+              } else if (parsed.type === 'accessory') {
+                // Handle accessory drop - place on pet (exactly like food)
+                const rect = e.currentTarget.getBoundingClientRect()
+                const x = (e.clientX - rect.left) / rect.width
+                const y = (e.clientY - rect.top) / rect.height
+
+                const dx = x - petPosition.x
+                const dy = y - petPosition.y
+                const distance = Math.sqrt(dx * dx + dy * dy)
+                if (distance < 0.25) {
+                  // Place accessory on pet - position relative to pet center (0.5, 0.5)
+                  // Map drop position to pet-relative coordinates (0-1 range)
+                  // Drop position is relative to room, pet is at petPosition
+                  // We want position relative to pet's center, so normalize around petPosition
+                  const relativeX = 0.5 + (x - petPosition.x) / 0.5 // Scale to pet's area
+                  const relativeY = 0.5 + (y - petPosition.y) / 0.5
+                  const clampedX = Math.min(Math.max(relativeX, 0), 1)
+                  const clampedY = Math.min(Math.max(relativeY, 0), 1)
+
+                  handlePlaceAccessory(parsed.accessoryId, clampedX, clampedY)
+                  return
+                }
+                toast({
+                  title: 'Move nearer the pet',
+                  description: 'Drop accessory closer to the pet to place it.',
                   variant: 'destructive',
                 })
               } else {
@@ -533,6 +565,41 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                   priority
                   className="object-contain"
                 />
+                {/* Accessories positioned relative to pet */}
+                {accessories.map((accessory) => (
+                  <div
+                    key={accessory.id}
+                    className="absolute"
+                    style={{
+                      left: `${accessory.positionX * 100}%`,
+                      top: `${accessory.positionY * 100}%`,
+                      transform: `translate(-50%, -50%) rotate(${accessory.rotation}deg) scale(${accessory.scale})`,
+                      zIndex: 10,
+                    }}
+                  >
+                    {accessory.imageUrl && !failedImages.has(accessory.id) ? (
+                      <img
+                        src={accessory.imageUrl}
+                        alt="Accessory"
+                        className="max-w-[24px] max-h-[24px] object-contain"
+                        onError={() => {
+                          setFailedImages((prev) => new Set(prev).add(accessory.id))
+                        }}
+                      />
+                    ) : (
+                      <span className="text-xl" title={accessory.accessoryId}>
+                        {(() => {
+                          // Look up emoji from SHOP_ITEM_MAP based on accessoryId
+                          const shopItem = SHOP_ITEM_MAP[accessory.accessoryId]
+                          if (!shopItem && !accessory.accessoryId.startsWith('custom-')) {
+                            console.error('Room: Invalid accessoryId:', accessory.accessoryId, 'Expected: acc1 or acc2')
+                          }
+                          return shopItem?.emoji || '🎀'
+                        })()}
+                      </span>
+                    )}
+                  </div>
+                ))}
                 {/* Hand icon on hover - closer to pet */}
                 {showHandIcon && (
                   <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 animate-bounce">
@@ -552,7 +619,7 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
       </div>
       </div>
 
-      {/* Stickers and Food on right (vertically aligned, very wide grids with square items) */}
+      {/* Stickers, Food, and Accessories on right (vertically aligned, very wide grids with square items) */}
       <div
         className="flex flex-col gap-2 flex-shrink-0 self-start"
         style={{
@@ -561,11 +628,13 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
           marginLeft: '10px',
           position: 'absolute',
           left: '680px',
-          top: '40px',
+          top: '1px',
+          maxHeight: 'calc(100vh - 80px)',
+          overflowY: 'auto',
         }}
       >
         {/* Sticker palette - very wide grid with square items */}
-        <div className="relative flex flex-col w-full h-[210px] border-2 border-black bg-white px-3 py-2 overflow-y-auto">
+        <div className="relative flex flex-col w-full h-[180px] border-2 border-black bg-white px-3 py-2 overflow-y-auto">
           <h3 className="text-xs text-black/60 uppercase tracking-wide mb-2">Stickers</h3>
           {availableStickers.length === 0 && (
             <p className="text-[10px] text-center text-black/40">No stickers available</p>
@@ -605,7 +674,7 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
         </div>
 
         {/* Food palette - very wide grid with square items */}
-        <div className="relative flex flex-col w-full h-[210px] border-2 border-black bg-white px-3 py-2 overflow-y-auto">
+        <div className="relative flex flex-col w-full h-[180px] border-2 border-black bg-white px-3 py-2 overflow-y-auto">
             <h3 className="text-xs text-black/60 uppercase tracking-wide mb-2">Food</h3>
           {foodItems.length > 0 ? (
             <>
@@ -634,6 +703,51 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
           ) : (
             <p className="text-[12px] text-center text-black/40 mt-6 uppercase tracking-wide">
               No food yet — visit the shop to buy some!
+            </p>
+          )}
+        </div>
+
+        {/* Accessories palette - very wide grid with square items */}
+        <div className="relative flex flex-col w-full min-h-[180px] border-2 border-black bg-white px-3 py-2 overflow-y-auto">
+            <h3 className="text-xs text-black/60 uppercase tracking-wide mb-2">Accessories</h3>
+          {availableAccessories.length > 0 ? (
+            <>
+              <div className="grid grid-cols-5 gap-1">
+                {availableAccessories.map((accessory) => (
+                  <div
+                    key={accessory.accessoryId}
+                    draggable={accessory.count > 0}
+                    onDragStart={(e) => handleAccessoryDragStart(e, accessory.accessoryId, accessory.count)}
+                    className={`aspect-square border-2 border-black p-1 flex flex-col items-center justify-center cursor-grab active:cursor-grabbing w-[62px] h-[62px] ${
+                      accessory.count === 0 ? 'opacity-40 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    <div className="relative w-full h-full mb-1 flex items-center justify-center">
+                      {accessory.imageUrl && !failedImages.has(accessory.accessoryId) ? (
+                        <img
+                          src={accessory.imageUrl}
+                          alt={accessory.name}
+                          className="max-w-[24px] max-h-[24px] object-contain"
+                          onError={() => {
+                            setFailedImages((prev) => new Set(prev).add(accessory.accessoryId))
+                          }}
+                        />
+                      ) : (
+                        <span className="text-xl">{accessory.emoji}</span>
+                      )}
+                    </div>
+                    <div className="text-[10px] font-semibold uppercase text-center leading-tight">{accessory.name}</div>
+                    <div className="text-[10px] text-black/60">x{accessory.count}</div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] text-center text-black/40 mt-2">
+                Drag accessory to pet
+              </p>
+            </>
+          ) : (
+            <p className="text-[12px] text-center text-black/40 mt-6 uppercase tracking-wide">
+              No accessories yet — visit the shop to buy some!
             </p>
           )}
         </div>

@@ -84,6 +84,7 @@ model Pet {
   user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   purchases PetPurchase[]
   stickers  RoomSticker[]
+  accessories PetAccessory[]
 
   @@map("pets")
 }
@@ -190,5 +191,20 @@ model CustomSticker {
   @@index([userId])
   @@index([isPublic, category])
   @@map("custom_stickers")
+}
+
+model PetAccessory {
+  id        String   @id @default(cuid())
+  petId     String
+  accessoryId String // 配件類型識別碼
+  positionX Float    @default(0.5) // 位置 X (0-1, relative to pet)
+  positionY Float    @default(0.5) // 位置 Y (0-1, relative to pet)
+  rotation  Float    @default(0) // 旋轉角度
+  scale     Float    @default(1) // 縮放比例
+  createdAt DateTime @default(now())
+
+  pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@map("pet_accessories")
 }
 
