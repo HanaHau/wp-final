@@ -3,6 +3,8 @@
 import { useEffect, useState, useRef } from 'react'
 import Navigation from '@/components/dashboard/Navigation'
 import { useToast } from '@/components/ui/use-toast'
+import { Input } from '@/components/ui/input'
+import { Pencil, Check, X } from 'lucide-react'
 import FeedPanel from './FeedPanel'
 import DecorPanel from './DecorPanel'
 import PetStatusHUD from './PetStatusHUD'
@@ -12,6 +14,7 @@ interface Pet {
   id: string
   name: string
   imageUrl: string | null
+  facingDirection?: string
   points: number
   fullness: number
   mood: number
@@ -95,6 +98,11 @@ export default function PetRoomContent() {
     life: number
   }>>([])
   const petImageRef = useRef<HTMLDivElement>(null)
+  
+  // Pet name editing state
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [petNameInput, setPetNameInput] = useState('')
+  const [isSavingName, setIsSavingName] = useState(false)
 
   useEffect(() => {
     fetchAllData()
@@ -107,6 +115,7 @@ export default function PetRoomContent() {
       const petRes = await fetch('/api/pet')
       const petData = await petRes.json()
       setPet(petData)
+      setPetNameInput(petData.name || '我的寵物')
       
       // Extract food items from purchases
       const purchases = petData.purchases || []
@@ -197,6 +206,70 @@ export default function PetRoomContent() {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleStartEditName = () => {
+    if (pet) {
+      setPetNameInput(pet.name)
+      setIsEditingName(true)
+    }
+  }
+
+  const handleCancelEditName = () => {
+    if (pet) {
+      setPetNameInput(pet.name)
+    }
+    setIsEditingName(false)
+  }
+
+  const handleSaveName = async () => {
+    if (!pet) return
+    
+    const trimmedName = petNameInput.trim()
+    if (!trimmedName) {
+      toast({
+        title: '名稱不能為空',
+        description: '請輸入寵物名稱',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (trimmedName === pet.name) {
+      setIsEditingName(false)
+      return
+    }
+
+    setIsSavingName(true)
+    try {
+      const response = await fetch('/api/pet', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmedName }),
+      })
+
+      if (!response.ok) {
+        throw new Error('更新失敗')
+      }
+
+      const updatedPet = await response.json()
+      setPet(updatedPet)
+      setIsEditingName(false)
+
+      toast({
+        title: '名稱已更新',
+        description: `寵物名稱已更改為「${trimmedName}」`,
+      })
+    } catch (error: any) {
+      console.error('更新名稱錯誤:', error)
+      toast({
+        title: '更新失敗',
+        description: error.message || '請重試',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSavingName(false)
     }
   }
 
@@ -439,8 +512,62 @@ export default function PetRoomContent() {
       
       {/* Main Content with Container */}
       <div className="flex-1 overflow-hidden max-w-7xl mx-auto w-full px-4 pt-4 pb-24 flex flex-col relative z-50">
+        {/* Pet Name Editor - Above HUD */}
+        <div className="mb-8 mt-8 flex justify-center flex-shrink-0">
+          <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full border border-gray-300 shadow-sm px-4 py-2">
+            {isEditingName ? (
+              <>
+                <Input
+                  value={petNameInput}
+                  onChange={(e) => setPetNameInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSaveName()
+                    } else if (e.key === 'Escape') {
+                      handleCancelEditName()
+                    }
+                  }}
+                  className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 py-1 text-center min-w-[120px] max-w-[200px]"
+                  autoFocus
+                  maxLength={20}
+                  disabled={isSavingName}
+                />
+                <button
+                  onClick={handleSaveName}
+                  disabled={isSavingName}
+                  className="p-1 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50"
+                  title="儲存"
+                >
+                  <Check className="h-4 w-4 text-gray-700" />
+                </button>
+                <button
+                  onClick={handleCancelEditName}
+                  disabled={isSavingName}
+                  className="p-1 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50"
+                  title="取消"
+                >
+                  <X className="h-4 w-4 text-gray-700" />
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="px-2 py-1 text-sm font-semibold text-gray-700 min-w-[120px] text-center">
+                  {pet.name}
+                </span>
+                <button
+                  onClick={handleStartEditName}
+                  className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                  title="編輯名稱"
+                >
+                  <Pencil className="h-4 w-4 text-gray-700" />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
         {/* Status HUD */}
-        <div className="mb-6 mt-16 flex justify-center flex-shrink-0">
+        <div className="mb-0 flex justify-center flex-shrink-0">
           <PetStatusHUD
             mood={pet.mood}
             fullness={pet.fullness}
@@ -501,7 +628,7 @@ export default function PetRoomContent() {
                   style={{ 
                     maxWidth: '100%',
                     maxHeight: '100%',
-                    objectFit: 'contain'
+                    objectFit: 'contain',
                   }}
                   onClick={handlePetClick}
                 />

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import { X, ShoppingCart } from 'lucide-react'
+import Link from 'next/link'
 
 interface AvailableAccessory {
   accessoryId: string
@@ -55,7 +56,13 @@ export default function DecorPanel({
             {availableAccessories.length === 0 ? (
               <div className="col-span-full text-center py-12 text-black/60">
                 <p className="text-sm uppercase tracking-wide">沒有配件</p>
-                <p className="text-xs mt-2">前往商店購買！</p>
+                <p className="text-xs mt-2 mb-4">前往商店購買！</p>
+                <Link href="/shop">
+                  <button className="inline-flex items-center gap-2 px-4 py-2 border-2 border-black hover:bg-black hover:text-white transition-colors text-xs font-semibold uppercase tracking-wide">
+                    <ShoppingCart className="h-4 w-4" />
+                    前往商店
+                  </button>
+                </Link>
               </div>
             ) : (
               availableAccessories.map((accessory) => (

@@ -16,6 +16,8 @@ model User {
   name          String?
   image         String?
   emailVerified DateTime?
+  balance       Float        @default(0) // 帳戶餘額（與寵物點數不同）
+  isInitialized Boolean      @default(false) // 是否完成首次設定
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
@@ -70,16 +72,17 @@ model VerificationToken {
 }
 
 model Pet {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  name      String   @default("我的寵物")
-  imageUrl  String?
-  points    Int      @default(0) // 虛擬點數
-  fullness  Int      @default(50) // 飽足感 0-100
-  mood      Int      @default(50) // 心情值 0-100
-  health    Int      @default(100) // 健康度 0-100
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  name          String   @default("我的寵物")
+  imageUrl      String?
+  facingDirection String @default("right") // 寵物朝向：left 或 right
+  points        Int      @default(0) // 虛擬點數
+  fullness      Int      @default(50) // 飽足感 0-100
+  mood          Int      @default(50) // 心情值 0-100
+  health        Int      @default(100) // 健康度 0-100
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   purchases PetPurchase[]

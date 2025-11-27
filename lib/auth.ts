@@ -41,3 +41,20 @@ export async function getCurrentUser() {
   return session.user
 }
 
+export async function checkInitialization() {
+  const user = await getCurrentUser()
+  if (!user) {
+    return { isInitialized: false, user: null }
+  }
+
+  const userRecord = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { isInitialized: true },
+  })
+
+  return {
+    isInitialized: userRecord?.isInitialized ?? false,
+    user,
+  }
+}
+

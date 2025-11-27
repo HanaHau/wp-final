@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { X, RotateCw, Trash2, Move } from 'lucide-react'
+import { X, RotateCw, Trash2, Move, ShoppingCart } from 'lucide-react'
+import Link from 'next/link'
 
 interface EditPanelProps {
   isOpen: boolean
@@ -80,7 +81,13 @@ export default function EditPanel({
           {availableStickers.length === 0 && (
             <div className="text-center py-12 text-black/60">
               <p className="text-sm uppercase tracking-wide">倉庫空空的</p>
-              <p className="text-xs mt-2">前往商店購買貼紙吧！</p>
+              <p className="text-xs mt-2 mb-4">前往商店購買貼紙吧！</p>
+              <Link href="/shop">
+                <button className="inline-flex items-center gap-2 px-4 py-2 border-2 border-black hover:bg-black hover:text-white transition-colors text-xs font-semibold uppercase tracking-wide">
+                  <ShoppingCart className="h-4 w-4" />
+                  前往商店
+                </button>
+              </Link>
             </div>
           )}
         </div>

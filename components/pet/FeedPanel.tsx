@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import { X, ShoppingCart } from 'lucide-react'
+import Link from 'next/link'
 
 interface FoodItem {
   itemId: string
@@ -52,7 +53,13 @@ export default function FeedPanel({
           {foodItems.length === 0 ? (
             <div className="text-center py-12 text-black/60">
               <p className="text-sm uppercase tracking-wide mb-2">沒有食物</p>
-              <p className="text-xs">前往商店購買！</p>
+              <p className="text-xs mb-4">前往商店購買！</p>
+              <Link href="/shop">
+                <button className="inline-flex items-center gap-2 px-4 py-2 border-2 border-black hover:bg-black hover:text-white transition-colors text-xs font-semibold uppercase tracking-wide">
+                  <ShoppingCart className="h-4 w-4" />
+                  前往商店
+                </button>
+              </Link>
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-3">

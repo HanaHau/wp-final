@@ -51,10 +51,13 @@ wp-final/
 ### 核心資料表
 
 1. **User** - 使用者
-   - id, email, name, image, createdAt
+   - id, email, name, image, balance, isInitialized, createdAt
+   - balance: 帳戶餘額（與寵物點數不同）
+   - isInitialized: 是否完成首次設定
 
 2. **Pet** - 寵物
-   - id, userId, name, imageUrl, points, fullness, mood, health, createdAt
+   - id, userId, name, imageUrl, facingDirection, points, fullness, mood, health, createdAt
+   - facingDirection: 寵物朝向（left/right），用於決定移動時的顯示方式
 
 3. **Transaction** - 記帳記錄
    - id, userId, amount, category, type (expense/income/deposit), date, note, createdAt
@@ -65,25 +68,32 @@ wp-final/
 5. **PetPurchase** - 寵物購買記錄
    - id, petId, itemId, itemName, category, cost, quantity, purchasedAt
 
-## 🚀 開發步驟
+## ✨ 主要功能
 
-### Phase 1: MVP 基礎功能
-1. ✅ 專案初始化與配置
-2. ⏳ 資料庫 Schema 設定
-3. ⏳ 認證系統（Google OAuth）
-4. ⏳ 記帳 CRUD API
-5. ⏳ 主畫面與記帳功能
-6. ⏳ 寵物基礎顯示
+### 首次設定
+- 新使用者註冊/登入後會進入首次設定頁面
+- 設定初始帳戶餘額
+- 選擇/上傳寵物照片
+- 設定寵物名稱
+- 選擇寵物朝向（朝左/朝右）
 
-### Phase 2: 寵物互動系統
-7. ⏳ 寵物狀態計算邏輯
-8. ⏳ 寵物回應系統
-9. ⏳ 點數購買功能
+### 記帳功能
+- 支出、收入、存錢記錄
+- 自訂類別管理
+- 月統計與類別統計
 
-### Phase 3: 統計與進階功能
-10. ⏳ 統計頁面（月曆、圓餅圖）
-11. ⏳ 個人資料頁面
-12. ⏳ 寵物設定頁面
+### 寵物系統
+- 寵物在房間中自動移動
+- 餵食寵物（增加飽足感）
+- 撫摸寵物（增加心情值）
+- 購買食物、貼紙、配件
+- 自訂貼紙與配件
+- 寵物狀態顯示（心情、飽足感、健康度）
+
+### 商店系統
+- 使用寵物點數購買物品
+- 公開/私人自訂貼紙
+- 物品庫存管理
 
 ## 📝 環境變數設定
 
@@ -126,6 +136,11 @@ npm run dev
 - `GET /api/pet` - 取得寵物資訊
 - `PUT /api/pet` - 更新寵物資訊
 - `POST /api/pet/purchase` - 寵物購買物品
+- `POST /api/pet/pet` - 撫摸寵物（增加心情值）
+
+### 首次設定相關
+- `GET /api/setup` - 檢查是否已完成首次設定
+- `POST /api/setup` - 完成首次設定（設定初始餘額、寵物名稱、照片、朝向）
 
 ### 統計相關
 - `GET /api/statistics/monthly` - 取得月統計

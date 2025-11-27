@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import Image from 'next/image'
-import { X, Edit3 } from 'lucide-react'
+import Link from 'next/link'
+import { X, Edit3, Heart, ShoppingCart } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
 import { SHOP_ITEM_MAP } from '@/data/shop-items'
 import EditPanel from './EditPanel'
@@ -38,6 +39,7 @@ interface Pet {
   id: string
   name: string
   imageUrl: string | null
+  facingDirection?: string
   points: number
   fullness: number
   mood: number
@@ -106,9 +108,11 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
   const [feeding, setFeeding] = useState(false)
   const [petPosition, setPetPosition] = useState({ x: 0.5, y: 0.75 })
   const [isPetting, setIsPetting] = useState(false)
-  const [showHandIcon, setShowHandIcon] = useState(false)
+  const [showPetTooltip, setShowPetTooltip] = useState(false)
+  const [hearts, setHearts] = useState<Array<{ id: string; x: number; y: number }>>([])
   const [isMoving, setIsMoving] = useState(false)
-  const [petDirection, setPetDirection] = useState<'left' | 'right'>('right')
+  const [currentMoveDirection, setCurrentMoveDirection] = useState<'left' | 'right' | null>(null)
+  const petFacingDirection = (pet?.facingDirection || 'right') as 'left' | 'right'
   const pettingTimeout = useRef<NodeJS.Timeout | null>(null)
   const moveIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const currentTargetRef = useRef({ x: 0.5, y: 0.75 })
@@ -130,9 +134,20 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
   const roomRef = useRef<HTMLDivElement>(null)
   const [justPlaced, setJustPlaced] = useState<string | null>(null)
 
+  // Track if position has been initialized
+  const positionInitializedRef = useRef(false)
+
   // Optimized pet movement with smooth transitions and natural behavior
   useEffect(() => {
     if (!pet) return
+
+    // Only initialize position once, not on every pet update
+    if (!positionInitializedRef.current) {
+      const initialPos = { x: 0.5, y: 0.75 } // Center-bottom of the room
+      currentTargetRef.current = initialPos
+      setPetPosition(initialPos)
+      positionInitializedRef.current = true
+    }
 
     // Calculate wait time between movements based on pet state
     const getWaitTime = () => {
@@ -282,9 +297,11 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
       const target = generateTargetPosition()
       const currentPos = currentTargetRef.current
       
-      // Determine direction based on movement
+      // Determine movement direction (left or right)
       const isMovingLeft = target.x < currentPos.x
-      setPetDirection(isMovingLeft ? 'left' : 'right')
+      const isMovingRight = target.x > currentPos.x
+      const moveDirection = isMovingLeft ? 'left' : (isMovingRight ? 'right' : null)
+      setCurrentMoveDirection(moveDirection)
       
       // Set moving state for walk animation
       setIsMoving(true)
@@ -302,13 +319,9 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
       // Stop moving animation after movement completes
       setTimeout(() => {
         setIsMoving(false)
+        // 保持最後的移動方向，不重置為原始朝向
       }, duration)
     }
-
-    // Initialize position
-    const initialPos = generateTargetPosition()
-    currentTargetRef.current = initialPos
-    setPetPosition(initialPos)
 
     // Start movement cycle
     const scheduleNextMove = () => {
@@ -322,8 +335,8 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
       }, getWaitTime())
     }
 
-    // Start the movement cycle after initial delay
-    const initialDelay = 1000 + Math.random() * 2000
+    // Start the movement cycle after initial delay (faster start)
+    const initialDelay = 200 + Math.random() * 300 // 0.2-0.5 second
     moveIntervalRef.current = setTimeout(() => {
       scheduleNextMove()
     }, initialDelay)
@@ -727,9 +740,30 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
   const handlePetPet = async () => {
     if (isPetting) return
     setIsPetting(true)
-    setShowHandIcon(false)
+    setShowPetTooltip(false)
     if (pettingTimeout.current) {
       clearTimeout(pettingTimeout.current)
+    }
+
+    // 產生愛心特效
+    if (petImageRef.current) {
+      const rect = petImageRef.current.getBoundingClientRect()
+      const centerX = rect.left + rect.width / 2
+      const centerY = rect.top + rect.height / 2
+      
+      // 產生多個愛心，從寵物中心向上飄散
+      const newHearts = Array.from({ length: 5 }, (_, i) => ({
+        id: `heart-${Date.now()}-${i}`,
+        x: centerX + (Math.random() - 0.5) * 40,
+        y: centerY + (Math.random() - 0.5) * 40,
+      }))
+      
+      setHearts(newHearts)
+      
+      // 清除愛心特效
+      setTimeout(() => {
+        setHearts([])
+      }, 2000)
     }
 
     try {
@@ -1350,8 +1384,8 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                 transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
                 animation: isMoving ? 'walk-bounce 0.4s ease-in-out infinite' : 'none',
               }}
-              onMouseEnter={() => setShowHandIcon(true)}
-              onMouseLeave={() => !isPetting && setShowHandIcon(false)}
+              onMouseEnter={() => setShowPetTooltip(true)}
+              onMouseLeave={() => !isPetting && setShowPetTooltip(false)}
               onClick={handlePetPet}
             >
               <div className="relative w-24 h-24 lg:w-32 lg:h-32">
@@ -1363,13 +1397,35 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                   priority
                   className="object-contain transition-transform duration-300"
                   style={{
-                    transform: petDirection === 'left' ? 'scaleX(-1)' : 'scaleX(1)',
+                    // 如果寵物預設朝左，往右走時要翻轉；如果預設朝右，往左走時要翻轉
+                    transform: (() => {
+                      if (!currentMoveDirection) {
+                        // 沒有移動時，不翻轉（顯示原始朝向）
+                        return 'scaleX(1)'
+                      }
+                      // 寵物預設朝左，往右走時翻轉
+                      if (petFacingDirection === 'left' && currentMoveDirection === 'right') {
+                        return 'scaleX(-1)'
+                      }
+                      // 寵物預設朝右，往左走時翻轉
+                      if (petFacingDirection === 'right' && currentMoveDirection === 'left') {
+                        return 'scaleX(-1)'
+                      }
+                      // 其他情況不翻轉
+                      return 'scaleX(1)'
+                    })(),
                   }}
                 />
                 {/* Accessories positioned relative to pet */}
                 {accessories.map((accessory) => {
                   // When pet flips, flip the X position as well
-                  const flippedPositionX = petDirection === 'left' ? 1 - accessory.positionX : accessory.positionX
+                  const shouldFlip = (() => {
+                    if (!currentMoveDirection) return false
+                    if (petFacingDirection === 'left' && currentMoveDirection === 'right') return true
+                    if (petFacingDirection === 'right' && currentMoveDirection === 'left') return true
+                    return false
+                  })()
+                  const flippedPositionX = shouldFlip ? 1 - accessory.positionX : accessory.positionX
                   return (
                     <div
                       key={accessory.id}
@@ -1378,7 +1434,12 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                         left: `${flippedPositionX * 100}%`,
                         top: `${accessory.positionY * 100}%`,
                         transform: `translate(-50%, -50%) rotate(${accessory.rotation}deg) scale(${accessory.scale}) ${
-                          petDirection === 'left' ? 'scaleX(-1)' : ''
+                          (() => {
+                            if (!currentMoveDirection) return ''
+                            if (petFacingDirection === 'left' && currentMoveDirection === 'right') return 'scaleX(-1)'
+                            if (petFacingDirection === 'right' && currentMoveDirection === 'left') return 'scaleX(-1)'
+                            return ''
+                          })()
                         }`,
                         zIndex: 10,
                       }}
@@ -1407,19 +1468,38 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                   </div>
                   )
                 })}
-                {/* Hand icon on hover - closer to pet */}
-                {showHandIcon && (
-                  <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 animate-bounce">
-                    <span className="text-3xl">👋</span>
-                  </div>
-                )}
-                {/* Petting animation - red heart to the left, not covering face */}
-                {isPetting && (
-                  <div className="absolute right-[-28px] top-12">
-                    <div className="text-4xl animate-pulse">❤️</div>
+                {/* Tooltip on hover */}
+                {showPetTooltip && !isPetting && (
+                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 z-50">
+                    <div className="bg-gray-800/80 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                      摸摸我
+                    </div>
+                    {/* Tooltip arrow */}
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2">
+                      <div className="w-0 h-0 border-l-[4px] border-r-[4px] border-t-[6px] border-transparent border-t-gray-800/80"></div>
+                    </div>
                   </div>
                 )}
               </div>
+            </div>
+          )}
+          
+          {/* Heart particles effect */}
+          {hearts.length > 0 && (
+            <div className="fixed inset-0 pointer-events-none z-50">
+              {hearts.map((heart) => (
+                <div
+                  key={heart.id}
+                  className="absolute animate-heart-float"
+                  style={{
+                    left: `${heart.x}px`,
+                    top: `${heart.y}px`,
+                    transform: 'translate(-50%, -50%)',
+                  }}
+                >
+                  <Heart className="h-5 w-5 text-red-500 fill-red-500" />
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -1433,7 +1513,15 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
         <div className="relative flex flex-col w-full min-h-[180px] border-2 border-black bg-white px-3 py-2">
           <h3 className="text-xs text-black/60 uppercase tracking-wide mb-2 sticky top-0 bg-white">Stickers</h3>
           {availableStickers.length === 0 && (
-            <p className="text-[10px] text-center text-black/40">尚無貼紙</p>
+            <div className="text-center py-4">
+              <p className="text-[10px] text-center text-black/40 mb-2">尚無貼紙</p>
+              <Link href="/shop">
+                <button className="inline-flex items-center gap-1 px-3 py-1 border-2 border-black hover:bg-black hover:text-white transition-colors text-[10px] font-semibold uppercase tracking-wide">
+                  <ShoppingCart className="h-3 w-3" />
+                  前往商店
+                </button>
+              </Link>
+            </div>
           )}
           <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-1">
             {availableStickers.map((sticker) => {
@@ -1508,9 +1596,17 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
               </p>
             </>
           ) : (
-            <p className="text-[11px] lg:text-[12px] text-center text-black/40 mt-6 uppercase tracking-wide">
-              尚無食物 — 前往商店購買！
-            </p>
+            <div className="text-center mt-6">
+              <p className="text-[11px] lg:text-[12px] text-black/40 uppercase tracking-wide mb-3">
+                尚無食物 — 前往商店購買！
+              </p>
+              <Link href="/shop">
+                <button className="inline-flex items-center gap-1.5 px-3 py-1.5 border-2 border-black hover:bg-black hover:text-white transition-colors text-[10px] lg:text-[11px] font-semibold uppercase tracking-wide">
+                  <ShoppingCart className="h-3 w-3 lg:h-3.5 lg:w-3.5" />
+                  前往商店
+                </button>
+              </Link>
+            </div>
           )}
         </div>
 
@@ -1557,9 +1653,17 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
               </p>
             </>
           ) : (
-            <p className="text-[11px] lg:text-[12px] text-center text-black/40 mt-6 uppercase tracking-wide">
-              尚無配件 — 前往商店購買！
-            </p>
+            <div className="text-center mt-6">
+              <p className="text-[11px] lg:text-[12px] text-black/40 uppercase tracking-wide mb-3">
+                尚無配件 — 前往商店購買！
+              </p>
+              <Link href="/shop">
+                <button className="inline-flex items-center gap-1.5 px-3 py-1.5 border-2 border-black hover:bg-black hover:text-white transition-colors text-[10px] lg:text-[11px] font-semibold uppercase tracking-wide">
+                  <ShoppingCart className="h-3 w-3 lg:h-3.5 lg:w-3.5" />
+                  前往商店
+                </button>
+              </Link>
+            </div>
           )}
         </div>
       </div>

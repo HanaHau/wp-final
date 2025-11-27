@@ -8,6 +8,7 @@ interface Pet {
   id: string
   name: string
   imageUrl: string | null
+  facingDirection?: string
   points: number
   fullness: number
   mood: number
