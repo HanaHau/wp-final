@@ -216,6 +216,200 @@
   .animate-smoke {
     animation: smoke 0.4s ease-out forwards;
   }
+
+  /* Food flying animation - food flies from inventory to pet */
+  @keyframes fly-to-pet {
+    0% {
+      transform: translate(0, 0) scale(1) rotate(0deg);
+      opacity: 1;
+    }
+    50% {
+      transform: translate(var(--target-x), var(--target-y)) scale(1.3) rotate(180deg);
+      opacity: 0.9;
+    }
+    100% {
+      transform: translate(var(--target-x), var(--target-y)) scale(0.2) rotate(360deg);
+      opacity: 0;
+    }
+  }
+
+  .animate-fly-to-pet {
+    animation: fly-to-pet 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  }
+
+  /* Pet eating animation */
+  @keyframes pet-eating {
+    0%, 100% {
+      transform: scale(1);
+    }
+    25% {
+      transform: scale(1.1) translateY(-5px);
+    }
+    50% {
+      transform: scale(0.95) translateY(2px);
+    }
+    75% {
+      transform: scale(1.05) translateY(-2px);
+    }
+  }
+
+  .animate-pet-eating {
+    animation: pet-eating 0.8s ease-in-out;
+  }
+
+  /* Pet happy animation (when clicked) */
+  @keyframes pet-happy {
+    0%, 100% {
+      transform: scale(1) rotate(0deg);
+    }
+    25% {
+      transform: scale(1.15) rotate(-5deg);
+    }
+    50% {
+      transform: scale(1.1) rotate(5deg);
+    }
+    75% {
+      transform: scale(1.12) rotate(-3deg);
+    }
+  }
+
+  .animate-pet-happy {
+    animation: pet-happy 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  /* Particle effect - hearts and stars floating up */
+  @keyframes particle-float {
+    0% {
+      transform: translate(0, 0) scale(1);
+      opacity: 1;
+    }
+    100% {
+      transform: translate(var(--particle-x), var(--particle-y)) scale(0.3);
+      opacity: 0;
+    }
+  }
+
+  .animate-particle-float {
+    animation: particle-float 1.5s ease-out forwards;
+  }
+
+  /* Place bounce animation for items */
+  @keyframes place-bounce {
+    0% {
+      transform: scale(0.5) translateY(20px);
+      opacity: 0;
+    }
+    60% {
+      transform: scale(1.15) translateY(-5px);
+      opacity: 1;
+    }
+    80% {
+      transform: scale(0.95) translateY(2px);
+    }
+    100% {
+      transform: scale(1) translateY(0);
+      opacity: 1;
+    }
+  }
+
+  .animate-place-bounce {
+    animation: place-bounce 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  /* Smooth drag animation */
+  @keyframes drag-glow {
+    0%, 100% {
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+    }
+    50% {
+      filter: drop-shadow(0 10px 25px rgba(0,0,0,0.4));
+    }
+  }
+
+  .animate-drag-glow {
+    animation: drag-glow 1s ease-in-out infinite;
+  }
+
+  /* Slow spin for drag preview */
+  @keyframes spin-slow {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .animate-spin-slow {
+    animation: spin-slow 3s linear infinite;
+  }
+
+  /* Walk bounce animation - subtle up and down movement while walking */
+  @keyframes walk-bounce {
+    0%, 100% {
+      transform: translate(-50%, -50%) translateY(0px);
+    }
+    50% {
+      transform: translate(-50%, -50%) translateY(-3px);
+    }
+  }
+
+  .animate-walk-bounce {
+    animation: walk-bounce 0.4s ease-in-out infinite;
+  }
+
+  /* Drawer slide animations */
+  @keyframes slide-in-right {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes slide-out-right {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(100%);
+    }
+  }
+
+  @keyframes slide-in-left {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes slide-out-left {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-100%);
+    }
+  }
+
+  .animate-slide-in-right {
+    animation: slide-in-right 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  .animate-slide-out-right {
+    animation: slide-out-right 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  .animate-slide-in-left {
+    animation: slide-in-left 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  .animate-slide-out-left {
+    animation: slide-out-left 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
   
 }
 

@@ -4,8 +4,7 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Navigation from '@/components/dashboard/Navigation'
-import { ArrowLeft, ShoppingBag, Plus } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { ShoppingBag, Plus } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { SHOP_ITEMS, ShopItem } from '@/data/shop-items'
 import CustomStickerDialog from './CustomStickerDialog'
@@ -16,7 +15,6 @@ interface Pet {
 }
 
 export default function ShopContent() {
-  const router = useRouter()
   const { data: session } = useSession()
   const [pet, setPet] = useState<Pet | null>(null)
   const [loading, setLoading] = useState(true)
@@ -177,14 +175,6 @@ export default function ShopContent() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold uppercase tracking-wide">Shop</h1>
-          <Button
-            variant="outline"
-            onClick={() => router.push('/pet')}
-            className="border-2 border-black"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
         </div>
 
         {/* Points Display */}

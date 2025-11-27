@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import Image from 'next/image'
-import { X, Edit3, Package } from 'lucide-react'
+import { X, Edit3 } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
 import { SHOP_ITEM_MAP } from '@/data/shop-items'
 import EditPanel from './EditPanel'
@@ -69,6 +69,8 @@ interface RoomProps {
   foodItems?: FoodItem[]
   accessories?: PetAccessory[]
   availableAccessories?: AvailableAccessory[]
+  showEditPanel?: boolean
+  onEditPanelChange?: (open: boolean) => void
   onStickerPlaced?: () => void
   onPetFed?: () => void
   onAccessoryPlaced?: () => void
@@ -96,7 +98,7 @@ const STICKER_TYPES: Record<string, { emoji: string; name: string }> = {
   ...SHOP_STICKERS,
 }
 
-export default function Room({ pet, stickers = [], availableStickers = [], foodItems = [], accessories = [], availableAccessories = [], onStickerPlaced, onPetFed, onAccessoryPlaced }: RoomProps) {
+export default function Room({ pet, stickers = [], availableStickers = [], foodItems = [], accessories = [], availableAccessories = [], showEditPanel: externalShowEditPanel, onEditPanelChange, onStickerPlaced, onPetFed, onAccessoryPlaced }: RoomProps) {
   const [hoveredStickerId, setHoveredStickerId] = useState<string | null>(null)
   const { toast } = useToast()
   const [placingStickers, setPlacingStickers] = useState<Set<string>>(new Set())
@@ -105,9 +107,17 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
   const [petPosition, setPetPosition] = useState({ x: 0.5, y: 0.75 })
   const [isPetting, setIsPetting] = useState(false)
   const [showHandIcon, setShowHandIcon] = useState(false)
+  const [isMoving, setIsMoving] = useState(false)
+  const [petDirection, setPetDirection] = useState<'left' | 'right'>('right')
   const pettingTimeout = useRef<NodeJS.Timeout | null>(null)
+  const moveIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const currentTargetRef = useRef({ x: 0.5, y: 0.75 })
+  const petImageRef = useRef<HTMLDivElement>(null)
+  const recentDirectionsRef = useRef<('left' | 'right')[]>([])
   const [editMode, setEditMode] = useState(false)
-  const [showEditPanel, setShowEditPanel] = useState(false)
+  const [internalShowEditPanel, setInternalShowEditPanel] = useState(false)
+  const showEditPanel = externalShowEditPanel !== undefined ? externalShowEditPanel : internalShowEditPanel
+  const setShowEditPanel = onEditPanelChange || setInternalShowEditPanel
   const [selectedItem, setSelectedItem] = useState<{ type: 'sticker' | 'accessory'; id: string } | null>(null)
   const [selectedItemPosition, setSelectedItemPosition] = useState<{ x: number; y: number } | null>(null)
   const [placingItem, setPlacingItem] = useState<{ type: 'sticker' | 'accessory'; id: string } | null>(null)
@@ -118,28 +128,222 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
   const isProcessingDrop = useRef(false)
   const draggingStickerIdRef = useRef<string | null>(null)
   const roomRef = useRef<HTMLDivElement>(null)
+  const [justPlaced, setJustPlaced] = useState<string | null>(null)
 
-  // Make pet move randomly in the bottom trapezoid (floor area) with more natural movement
+  // Optimized pet movement with smooth transitions and natural behavior
   useEffect(() => {
     if (!pet) return
 
-    const movePet = () => {
-      // Bottom trapezoid bounds (floor area)
-      // X: 0.2 to 0.8 (within the room width)
-      // Y: 0.65 to 0.9 (bottom area - floor)
-      const newX = 0.2 + Math.random() * 0.6 // 0.2 to 0.8
-      const newY = 0.65 + Math.random() * 0.25 // 0.65 to 0.9
-      setPetPosition({ x: newX, y: newY })
+    // Calculate wait time between movements based on pet state
+    const getWaitTime = () => {
+      const baseWait = 3000 // 3 seconds base wait
+      const moodFactor = pet.mood ? pet.mood / 100 : 0.5
+      // Happier pets move more frequently (2-5 seconds)
+      const waitVariation = 2000
+      return baseWait + (1 - moodFactor) * waitVariation + Math.random() * 1000
     }
 
-    // Move immediately, then every 4-7 seconds (more natural pace)
-    movePet()
-    const interval = setInterval(() => {
-      movePet()
-    }, 4000 + Math.random() * 3000)
+    // Generate a new target position with wandering behavior
+    // Uses the same room bounds as stickers to ensure pet stays inside the irregular room shape
+    const generateTargetPosition = () => {
+      const currentX = currentTargetRef.current.x
+      const currentY = currentTargetRef.current.y
+      
+      // Room bounds: Same as sticker validation
+      // SVG viewBox is 0-800 x 0-600, but room rectangle is at:
+      // x: 50-750 (0.0625 to 0.9375 in normalized coordinates)
+      // y: 50-550 (0.083 to 0.917 in normalized coordinates)
+      const roomMinX = 50 / 800  // 0.0625
+      const roomMaxX = 750 / 800  // 0.9375
+      const roomMinY = 50 / 600  // 0.083
+      const roomMaxY = 550 / 600  // 0.917
+      
+      // Get actual pet image dimensions to ensure edges don't go outside room
+      if (!roomRef.current || !petImageRef.current) {
+        // Fallback: use room bounds with conservative pet size estimate
+        const estimatedPetSize = 128 // pixels
+        const roomRect = roomRef.current?.getBoundingClientRect()
+        if (roomRect) {
+          const petSizeRatio = estimatedPetSize / Math.max(roomRect.width, roomRect.height)
+          const minX = roomMinX + petSizeRatio / 2
+          const maxX = roomMaxX - petSizeRatio / 2
+          const minY = roomMinY + petSizeRatio / 2
+          const maxY = roomMaxY - petSizeRatio / 2
+          
+          // Constrain to floor area (bottom part of room)
+          const floorMinY = 0.65
+          const finalMinY = Math.max(minY, floorMinY)
+          const finalMaxY = Math.min(maxY, roomMaxY)
+          
+          // Reduce movement distance: 2-5% of the area
+          const distance = 0.02 + Math.random() * 0.03
+          const angle = Math.random() * Math.PI * 2
+          let newX = currentX + Math.cos(angle) * distance
+          let newY = currentY + Math.sin(angle) * distance
+          newX = Math.max(minX, Math.min(maxX, newX))
+          newY = Math.max(finalMinY, Math.min(finalMaxY, newY))
+          
+          // Track movement direction
+          const movedLeft = newX < currentX
+          const movedRight = newX > currentX
+          if (movedLeft || movedRight) {
+            recentDirectionsRef.current = [
+              ...recentDirectionsRef.current.slice(-2),
+              movedLeft ? 'left' : 'right'
+            ]
+          }
+          
+          return { x: newX, y: newY }
+        }
+        // Ultimate fallback
+        return { x: Math.max(roomMinX, Math.min(roomMaxX, currentX)), y: Math.max(roomMinY, Math.min(roomMaxY, currentY)) }
+      }
+      
+      const roomRect = roomRef.current.getBoundingClientRect()
+      const petRect = petImageRef.current.getBoundingClientRect()
+      
+      const roomWidth = roomRect.width
+      const roomHeight = roomRect.height
+      const petWidth = petRect.width
+      const petHeight = petRect.height
+      
+      // Calculate normalized pet size (as ratio of room dimensions)
+      const petWidthRatio = petWidth / roomWidth
+      const petHeightRatio = petHeight / roomHeight
+      
+      // Calculate bounds considering pet image size
+      // Since we use translate(-50%, -50%), the position is the center of the pet
+      // We need to ensure the pet's edges don't go outside the room bounds
+      const minX = roomMinX + petWidthRatio / 2  // Left edge: pet center must be at least petWidth/2 from room left edge
+      const maxX = roomMaxX - petWidthRatio / 2  // Right edge: pet center must be at most roomMaxX - petWidth/2
+      const minY = roomMinY + petHeightRatio / 2  // Top edge: pet center must be at least petHeight/2 from room top edge
+      const maxY = roomMaxY - petHeightRatio / 2  // Bottom edge: pet center must be at most roomMaxY - petHeight/2
+      
+      // Further constrain to floor area (bottom part of room where pet should be)
+      const floorMinX = 0.2
+      const floorMaxX = 0.8
+      const floorMinY = 0.65
+      
+      // Use the more restrictive bounds (intersection of image bounds, room bounds, and floor area)
+      const finalMinX = Math.max(minX, floorMinX)
+      const finalMaxX = Math.min(maxX, floorMaxX)
+      const finalMinY = Math.max(minY, floorMinY)
+      const finalMaxY = maxY  // Use roomMaxY (already accounts for pet height)
+      
+      // Wandering behavior: move in a direction with some randomness
+      // This creates more natural wandering instead of teleporting
+      
+      // Check if pet has been stuck on one side (last 3 moves in same direction)
+      const recentDirections = recentDirectionsRef.current
+      const isStuckOnLeft = recentDirections.length >= 3 && recentDirections.every(d => d === 'left')
+      const isStuckOnRight = recentDirections.length >= 3 && recentDirections.every(d => d === 'right')
+      
+      // If stuck, bias movement towards the opposite side
+      let angle: number
+      if (isStuckOnLeft) {
+        // Force movement towards right (0 to PI/2 or 3PI/2 to 2PI)
+        const rightAngle = Math.random() < 0.5 
+          ? Math.random() * Math.PI / 2  // 0 to 90 degrees
+          : Math.PI * 1.5 + Math.random() * Math.PI / 2  // 270 to 360 degrees
+        angle = rightAngle
+      } else if (isStuckOnRight) {
+        // Force movement towards left (PI/2 to 3PI/2)
+        angle = Math.PI / 2 + Math.random() * Math.PI  // 90 to 270 degrees
+      } else {
+        // Normal random movement
+        angle = Math.random() * Math.PI * 2
+      }
+      
+      // Reduce movement distance: 2-5% of the area (much smaller steps)
+      const distance = 0.02 + Math.random() * 0.03 // Move 2-5% of the area
+      
+      let newX = currentX + Math.cos(angle) * distance
+      let newY = currentY + Math.sin(angle) * distance
+      
+      // Clamp to bounds (ensuring pet image doesn't go outside room)
+      newX = Math.max(finalMinX, Math.min(finalMaxX, newX))
+      newY = Math.max(finalMinY, Math.min(finalMaxY, newY))
+      
+      // Track movement direction for stuck detection
+      const movedLeft = newX < currentX
+      const movedRight = newX > currentX
+      if (movedLeft || movedRight) {
+        recentDirectionsRef.current = [
+          ...recentDirectionsRef.current.slice(-2), // Keep last 2
+          movedLeft ? 'left' : 'right'
+        ]
+      }
+      
+      return { x: newX, y: newY }
+    }
 
-    return () => clearInterval(interval)
+    // Smooth movement function
+    const movePet = () => {
+      const target = generateTargetPosition()
+      const currentPos = currentTargetRef.current
+      
+      // Determine direction based on movement
+      const isMovingLeft = target.x < currentPos.x
+      setPetDirection(isMovingLeft ? 'left' : 'right')
+      
+      // Set moving state for walk animation
+      setIsMoving(true)
+      currentTargetRef.current = target
+      
+      // Update position - CSS transition will handle smooth movement
+      setPetPosition(target)
+      
+      // Calculate movement duration based on distance
+      const distance = Math.sqrt(
+        Math.pow(target.x - currentPos.x, 2) + Math.pow(target.y - currentPos.y, 2)
+      )
+      const duration = 1500 + distance * 1000 // 1.5-2.5 seconds based on distance
+      
+      // Stop moving animation after movement completes
+      setTimeout(() => {
+        setIsMoving(false)
+      }, duration)
+    }
+
+    // Initialize position
+    const initialPos = generateTargetPosition()
+    currentTargetRef.current = initialPos
+    setPetPosition(initialPos)
+
+    // Start movement cycle
+    const scheduleNextMove = () => {
+      if (moveIntervalRef.current) {
+        clearTimeout(moveIntervalRef.current)
+      }
+      
+      moveIntervalRef.current = setTimeout(() => {
+        movePet()
+        scheduleNextMove()
+      }, getWaitTime())
+    }
+
+    // Start the movement cycle after initial delay
+    const initialDelay = 1000 + Math.random() * 2000
+    moveIntervalRef.current = setTimeout(() => {
+      scheduleNextMove()
+    }, initialDelay)
+
+    return () => {
+      if (moveIntervalRef.current) {
+        clearTimeout(moveIntervalRef.current)
+      }
+    }
   }, [pet])
+
+  // 當打開倉庫時自動進入編輯模式
+  useEffect(() => {
+    if (showEditPanel) {
+      setEditMode(true)
+    } else {
+      setEditMode(false)
+      setSelectedItem(null)
+    }
+  }, [showEditPanel])
 
   // React to dragging items - pet shows interest
   useEffect(() => {
@@ -296,8 +500,8 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
     setPlacingItem({ type, id })
     // 不關閉倉庫，保持打開狀態
     toast({
-      title: '選取物品',
-      description: '點擊房間中的位置來放置',
+      title: 'Item Selected',
+      description: 'Click on the room to place',
     })
   }, [toast])
 
@@ -588,6 +792,13 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
         throw new Error(error.error || '無法放置貼紙')
       }
 
+      const data = await res.json()
+      // Trigger place bounce animation for newly placed sticker
+      if (data.id) {
+        setJustPlaced(data.id)
+        setTimeout(() => setJustPlaced(null), 600)
+      }
+      
       toast({
         title: '貼紙已放置！',
         description: '成功添加裝飾到房間',
@@ -677,34 +888,15 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
 
   return (
     <div className="relative w-full h-full flex flex-col lg:flex-row items-start gap-4 min-h-[400px] mt-4 px-2 lg:px-0">
-      {/* Edit mode button - opens warehouse panel */}
-      <button
-        onClick={() => {
-          setShowEditPanel(!showEditPanel)
-          if (!showEditPanel) {
-            // 打開倉庫時自動進入編輯模式
-            setEditMode(true)
-          }
-          setSelectedItem(null)
-        }}
-        className={`fixed top-20 right-4 z-50 border-2 border-black p-2 lg:p-3 transition-all shadow-lg ${
-          showEditPanel 
-            ? 'bg-black text-white animate-pulse' 
-            : 'bg-white text-black hover:bg-black hover:text-white'
-        }`}
-        aria-label="開啟倉庫"
-        title={showEditPanel ? '倉庫 (點擊關閉)' : '開啟倉庫'}
-      >
-        <Package className="h-4 w-4 lg:h-5 lg:w-5" />
-      </button>
-
-
       {/* Warehouse/Edit Panel */}
       <EditPanel
         isOpen={showEditPanel}
         onClose={() => {
           // 關閉倉庫時同時退出編輯模式
           setShowEditPanel(false)
+          if (onEditPanelChange) {
+            onEditPanelChange(false)
+          }
           setEditMode(false)
           setSelectedItem(null)
         }}
@@ -736,11 +928,13 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
         const display = getStickerDisplay(draggedSticker)
         return (
           <div
-            className="fixed pointer-events-none z-[9999] opacity-90"
+            className="fixed pointer-events-none z-[9999] opacity-90 animate-drag-glow"
             style={{
               left: `${dragPosition.x}px`,
               top: `${dragPosition.y}px`,
-              transform: `translate(-50%, -50%) rotate(${draggedSticker.rotation}deg) scale(${draggedSticker.scale * 1.25})`,
+              transform: `translate(-50%, -50%) rotate(${draggedSticker.rotation}deg) scale(${draggedSticker.scale * 1.3})`,
+              filter: 'drop-shadow(0 15px 30px rgba(0,0,0,0.5))',
+              transition: 'transform 0.1s ease-out',
             }}
           >
             {display.type === 'image' && !failedImages.has(draggedSticker.id) ? (
@@ -941,7 +1135,10 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                             y: newScreenY,
                           })
                         }
-                        toast({ title: '物品已移動' })
+                        toast({ 
+                          title: 'Item Moved',
+                          duration: 3000,
+                        })
                       } else {
                         // 移動失敗，清理拖曳狀態並刷新以恢復原位置
                         isProcessingDrop.current = false
@@ -1026,7 +1223,9 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                   data-sticker-id={sticker.id}
                   className={`absolute select-none ${editMode ? 'cursor-move' : ''} ${
                     isSelected ? 'ring-2 ring-dashed ring-black animate-pulse z-50' : ''
-                  } ${isDragging && isActuallyDragging ? 'opacity-0' : ''}`}
+                  } ${isDragging && isActuallyDragging ? 'opacity-0' : ''} ${
+                    justPlaced === sticker.id ? 'animate-place-bounce' : ''
+                  } ${isDragging ? 'animate-drag-glow' : ''}`}
                   style={{
                     left: `${sticker.positionX * 100}%`,
                     top: `${sticker.positionY * 100}%`,
@@ -1034,7 +1233,14 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                     zIndex: isDragging && isActuallyDragging ? -1 : (isSelected ? 100 : 1 + globalIndex),
                     userSelect: 'none',
                     WebkitUserSelect: 'none',
-                    transition: isDragging && isActuallyDragging ? 'none' : 'none', // 移除 transition，直接出現
+                    transition: isDragging && isActuallyDragging 
+                      ? 'none' 
+                      : justPlaced === sticker.id
+                      ? 'none' // Animation handles the transition
+                      : 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    filter: isDragging 
+                      ? 'drop-shadow(0 10px 25px rgba(0,0,0,0.4))' 
+                      : 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))',
                   }}
                   onClick={(e) => {
                     if (editMode && !isDragging) {
@@ -1132,13 +1338,17 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
           {/* Pet on floor - randomly positioned in bottom trapezoid */}
           {pet && (
             <div
-              className={`absolute transition-all duration-[3000ms] ease-in-out cursor-pointer ${draggingItem ? 'scale-105' : 'scale-100'}`}
+              ref={petImageRef}
+              className={`absolute transition-all ease-in-out cursor-pointer ${draggingItem ? 'scale-105' : 'scale-100'}`}
               style={{
                 left: `${petPosition.x * 100}%`,
                 top: `${petPosition.y * 100}%`,
-                transform: 'translate(-50%, -50%)',
+                transform: `translate(-50%, -50%)`,
                 zIndex: 50,
-                transitionProperty: 'left, top, transform',
+                transitionProperty: 'left, top',
+                transitionDuration: pet?.mood && pet.mood > 70 ? '1.8s' : '2.5s',
+                transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
+                animation: isMoving ? 'walk-bounce 0.4s ease-in-out infinite' : 'none',
               }}
               onMouseEnter={() => setShowHandIcon(true)}
               onMouseLeave={() => !isPetting && setShowHandIcon(false)}
@@ -1146,25 +1356,33 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
             >
               <div className="relative w-24 h-24 lg:w-32 lg:h-32">
                 <Image
-                  src={pet.imageUrl || '/cat.jpg'}
+                  src={pet.imageUrl || '/cat.png'}
                   alt={pet.name}
                   fill
                   sizes="(max-width: 768px) 96px, 128px"
                   priority
                   className="object-contain transition-transform duration-300"
+                  style={{
+                    transform: petDirection === 'left' ? 'scaleX(-1)' : 'scaleX(1)',
+                  }}
                 />
                 {/* Accessories positioned relative to pet */}
-                {accessories.map((accessory) => (
-                  <div
-                    key={accessory.id}
-                    className="absolute"
-                    style={{
-                      left: `${accessory.positionX * 100}%`,
-                      top: `${accessory.positionY * 100}%`,
-                      transform: `translate(-50%, -50%) rotate(${accessory.rotation}deg) scale(${accessory.scale})`,
-                      zIndex: 10,
-                    }}
-                  >
+                {accessories.map((accessory) => {
+                  // When pet flips, flip the X position as well
+                  const flippedPositionX = petDirection === 'left' ? 1 - accessory.positionX : accessory.positionX
+                  return (
+                    <div
+                      key={accessory.id}
+                      className="absolute"
+                      style={{
+                        left: `${flippedPositionX * 100}%`,
+                        top: `${accessory.positionY * 100}%`,
+                        transform: `translate(-50%, -50%) rotate(${accessory.rotation}deg) scale(${accessory.scale}) ${
+                          petDirection === 'left' ? 'scaleX(-1)' : ''
+                        }`,
+                        zIndex: 10,
+                      }}
+                    >
                     {accessory.imageUrl && !failedImages.has(accessory.id) ? (
                       <img
                         src={accessory.imageUrl}
@@ -1187,7 +1405,8 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                       </span>
                     )}
                   </div>
-                ))}
+                  )
+                })}
                 {/* Hand icon on hover - closer to pet */}
                 {showHandIcon && (
                   <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 animate-bounce">

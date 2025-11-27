@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, useRef } from 'react'
 import Navigation from '@/components/dashboard/Navigation'
-import Room from './Room'
-import PetInteraction from './PetInteraction'
-import { ArrowLeft } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
+import FeedPanel from './FeedPanel'
+import DecorPanel from './DecorPanel'
+import PetStatusHUD from './PetStatusHUD'
+import PetActionBar from './PetActionBar'
 
 interface Pet {
   id: string
@@ -63,7 +63,6 @@ interface AvailableAccessory {
 }
 
 export default function PetRoomContent() {
-  const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [pet, setPet] = useState<Pet | null>(null)
@@ -73,7 +72,29 @@ export default function PetRoomContent() {
   const [accessories, setAccessories] = useState<PetAccessory[]>([])
   const [availableAccessories, setAvailableAccessories] = useState<AvailableAccessory[]>([])
   const [refreshKey, setRefreshKey] = useState(0)
-  const [activeTab, setActiveTab] = useState<'food' | 'accessories'>('food')
+  
+  // Panel states
+  const [showFeedPanel, setShowFeedPanel] = useState(false)
+  const [showDecorPanel, setShowDecorPanel] = useState(false)
+  
+  // Animation states
+  const [feedingAnimation, setFeedingAnimation] = useState<{
+    active: boolean
+    emoji: string
+    from: { x: number; y: number }
+    to: { x: number; y: number }
+  } | null>(null)
+  const [petState, setPetState] = useState<'idle' | 'happy' | 'eating'>('idle')
+  const [particles, setParticles] = useState<Array<{
+    id: string
+    emoji: string
+    x: number
+    y: number
+    vx: number
+    vy: number
+    life: number
+  }>>([])
+  const petImageRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetchAllData()
@@ -170,8 +191,8 @@ export default function PetRoomContent() {
     } catch (error) {
       console.error('Failed to fetch data:', error)
       toast({
-        title: '載入失敗',
-        description: '無法載入寵物資料',
+        title: 'Failed to Load',
+        description: 'Unable to load pet data',
         variant: 'destructive',
       })
     } finally {
@@ -195,8 +216,204 @@ export default function PetRoomContent() {
     return emojiMap[itemId] || '⬛'
   }
 
-  const handleUpdate = () => {
-    setRefreshKey(prev => prev + 1)
+  // Show particle effect
+  const showParticleEffect = (emoji: string, count: number) => {
+    if (!petImageRef.current) return
+    
+    const rect = petImageRef.current.getBoundingClientRect()
+    const centerX = rect.left + rect.width / 2
+    const centerY = rect.top + rect.height / 2
+    
+    const newParticles = Array.from({ length: count }, (_, i) => {
+      const angle = (Math.PI * 2 * i) / count
+      const speed = 2 + Math.random() * 2
+      return {
+        id: `particle-${Date.now()}-${i}`,
+        emoji,
+        x: centerX + (Math.random() - 0.5) * 40,
+        y: centerY + (Math.random() - 0.5) * 40,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 2,
+        life: 1.0
+      }
+    })
+    
+    setParticles(prev => [...prev, ...newParticles])
+    
+    // Animate particles
+    const animate = () => {
+      setParticles(prev => {
+        const updated = prev.map(p => ({
+          ...p,
+          x: p.x + p.vx,
+          y: p.y + p.vy,
+          life: p.life - 0.015,
+          vy: p.vy + 0.15 // gravity
+        })).filter(p => p.life > 0)
+        
+        if (updated.length > 0) {
+          requestAnimationFrame(animate)
+        }
+        return updated
+      })
+    }
+    
+    requestAnimationFrame(animate)
+  }
+
+  // Handle pet click
+  const handlePetClick = () => {
+    setPetState('happy')
+    showParticleEffect('❤️', 3)
+    setTimeout(() => setPetState('idle'), 600)
+  }
+
+  // Handle feed pet
+  const handleFeedPet = async (itemId: string) => {
+    const food = foodItems.find(f => f.itemId === itemId)
+    if (!food || !petImageRef.current) return
+
+    // Get panel and pet positions for animation
+    const panelElement = document.querySelector('[data-feed-panel]') as HTMLElement
+    const petRect = petImageRef.current.getBoundingClientRect()
+    
+    const fromX = panelElement 
+      ? panelElement.getBoundingClientRect().left + panelElement.getBoundingClientRect().width / 2
+      : 200
+    const fromY = panelElement
+      ? panelElement.getBoundingClientRect().top + panelElement.getBoundingClientRect().height / 2
+      : 200
+    
+    const toX = petRect.left + petRect.width / 2
+    const toY = petRect.top + petRect.height / 2
+
+    // Start feeding animation
+    setFeedingAnimation({
+      active: true,
+      emoji: food.emoji,
+      from: { x: fromX, y: fromY },
+      to: { x: toX, y: toY }
+    })
+
+    // Set pet to eating state
+    setPetState('eating')
+
+    try {
+      const res = await fetch('/api/pet/feed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemId }),
+      })
+      if (!res.ok) throw new Error('Failed to feed')
+      const data = await res.json()
+      
+      // Show success effects
+      setTimeout(() => {
+        showParticleEffect('❤️', 5)
+        showParticleEffect('⭐', 3)
+      }, 600)
+      
+      toast({
+        title: '餵食成功！',
+        description: `飽食度 +${data.fullnessGain}`,
+      })
+      
+      // Reset states
+      setTimeout(() => {
+        setFeedingAnimation(null)
+        setPetState('idle')
+      }, 1200)
+      
+      // Update pet data without triggering full refresh
+      setTimeout(async () => {
+        try {
+          const petRes = await fetch('/api/pet')
+          const petData = await petRes.json()
+          setPet(petData)
+          
+          // Update food items count
+          const purchases = petData.purchases || []
+          const foodPurchases = purchases.filter((p: any) => 
+            p.itemId.startsWith('food') || p.itemId === 'water'
+          )
+          
+          const foodMap = new Map<string, FoodItem>()
+          foodPurchases.forEach((p: any) => {
+            const existing = foodMap.get(p.itemId)
+            if (existing) {
+              existing.count += p.quantity
+            } else {
+              foodMap.set(p.itemId, {
+                itemId: p.itemId,
+                name: p.itemName,
+                emoji: getItemEmoji(p.itemId),
+                count: p.quantity,
+              })
+            }
+          })
+          setFoodItems(Array.from(foodMap.values()))
+        } catch (error) {
+          console.error('Failed to update pet data:', error)
+        }
+      }, 1300)
+    } catch (error: any) {
+      setFeedingAnimation(null)
+      setPetState('idle')
+      toast({
+        title: '餵食失敗',
+        description: error.message,
+        variant: 'destructive',
+      })
+    }
+  }
+
+  // Handle accessory drop
+  const handleAccessoryDrop = async (accessoryId: string, positionX: number, positionY: number) => {
+    try {
+      const res = await fetch('/api/pet/accessories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accessoryId,
+          positionX,
+          positionY,
+          rotation: 0,
+          scale: 1,
+        }),
+      })
+
+      if (!res.ok) throw new Error('Failed to equip')
+      toast({
+        title: '裝備成功！',
+        description: '成功為寵物添加配件',
+      })
+      showParticleEffect('✨', 4)
+      setRefreshKey(prev => prev + 1)
+    } catch (error: any) {
+      toast({
+        title: '裝備失敗',
+        description: error.message,
+        variant: 'destructive',
+      })
+    }
+  }
+
+  // Handle accessory delete
+  const handleAccessoryDelete = async (accessoryId: string) => {
+    try {
+      const res = await fetch(`/api/pet/accessories/${accessoryId}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) throw new Error('Failed to remove accessory')
+      toast({ title: '已移除配件' })
+      setRefreshKey(prev => prev + 1)
+    } catch (error: any) {
+      toast({
+        title: '移除失敗',
+        description: error.message,
+        variant: 'destructive',
+      })
+    }
   }
 
   if (loading || !pet) {
@@ -211,290 +428,196 @@ export default function PetRoomContent() {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-20">
-      <Navigation />
+    <div className="h-screen bg-white flex flex-col overflow-hidden relative pb-20">
+      {/* Background layer - above navbar but below content */}
+      <div 
+        className="fixed top-0 left-0 right-0 bottom-20 bg-cover bg-center bg-no-repeat z-40"
+        style={{
+          backgroundImage: 'url(/pet_background.png)',
+        }}
+      />
       
-      {/* Header */}
-      <div className="border-b-2 border-black bg-white sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="flex items-center gap-2 text-sm uppercase tracking-wide hover:underline"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            返回
-          </button>
-          <h1 className="text-xl lg:text-2xl font-bold uppercase tracking-wide">
-            我的寵物
-          </h1>
-          <div className="w-16" />
-        </div>
-        
-        {/* Pet Stats */}
-        <div className="max-w-7xl mx-auto px-4 py-3 border-t-2 border-black bg-gray-50">
-          <div className="flex flex-wrap items-center gap-4">
-            {/* Points */}
-            <div className="bg-white border-2 border-black px-3 py-2">
-              <div className="text-xs text-black/60 uppercase tracking-wide">Points</div>
-              <div className="text-lg font-bold text-black">{pet.points || 0}</div>
-            </div>
-            
-            {/* Mood */}
-            <div className="bg-white border-2 border-black px-3 py-2 min-w-[120px]">
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs text-black/60 uppercase tracking-wide">Mood</span>
-                <span className="text-sm font-bold text-black">{Math.min(pet.mood || 0, 100)}%</span>
-              </div>
-              <div className="relative w-full h-3 border-2 border-black overflow-hidden">
-                <div
-                  className="absolute inset-y-0 left-0 h-full transition-[width] duration-500"
-                  style={{
-                    width: `${Math.min(pet.mood || 0, 100)}%`,
-                    backgroundColor: '#0f172a',
-                  }}
-                />
-              </div>
-            </div>
-            
-            {/* Fullness */}
-            <div className="bg-white border-2 border-black px-3 py-2 min-w-[120px]">
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs text-black/60 uppercase tracking-wide">Fullness</span>
-                <span className="text-sm font-bold text-black">{Math.min(pet.fullness || 0, 100)}%</span>
-              </div>
-              <div className="relative w-full h-3 border-2 border-black overflow-hidden">
-                <div
-                  className="absolute inset-y-0 left-0 h-full transition-[width] duration-500"
-                  style={{
-                    width: `${Math.min(pet.fullness || 0, 100)}%`,
-                    backgroundColor: '#0f172a',
-                  }}
-                />
-              </div>
-            </div>
-            
-            {/* Health */}
-            <div className="bg-white border-2 border-black px-3 py-2 min-w-[120px]">
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs text-black/60 uppercase tracking-wide">Health</span>
-                <span className="text-sm font-bold text-black">{Math.min(pet.health || 0, 100)}%</span>
-              </div>
-              <div className="relative w-full h-3 border-2 border-black overflow-hidden">
-                <div
-                  className="absolute inset-y-0 left-0 h-full transition-[width] duration-500"
-                  style={{
-                    width: `${Math.min(pet.health || 0, 100)}%`,
-                    backgroundColor: '#0f172a',
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content - Pet Display Area */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-gradient-to-b from-gray-50 to-white">
-        <div className="relative w-64 h-64 lg:w-80 lg:h-80">
-          {/* Pet Image */}
-          <img
-            src={pet.imageUrl || '/cat.jpg'}
-            alt={pet.name}
-            className="w-full h-full object-contain"
+      {/* Main Content with Container */}
+      <div className="flex-1 overflow-hidden max-w-7xl mx-auto w-full px-4 pt-4 pb-24 flex flex-col relative z-50">
+        {/* Status HUD */}
+        <div className="mb-6 mt-16 flex justify-center flex-shrink-0">
+          <PetStatusHUD
+            mood={pet.mood}
+            fullness={pet.fullness}
+            health={pet.health}
           />
-          
-          {/* Accessories positioned relative to pet */}
-          {accessories.map((accessory) => (
+        </div>
+
+        {/* Pet Display Container - Vertical Portrait Style */}
+        <div className="flex-1 flex items-center justify-center min-h-0 mb-6">
+          <div className="relative w-full max-w-md h-full flex items-center justify-center">
+            {/* Pet container - aligned to circle in background, positioned lower */}
             <div
-              key={accessory.id}
-              className="absolute cursor-pointer hover:scale-110 transition-transform group"
+              ref={petImageRef}
+              className="relative w-[350px] h-[350px] max-w-[350px] max-h-[350px] min-w-[250px] min-h-[250px] flex items-center justify-center translate-y-8"
               style={{
-                left: `${accessory.positionX * 100}%`,
-                top: `${accessory.positionY * 100}%`,
-                transform: `translate(-50%, -50%) rotate(${accessory.rotation}deg) scale(${accessory.scale})`,
-                zIndex: 10,
+                width: 'clamp(250px, 70%, 350px)',
+                height: 'clamp(250px, 70%, 350px)',
               }}
-              onClick={async () => {
+              onDragOver={(e) => {
+                e.preventDefault()
+                e.dataTransfer.dropEffect = 'copy'
+              }}
+              onDrop={async (e) => {
+                e.preventDefault()
+                const data = e.dataTransfer.getData('application/json')
+                if (!data) return
+
                 try {
-                  const res = await fetch(`/api/pet/accessories/${accessory.id}`, {
-                    method: 'DELETE',
-                  })
-                  if (!res.ok) throw new Error('移除配件失敗')
-                  toast({ title: '配件已移除' })
-                  setRefreshKey(prev => prev + 1)
+                  const parsed = JSON.parse(data)
+                  if (parsed.type === 'accessory' && parsed.accessoryId) {
+                    const rect = e.currentTarget.getBoundingClientRect()
+                    const positionX = (e.clientX - rect.left) / rect.width
+                    const positionY = (e.clientY - rect.top) / rect.height
+
+                    const clampedX = Math.min(Math.max(positionX, 0), 1)
+                    const clampedY = Math.min(Math.max(positionY, 0), 1)
+
+                    await handleAccessoryDrop(parsed.accessoryId, clampedX, clampedY)
+                  }
                 } catch (error: any) {
                   toast({
-                    title: '移除失敗',
+                    title: '裝備失敗',
                     description: error.message,
                     variant: 'destructive',
                   })
                 }
               }}
-              title="點擊移除配件"
             >
-              {accessory.imageUrl ? (
+                {/* Pet Image */}
                 <img
-                  src={accessory.imageUrl}
-                  alt="Accessory"
-                  className="max-w-[32px] max-h-[32px] lg:max-w-[48px] lg:max-h-[48px] object-contain"
+                  src={pet.imageUrl || '/cat.png'}
+                  alt={pet.name}
+                  className={`w-full h-full object-contain cursor-pointer transition-all duration-300 ${
+                    petState === 'happy' ? 'animate-pet-happy' :
+                    petState === 'eating' ? 'animate-pet-eating' :
+                    'hover:scale-105'
+                  }`}
+                  style={{ 
+                    maxWidth: '100%',
+                    maxHeight: '100%',
+                    objectFit: 'contain'
+                  }}
+                  onClick={handlePetClick}
                 />
-              ) : (
-                <span className="text-2xl lg:text-3xl">
-                  {getItemEmoji(accessory.accessoryId)}
-                </span>
-              )}
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-full flex items-center justify-center">
-                <span className="text-white text-xs">✕</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Items Selection Bar - Bottom */}
-      <div className="border-t-2 border-black bg-white fixed bottom-0 left-0 right-0 pb-16">
-        {/* Tabs */}
-        <div className="flex border-b-2 border-black">
-          <button
-            onClick={() => setActiveTab('food')}
-            className={`flex-1 py-3 px-4 text-sm font-bold uppercase tracking-wide border-r-2 border-black transition-colors ${
-              activeTab === 'food'
-                ? 'bg-black text-white'
-                : 'bg-white text-black hover:bg-gray-100'
-            }`}
-          >
-            食物 ({foodItems.reduce((sum, f) => sum + f.count, 0)})
-          </button>
-          <button
-            onClick={() => setActiveTab('accessories')}
-            className={`flex-1 py-3 px-4 text-sm font-bold uppercase tracking-wide transition-colors ${
-              activeTab === 'accessories'
-                ? 'bg-black text-white'
-                : 'bg-white text-black hover:bg-gray-100'
-            }`}
-          >
-            配件 ({availableAccessories.reduce((sum, a) => sum + a.count, 0)})
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-4 max-h-[200px] overflow-y-auto">
-          {activeTab === 'food' && (
-            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
-              {foodItems.length === 0 ? (
-                <p className="col-span-full text-center text-sm text-black/60">
-                  尚無食物 - 前往商店購買！
-                </p>
-              ) : (
-                foodItems.map((food) => (
-                  <button
-                    key={food.itemId}
-                    onClick={async () => {
-                      try {
-                        const res = await fetch('/api/pet/feed', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ itemId: food.itemId }),
-                        })
-                        if (!res.ok) throw new Error('餵食失敗')
-                        const data = await res.json()
-                        toast({
-                          title: '餵食成功！',
-                          description: `飽食度 +${data.fullnessGain}`,
-                        })
-                        setRefreshKey(prev => prev + 1)
-                      } catch (error: any) {
-                        toast({
-                          title: '餵食失敗',
-                          description: error.message,
-                          variant: 'destructive',
-                        })
-                      }
+                
+                {/* Accessories positioned relative to pet */}
+                {accessories.map((accessory) => (
+                  <div
+                    key={accessory.id}
+                    className="absolute cursor-pointer hover:scale-110 transition-transform group"
+                    style={{
+                      left: `${accessory.positionX * 100}%`,
+                      top: `${accessory.positionY * 100}%`,
+                      transform: `translate(-50%, -50%) rotate(${accessory.rotation}deg) scale(${accessory.scale})`,
+                      zIndex: 10,
                     }}
-                    disabled={food.count === 0}
-                    className={`aspect-square border-2 border-black p-2 flex flex-col items-center justify-center transition-all ${
-                      food.count > 0
-                        ? 'hover:bg-black hover:text-white cursor-pointer'
-                        : 'opacity-40 cursor-not-allowed'
-                    }`}
-                  >
-                    <span className="text-2xl mb-1">{food.emoji}</span>
-                    <span className="text-[10px] text-center line-clamp-1">{food.name}</span>
-                    <span className="text-[10px] text-black/60">x{food.count}</span>
-                  </button>
-                ))
-              )}
-            </div>
-          )}
-
-          {activeTab === 'accessories' && (
-            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
-              {availableAccessories.length === 0 ? (
-                <p className="col-span-full text-center text-sm text-black/60">
-                  尚無配件 - 前往商店購買！
-                </p>
-              ) : (
-                availableAccessories.map((accessory) => (
-                  <button
-                    key={accessory.accessoryId}
-                    onClick={async () => {
-                      try {
-                        const res = await fetch('/api/pet/accessories', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            accessoryId: accessory.accessoryId,
-                            positionX: 0.5,
-                            positionY: 0.5,
-                            rotation: 0,
-                            scale: 1,
-                          }),
-                        })
-                        if (!res.ok) throw new Error('裝備失敗')
-                        toast({
-                          title: '配件已裝備！',
-                          description: '成功為寵物添加配件',
-                        })
-                        setRefreshKey(prev => prev + 1)
-                      } catch (error: any) {
-                        toast({
-                          title: '裝備失敗',
-                          description: error.message,
-                          variant: 'destructive',
-                        })
-                      }
-                    }}
-                    disabled={accessory.count === 0}
-                    className={`aspect-square border-2 border-black p-2 flex flex-col items-center justify-center transition-all ${
-                      accessory.count > 0
-                        ? 'hover:bg-black hover:text-white cursor-pointer'
-                        : 'opacity-40 cursor-not-allowed'
-                    }`}
+                    onClick={() => handleAccessoryDelete(accessory.id)}
+                    title="點擊移除配件"
                   >
                     {accessory.imageUrl ? (
                       <img
                         src={accessory.imageUrl}
-                        alt={accessory.name}
-                        className="w-8 h-8 object-contain mb-1"
+                        alt="Accessory"
+                        className="max-w-[48px] max-h-[48px] lg:max-w-[64px] lg:max-h-[64px] object-contain"
                       />
                     ) : (
-                      <span className="text-2xl mb-1">{accessory.emoji}</span>
+                      <span className="text-3xl lg:text-4xl">
+                        {getItemEmoji(accessory.accessoryId)}
+                      </span>
                     )}
-                    <span className="text-[10px] text-center line-clamp-1">{accessory.name}</span>
-                    <span className="text-[10px] text-black/60">x{accessory.count}</span>
-                  </button>
-                ))
-              )}
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-full flex items-center justify-center">
+                      <span className="text-white text-xs">✕</span>
+                    </div>
+                  </div>
+                ))}
             </div>
-          )}
+          </div>
         </div>
 
-        <div className="p-3 border-t-2 border-black bg-gray-50">
-          <p className="text-xs text-center text-black/60">
-            💡 點擊食物餵養寵物 • 點擊配件裝備 • 點擊已裝備的配件可移除
-          </p>
+        {/* Action Bar - Inside Container */}
+        <div className="flex justify-center flex-shrink-0">
+          <PetActionBar
+            onFeedClick={() => {
+              if (showFeedPanel) {
+                setShowFeedPanel(false)
+              } else {
+                setShowFeedPanel(true)
+                setShowDecorPanel(false) // Close decor panel if open
+              }
+            }}
+            onDecorClick={() => {
+              if (showDecorPanel) {
+                setShowDecorPanel(false)
+              } else {
+                setShowDecorPanel(true)
+                setShowFeedPanel(false) // Close feed panel if open
+              }
+            }}
+          />
         </div>
       </div>
+
+      {/* Feeding Animation */}
+      {feedingAnimation && (
+        <div
+          className="fixed pointer-events-none z-[9999]"
+          style={{
+            left: `${feedingAnimation.from.x}px`,
+            top: `${feedingAnimation.from.y}px`,
+            '--target-x': `${feedingAnimation.to.x - feedingAnimation.from.x}px`,
+            '--target-y': `${feedingAnimation.to.y - feedingAnimation.from.y}px`,
+          } as React.CSSProperties & { '--target-x': string; '--target-y': string }}
+        >
+          <span className="text-4xl animate-fly-to-pet block">{feedingAnimation.emoji}</span>
+        </div>
+      )}
+
+      {/* Particle Effects */}
+      {particles.map(particle => (
+        <div
+          key={particle.id}
+          className="fixed pointer-events-none z-[9999]"
+          style={{
+            left: `${particle.x}px`,
+            top: `${particle.y}px`,
+            transform: 'translate(-50%, -50%)',
+            opacity: particle.life,
+            fontSize: `${20 + particle.life * 20}px`,
+          }}
+        >
+          {particle.emoji}
+        </div>
+      ))}
+
+      {/* Feed Panel - Slides from left */}
+      <FeedPanel
+        isOpen={showFeedPanel}
+        onClose={() => setShowFeedPanel(false)}
+        foodItems={foodItems}
+        onFeedPet={handleFeedPet}
+      />
+
+      {/* Decor Panel - Slides from right */}
+      <DecorPanel
+        isOpen={showDecorPanel}
+        onClose={() => setShowDecorPanel(false)}
+        availableAccessories={availableAccessories}
+        onDragAccessory={(accessoryId, e) => {
+          const dragData = { type: 'accessory', accessoryId }
+          e.dataTransfer.setData('application/json', JSON.stringify(dragData))
+          e.dataTransfer.effectAllowed = 'copy'
+        }}
+      />
+
+
+      {/* Bottom Navigation */}
+      <Navigation />
     </div>
   )
 }
