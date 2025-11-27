@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { getSession } from '@/lib/auth'
+import { getSession, checkInitialization } from '@/lib/auth'
 import ShopContent from '@/components/shop/ShopContent'
 
 export default async function ShopPage() {
@@ -7,6 +7,12 @@ export default async function ShopPage() {
 
   if (!session) {
     redirect('/auth/signin')
+  }
+
+  // 檢查是否完成首次設定
+  const { isInitialized } = await checkInitialization()
+  if (!isInitialized) {
+    redirect('/setup')
   }
 
   return <ShopContent />

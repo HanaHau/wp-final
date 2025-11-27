@@ -6,8 +6,7 @@ import { Button } from '@/components/ui/button'
 import Room from '@/components/pet/Room'
 import TransactionDialog from '@/components/transaction/TransactionDialog'
 import Navigation from './Navigation'
-import { Plus } from 'lucide-react'
-import HamburgerMenu from './HamburgerMenu'
+import { Plus, Package } from 'lucide-react'
 
 interface Pet {
   id: string
@@ -68,6 +67,7 @@ export default function DashboardContent() {
   const [availableAccessories, setAvailableAccessories] = useState<AvailableAccessory[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [showEditPanel, setShowEditPanel] = useState(false)
 
   useEffect(() => {
     fetchPet()
@@ -77,6 +77,8 @@ export default function DashboardContent() {
     fetchAccessories()
     fetchAccessoryInventory()
   }, [])
+
+  // 當打開倉庫時，自動進入編輯模式（通過 Room 組件內部處理）
 
   const fetchPet = async () => {
     try {
@@ -234,9 +236,23 @@ export default function DashboardContent() {
           )}
         </div>
 
-        {/* 右側：漢堡選單 */}
+        {/* 右側：倉庫按鈕 */}
         <div className="pointer-events-auto">
-          <HamburgerMenu />
+          <button
+            onClick={() => {
+              const newState = !showEditPanel
+              setShowEditPanel(newState)
+            }}
+            className={`border-2 border-black p-2 lg:p-3 transition-all shadow-lg ${
+              showEditPanel 
+                ? 'bg-black text-white animate-pulse' 
+                : 'bg-white text-black hover:bg-black hover:text-white'
+            }`}
+            aria-label="開啟倉庫"
+            title={showEditPanel ? '倉庫 (點擊關閉)' : '開啟倉庫'}
+          >
+            <Package className="h-4 w-4 lg:h-5 lg:w-5" />
+          </button>
         </div>
       </div>
 
@@ -249,6 +265,8 @@ export default function DashboardContent() {
           foodItems={foodItems}
           accessories={accessories}
           availableAccessories={availableAccessories}
+          showEditPanel={showEditPanel}
+          onEditPanelChange={setShowEditPanel}
           onStickerPlaced={handleStickerPlaced}
           onPetFed={handlePetFed}
           onAccessoryPlaced={() => {

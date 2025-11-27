@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { getSession } from '@/lib/auth'
+import { getSession, checkInitialization } from '@/lib/auth'
 import StatisticsContent from '@/components/statistics/StatisticsContent'
 
 export default async function StatisticsPage() {
@@ -7,6 +7,12 @@ export default async function StatisticsPage() {
 
   if (!session) {
     redirect('/auth/signin')
+  }
+
+  // 檢查是否完成首次設定
+  const { isInitialized } = await checkInitialization()
+  if (!isInitialized) {
+    redirect('/setup')
   }
 
   return <StatisticsContent />

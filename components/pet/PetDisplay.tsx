@@ -8,6 +8,7 @@ interface Pet {
   id: string
   name: string
   imageUrl: string | null
+  facingDirection?: string
   points: number
   fullness: number
   mood: number
@@ -143,7 +144,7 @@ export default function PetDisplay({ pet, accessories = [], onAccessoryDelete, s
           <div className="absolute inset-0 border-4 border-dashed border-black bg-black/10 z-20 pointer-events-none" />
         )}
         <Image
-          src={pet.imageUrl || '/cat.jpg'}
+          src={pet.imageUrl || '/cat.png'}
           alt={pet.name}
           fill
           sizes="192px"

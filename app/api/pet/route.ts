@@ -4,8 +4,8 @@ import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
 const petUpdateSchema = z.object({
-  name: z.string().min(1).optional(),
-  imageUrl: z.string().url().optional(),
+  name: z.string().min(1).max(20).optional(),
+  imageUrl: z.string().optional(),
 })
 
 // GET /api/pet - 取得寵物資訊
@@ -70,9 +70,10 @@ export async function GET() {
       }
     }
 
-    // Add warning flags
+    // Add warning flags and ensure imageUrl has default value
     const petWithWarnings = {
       ...pet,
+      imageUrl: pet.imageUrl || '/cat.png', // 如果為 null，使用預設圖片
       needsAttention: hoursSinceUpdate > 24,
       isSick: pet.health < 30,
       isUnhappy: pet.mood < 30,
@@ -106,11 +107,21 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: '找不到寵物' }, { status: 404 })
     }
 
+    // Only update fields that are provided
+    const updateData: { name?: string; imageUrl?: string | null } = {}
+    if (validatedData.name !== undefined) {
+      updateData.name = validatedData.name
+    }
+    if (validatedData.imageUrl !== undefined) {
+      updateData.imageUrl = validatedData.imageUrl || null
+    }
+
     const updatedPet = await prisma.pet.update({
       where: { id: pet.id },
-      data: validatedData,
+      data: updateData,
     })
 
+    console.log('寵物名稱更新成功:', { id: updatedPet.id, name: updatedPet.name })
     return NextResponse.json(updatedPet)
   } catch (error) {
     if (error instanceof z.ZodError) {
