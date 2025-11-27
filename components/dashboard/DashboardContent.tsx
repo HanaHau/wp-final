@@ -60,6 +60,7 @@ interface PetAccessory {
 export default function DashboardContent() {
   const { data: session } = useSession()
   const [pet, setPet] = useState<Pet | null>(null)
+  const [userBalance, setUserBalance] = useState<number>(0)
   const [stickers, setStickers] = useState<RoomSticker[]>([])
   const [availableStickers, setAvailableStickers] = useState<AvailableSticker[]>([])
   const [foodItems, setFoodItems] = useState<FoodItem[]>([])
@@ -70,6 +71,7 @@ export default function DashboardContent() {
   const [showEditPanel, setShowEditPanel] = useState(false)
 
   useEffect(() => {
+    fetchUser()
     fetchPet()
     fetchStickers()
     fetchStickerInventory()
@@ -79,6 +81,23 @@ export default function DashboardContent() {
   }, [])
 
   // 當打開倉庫時，自動進入編輯模式（通過 Room 組件內部處理）
+
+  const fetchUser = async () => {
+    try {
+      const res = await fetch('/api/user', {
+        cache: 'no-store', // 確保不從緩存獲取
+      })
+      if (res.ok) {
+        const data = await res.json()
+        console.log('更新餘額:', data.balance)
+        setUserBalance(data.balance || 0)
+      } else {
+        console.error('取得使用者資訊失敗:', res.status, res.statusText)
+      }
+    } catch (error) {
+      console.error('取得使用者資訊失敗:', error)
+    }
+  }
 
   const fetchPet = async () => {
     try {
@@ -152,12 +171,16 @@ export default function DashboardContent() {
     }
   }
 
-  const handleTransactionAdded = () => {
+  const handleTransactionAdded = async () => {
+    console.log('記帳完成，開始更新資料...')
+    setIsDialogOpen(false)
+    // 等待一小段時間確保 API 完成
+    await new Promise(resolve => setTimeout(resolve, 100))
+    await fetchUser() // 等待餘額更新完成
     fetchPet()
     fetchStickers()
     fetchStickerInventory()
     fetchFoodInventory()
-    setIsDialogOpen(false)
   }
 
   const handleStickerPlaced = () => {
@@ -214,6 +237,13 @@ export default function DashboardContent() {
       <div className="absolute top-0 left-0 right-0 z-20 flex justify-between items-start p-4 pointer-events-none">
         {/* 左側：資源顯示 */}
         <div className="flex gap-3 pointer-events-auto">
+          {/* 餘額 */}
+          <div className="bg-white border-2 border-black px-3 py-2">
+            <div className="text-xs text-black/60 uppercase tracking-wide">Balance</div>
+            <div className={`text-lg font-bold ${userBalance < 0 ? 'text-red-600' : 'text-black'}`}>
+              ${userBalance.toLocaleString()}
+            </div>
+          </div>
           {/* 點數 */}
           <div className="bg-white border-2 border-black px-3 py-2">
             <div className="text-xs text-black/60 uppercase tracking-wide">Points</div>

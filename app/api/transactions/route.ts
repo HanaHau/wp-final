@@ -185,6 +185,31 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // 更新用戶餘額
+    let balanceDelta = 0
+    if (typeId === 1) { // EXPENSE - 支出，餘額減少
+      balanceDelta = -validatedData.amount
+    } else if (typeId === 2) { // INCOME - 收入，餘額增加
+      balanceDelta = validatedData.amount
+    } else if (typeId === 3) { // DEPOSIT - 存錢，餘額減少（等同於拿餘額的錢去買 points）
+      balanceDelta = -validatedData.amount
+    }
+
+    if (balanceDelta !== 0) {
+      const updatedUser = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          balance: {
+            increment: balanceDelta,
+          },
+        },
+        select: {
+          balance: true,
+        },
+      })
+      console.log(`餘額更新: typeId=${typeId}, amount=${validatedData.amount}, delta=${balanceDelta}, 新餘額=${updatedUser.balance}`)
+    }
+
     // 如果是存款，更新寵物點數
     if (typeId === 3) { // DEPOSIT
       const pet = await prisma.pet.findUnique({
