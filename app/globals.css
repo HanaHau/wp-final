@@ -64,6 +64,158 @@
       transform: translateX(1px);
     }
   }
+
+  /* Smooth drag and drop animations */
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-5px);
+    }
+  }
+
+  .animate-float {
+    animation: float 2s ease-in-out infinite;
+  }
+
+  /* Subtle highlight for drop zones */
+  @keyframes pulse-border {
+    0%, 100% {
+      border-color: rgba(0, 0, 0, 0.2);
+    }
+    50% {
+      border-color: rgba(0, 0, 0, 0.5);
+    }
+  }
+
+  .animate-pulse-border {
+    animation: pulse-border 1.5s ease-in-out infinite;
+  }
+
+  /* Touch-friendly interactions */
+  .touch-none {
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Smooth transitions for interactive elements */
+  .transition-smooth {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Game-like animations */
+  @keyframes pop-in {
+    0% {
+      transform: scale(0) rotate(-180deg);
+      opacity: 0;
+    }
+    70% {
+      transform: scale(1.1) rotate(10deg);
+    }
+    100% {
+      transform: scale(1) rotate(0deg);
+      opacity: 1;
+    }
+  }
+
+  .animate-pop-in {
+    animation: pop-in 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  /* Dashed selection ring animation */
+  @keyframes dash-rotate {
+    to {
+      stroke-dashoffset: -100;
+    }
+  }
+
+  /* Success feedback */
+  @keyframes success-bounce {
+    0%, 100% {
+      transform: translateY(0) scale(1);
+    }
+    50% {
+      transform: translateY(-10px) scale(1.05);
+    }
+  }
+
+  .animate-success-bounce {
+    animation: success-bounce 0.5s ease-in-out;
+  }
+
+  /* Shimmer effect for interactive elements */
+  @keyframes shimmer {
+    0% {
+      background-position: -1000px 0;
+    }
+    100% {
+      background-position: 1000px 0;
+    }
+  }
+
+  .animate-shimmer {
+    background: linear-gradient(to right, transparent 0%, rgba(255,255,255,0.4) 50%, transparent 100%);
+    background-size: 1000px 100%;
+    animation: shimmer 2s infinite;
+  }
+
+  /* Jelly bounce animation for successful placement */
+  @keyframes jelly-bounce {
+    0%, 100% {
+      transform: scale(1);
+    }
+    25% {
+      transform: scale(1.15) rotate(-2deg);
+    }
+    50% {
+      transform: scale(0.95) rotate(2deg);
+    }
+    75% {
+      transform: scale(1.05) rotate(-1deg);
+    }
+  }
+
+  .animate-jelly-bounce {
+    animation: jelly-bounce 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  /* Sparkle effect for successful placement */
+  @keyframes sparkle {
+    0%, 100% {
+      opacity: 0;
+      transform: scale(0) rotate(0deg);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.2) rotate(180deg);
+    }
+  }
+
+  .animate-sparkle {
+    animation: sparkle 0.8s ease-out;
+  }
+
+  /* Smoke effect for deletion */
+  @keyframes smoke {
+    0% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    50% {
+      opacity: 0.8;
+      transform: translateY(-20px) scale(1.2);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-40px) scale(1.5);
+    }
+  }
+
+  .animate-smoke {
+    animation: smoke 0.4s ease-out forwards;
+  }
   
 }
 
