@@ -124,7 +124,6 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
   const setShowEditPanel = onEditPanelChange || setInternalShowEditPanel
   const [selectedItem, setSelectedItem] = useState<{ type: 'sticker' | 'accessory'; id: string } | null>(null)
   const [selectedItemPosition, setSelectedItemPosition] = useState<{ x: number; y: number } | null>(null)
-  const [placingItem, setPlacingItem] = useState<{ type: 'sticker' | 'accessory'; id: string } | null>(null)
   const [draggingItem, setDraggingItem] = useState<{ type: string; id: string } | null>(null)
   const [dragPreview, setDragPreview] = useState<{ x: number; y: number; emoji: string } | null>(null)
   const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null)
@@ -330,7 +329,7 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
       }
       
       moveIntervalRef.current = setTimeout(() => {
-        movePet()
+    movePet()
         scheduleNextMove()
       }, getWaitTime())
     }
@@ -369,14 +368,10 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
     }
   }, [draggingItem, pet])
 
-  // ESC key to cancel placing
+  // ESC key to cancel selection
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (placingItem) {
-          setPlacingItem(null)
-          toast({ title: '已取消放置' })
-        }
         if (selectedItem) {
           setSelectedItem(null)
           setSelectedItemPosition(null)
@@ -386,7 +381,7 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [placingItem, selectedItem, toast])
+  }, [selectedItem])
 
   // Track mouse position during drag (fallback for browsers that don't fire onDrag)
   useEffect(() => {
@@ -508,68 +503,6 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
     setDragPreview(null)
   }, [draggingItem, petPosition, toast])
 
-  // Handle edit panel item selection
-  const handleItemSelect = useCallback((type: 'sticker' | 'accessory', id: string) => {
-    setPlacingItem({ type, id })
-    // 不關閉倉庫，保持打開狀態
-    toast({
-      title: 'Item Selected',
-      description: 'Click on the room to place',
-    })
-  }, [toast])
-
-  // Handle room click when placing item
-  const handleRoomClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!placingItem || !roomRef.current) return
-
-    const rect = roomRef.current.getBoundingClientRect()
-    const x = (e.clientX - rect.left) / rect.width
-    const y = (e.clientY - rect.top) / rect.height
-
-    // Check if within room bounds
-    const roomMinX = 50 / 800
-    const roomMaxX = 750 / 800
-    const roomMinY = 50 / 600
-    const roomMaxY = 550 / 600
-
-    if (x < roomMinX || x > roomMaxX || y < roomMinY || y > roomMaxY) {
-      toast({
-        title: '無效位置',
-        description: '請點擊房間內的位置',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    if (placingItem.type === 'sticker') {
-      let layer: 'floor' | 'wall-left' | 'wall-right' = 'floor'
-      if (x < 0.3) layer = 'wall-left'
-      else if (x > 0.7) layer = 'wall-right'
-      else if (y > 0.6) layer = 'floor'
-
-      handleDropSticker(placingItem.id, x, y, layer)
-    } else if (placingItem.type === 'accessory') {
-      const dx = x - petPosition.x
-      const dy = y - petPosition.y
-      const distance = Math.sqrt(dx * dx + dy * dy)
-      if (distance < 0.25) {
-        const relativeX = 0.5 + (x - petPosition.x) / 0.5
-        const relativeY = 0.5 + (y - petPosition.y) / 0.5
-        const clampedX = Math.min(Math.max(relativeX, 0), 1)
-        const clampedY = Math.min(Math.max(relativeY, 0), 1)
-        handlePlaceAccessory(placingItem.id, clampedX, clampedY)
-      } else {
-        toast({
-          title: '靠近寵物',
-          description: '配件需要放在寵物附近',
-          variant: 'destructive',
-        })
-        return
-      }
-    }
-
-    setPlacingItem(null)
-  }, [placingItem, petPosition, toast])
 
   // Handle sticker click in edit mode
   const handleStickerClick = useCallback((e: React.MouseEvent, sticker: RoomSticker) => {
@@ -649,6 +582,20 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
     event.dataTransfer.setData('application/json', JSON.stringify({ stickerId }))
     event.dataTransfer.effectAllowed = 'copy'
     setDraggingItem({ type: 'sticker', id: stickerId })
+    setDragPosition({ x: event.clientX, y: event.clientY })
+    
+    // Set drag preview for sticker from EditPanel
+    const availableSticker = availableStickers.find(s => s.stickerId === stickerId)
+    const stickerType = STICKER_TYPES[stickerId]
+    const emoji = availableSticker?.emoji || stickerType?.emoji || '⬛'
+    
+    // Create empty drag image to use custom preview
+    const emptyImg = document.createElement('img')
+    emptyImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+    event.dataTransfer.setDragImage(emptyImg, 0, 0)
+    
+    setDragPreview({ x: event.clientX, y: event.clientY, emoji })
+    setIsActuallyDragging(true)
   }
 
   const handleFoodDragStart = (event: React.DragEvent<HTMLDivElement>, itemId: string, count: number) => {
@@ -656,6 +603,19 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
     event.dataTransfer.setData('application/json', JSON.stringify({ type: 'food', itemId }))
     event.dataTransfer.effectAllowed = 'copy'
     setDraggingItem({ type: 'food', id: itemId })
+    setDragPosition({ x: event.clientX, y: event.clientY })
+    
+    // Set drag preview for food
+    const foodItem = foodItems.find(f => f.itemId === itemId)
+    const emoji = foodItem?.emoji || '🍎'
+    
+    // Create empty drag image to use custom preview
+    const emptyImg = document.createElement('img')
+    emptyImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+    event.dataTransfer.setDragImage(emptyImg, 0, 0)
+    
+    setDragPreview({ x: event.clientX, y: event.clientY, emoji })
+    setIsActuallyDragging(true)
   }
 
   const handleAccessoryDragStart = (event: React.DragEvent<HTMLDivElement>, accessoryId: string, count: number) => {
@@ -663,10 +623,27 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
     event.dataTransfer.setData('application/json', JSON.stringify({ type: 'accessory', accessoryId }))
     event.dataTransfer.effectAllowed = 'copy'
     setDraggingItem({ type: 'accessory', id: accessoryId })
+    setDragPosition({ x: event.clientX, y: event.clientY })
+    
+    // Set drag preview for accessory
+    const availableAccessory = availableAccessories.find(a => a.accessoryId === accessoryId)
+    const shopItem = SHOP_ITEM_MAP[accessoryId]
+    const emoji = availableAccessory?.emoji || shopItem?.emoji || '🎀'
+    
+    // Create empty drag image to use custom preview
+    const emptyImg = document.createElement('img')
+    emptyImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+    event.dataTransfer.setDragImage(emptyImg, 0, 0)
+    
+    setDragPreview({ x: event.clientX, y: event.clientY, emoji })
+    setIsActuallyDragging(true)
   }
 
   const handleDragEnd = () => {
     setDraggingItem(null)
+    setDragPreview(null)
+    setDragPosition(null)
+    setIsActuallyDragging(false)
   }
 
   const handlePlaceAccessory = async (accessoryId: string, positionX: number, positionY: number) => {
@@ -705,8 +682,8 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
     }
   }
 
-  const handleFeedPet = async (itemId: string) => {
-    if (feeding) return
+  const handleFeedPet = async (itemId: string): Promise<void> => {
+    if (feeding) return Promise.resolve()
     setFeeding(true)
     try {
       const res = await fetch('/api/pet/feed', {
@@ -832,7 +809,7 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
         setJustPlaced(data.id)
         setTimeout(() => setJustPlaced(null), 600)
       }
-      
+
       toast({
         title: '貼紙已放置！',
         description: '成功添加裝飾到房間',
@@ -935,7 +912,8 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
           setSelectedItem(null)
         }}
         availableStickers={availableStickers}
-        onItemSelect={handleItemSelect}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
       />
 
       {/* Item Controls */}
@@ -948,38 +926,116 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
         />
       )}
 
-      {/* Placing cursor indicator */}
-      {placingItem && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-black text-white px-6 py-3 text-sm uppercase tracking-wide border-2 border-white">
-          點擊房間來放置物品 | 按 ESC 取消
-        </div>
-      )}
-
       {/* Unified drag overlay for all stickers being dragged */}
-      {draggingItem && draggingItem.type === 'sticker' && dragPosition && isActuallyDragging && (() => {
+      {draggingItem && draggingItem.type === 'sticker' && dragPosition && (() => {
+        // Check if it's an existing sticker in the room
         const draggedSticker = stickers.find(s => s.id === draggingItem.id)
-        if (!draggedSticker) return null
-        const display = getStickerDisplay(draggedSticker)
+        
+        if (draggedSticker) {
+          // Existing sticker being moved
+          const display = getStickerDisplay(draggedSticker)
+  return (
+            <div
+              className="fixed pointer-events-none z-[9999] opacity-90 animate-drag-glow"
+              style={{
+                left: `${dragPosition.x}px`,
+                top: `${dragPosition.y}px`,
+                transform: `translate(-50%, -50%) rotate(${draggedSticker.rotation}deg) scale(${draggedSticker.scale * 1.3})`,
+                filter: 'drop-shadow(0 15px 30px rgba(0,0,0,0.5))',
+                transition: 'none', // No transition for smooth following
+              }}
+            >
+              {display.type === 'image' && !failedImages.has(draggedSticker.id) ? (
+                <img
+                  src={display.url}
+                  alt="Sticker"
+                  className="max-w-[60px] max-h-[60px] object-contain"
+                  draggable={false}
+                />
+              ) : (
+                <span className="text-4xl">{display.emoji}</span>
+              )}
+            </div>
+          )
+        } else {
+          // New sticker from EditPanel
+          const availableSticker = availableStickers.find(s => s.stickerId === draggingItem.id)
+          const stickerType = STICKER_TYPES[draggingItem.id]
+          const emoji = availableSticker?.emoji || stickerType?.emoji || '⬛'
+          
+          return (
+            <div
+              className="fixed pointer-events-none z-[9999] opacity-90 animate-drag-glow"
+              style={{
+                left: `${dragPosition.x}px`,
+                top: `${dragPosition.y}px`,
+                transform: `translate(-50%, -50%) scale(1.3)`,
+                filter: 'drop-shadow(0 15px 30px rgba(0,0,0,0.5))',
+                transition: 'none', // No transition for smooth following
+              }}
+            >
+              {availableSticker?.imageUrl && !failedImages.has(draggingItem.id) ? (
+                <img
+                  src={availableSticker.imageUrl}
+                  alt="Sticker"
+                  className="max-w-[60px] max-h-[60px] object-contain"
+                  draggable={false}
+                />
+              ) : (
+                <span className="text-4xl">{emoji}</span>
+              )}
+            </div>
+          )
+        }
+      })()}
+
+      {/* Drag overlay for food items */}
+      {draggingItem && draggingItem.type === 'food' && dragPosition && (() => {
+        const foodItem = foodItems.find(f => f.itemId === draggingItem.id)
+        const emoji = foodItem?.emoji || '🍎'
+        
         return (
           <div
             className="fixed pointer-events-none z-[9999] opacity-90 animate-drag-glow"
             style={{
               left: `${dragPosition.x}px`,
               top: `${dragPosition.y}px`,
-              transform: `translate(-50%, -50%) rotate(${draggedSticker.rotation}deg) scale(${draggedSticker.scale * 1.3})`,
+              transform: `translate(-50%, -50%) scale(1.3)`,
               filter: 'drop-shadow(0 15px 30px rgba(0,0,0,0.5))',
-              transition: 'transform 0.1s ease-out',
+              transition: 'none', // No transition for smooth following
             }}
           >
-            {display.type === 'image' && !failedImages.has(draggedSticker.id) ? (
+            <span className="text-4xl">{emoji}</span>
+          </div>
+        )
+      })()}
+
+      {/* Drag overlay for accessories */}
+      {draggingItem && draggingItem.type === 'accessory' && dragPosition && (() => {
+        const availableAccessory = availableAccessories.find(a => a.accessoryId === draggingItem.id)
+        const shopItem = SHOP_ITEM_MAP[draggingItem.id]
+        const emoji = availableAccessory?.emoji || shopItem?.emoji || '🎀'
+        
+        return (
+          <div
+            className="fixed pointer-events-none z-[9999] opacity-90 animate-drag-glow"
+            style={{
+              left: `${dragPosition.x}px`,
+              top: `${dragPosition.y}px`,
+              transform: `translate(-50%, -50%) scale(1.3)`,
+              filter: 'drop-shadow(0 15px 30px rgba(0,0,0,0.5))',
+              transition: 'none', // No transition for smooth following
+            }}
+          >
+            {availableAccessory?.imageUrl && !failedImages.has(draggingItem.id) ? (
               <img
-                src={display.url}
-                alt="Sticker"
+                src={availableAccessory.imageUrl}
+                alt="Accessory"
                 className="max-w-[60px] max-h-[60px] object-contain"
                 draggable={false}
               />
             ) : (
-              <span className="text-4xl">{display.emoji}</span>
+              <span className="text-4xl">{emoji}</span>
             )}
           </div>
         )
@@ -993,9 +1049,7 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
         <div className="flex-1 flex items-start justify-center w-full min-w-0">
           <div 
             ref={roomRef}
-            className={`relative w-full max-w-[700px] h-[400px] lg:h-[500px] ${
-              placingItem ? 'cursor-crosshair' : ''
-            }`}
+            className="relative w-full max-w-[700px] h-[400px] lg:h-[500px]"
             onClick={(e) => {
               // 如果點擊房間本身（不是貼紙或選項視窗），處理點擊
               const target = e.target as HTMLElement
@@ -1003,15 +1057,12 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
               const isClickingControls = target.closest('[data-item-controls]')
               
               if (!isClickingSticker && !isClickingControls) {
-                if (placingItem) {
-                  handleRoomClick(e)
-                } else if (selectedItem) {
+                if (selectedItem) {
                   setSelectedItem(null)
                   setSelectedItemPosition(null)
                 }
               }
             }}
-            title={placingItem ? '點擊此處放置物品' : ''}
           >
         <Image
           src="/room.png"
@@ -1043,9 +1094,20 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                 const dy = y - petPosition.y
                 const distance = Math.sqrt(dx * dx + dy * dy)
                 if (distance < 0.25) {
-                  handleFeedPet(parsed.itemId)
+                  handleFeedPet(parsed.itemId).finally(() => {
+                    // Clean up drag state after feeding
+                    setDraggingItem(null)
+                    setDragPreview(null)
+                    setDragPosition(null)
+                    setIsActuallyDragging(false)
+                  })
                   return
                 }
+                // Clean up drag state on invalid drop
+                setDraggingItem(null)
+                setDragPreview(null)
+                setDragPosition(null)
+                setIsActuallyDragging(false)
                 toast({
                   title: 'Move nearer the pet',
                   description: 'Drop food closer to the pet to feed it.',
@@ -1070,9 +1132,20 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                   const clampedX = Math.min(Math.max(relativeX, 0), 1)
                   const clampedY = Math.min(Math.max(relativeY, 0), 1)
 
-                  handlePlaceAccessory(parsed.accessoryId, clampedX, clampedY)
+                  handlePlaceAccessory(parsed.accessoryId, clampedX, clampedY).finally(() => {
+                    // Clean up drag state after placing accessory
+                    setDraggingItem(null)
+                    setDragPreview(null)
+                    setDragPosition(null)
+                    setIsActuallyDragging(false)
+                  })
                   return
                 }
+                // Clean up drag state on invalid drop
+                setDraggingItem(null)
+                setDragPreview(null)
+                setDragPosition(null)
+                setIsActuallyDragging(false)
                 toast({
                   title: 'Move nearer the pet',
                   description: 'Drop accessory closer to the pet to place it.',
@@ -1124,7 +1197,7 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                   layer = 'wall-left'
                 } else if (clampedX > 0.7) {
                   layer = 'wall-right'
-                } else {
+              } else {
                   layer = 'floor'
                 }
                 
@@ -1200,7 +1273,7 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                   isProcessingDrop.current = false
                 }
               } else if (parsed.stickerId) {
-                // Regular sticker placement from warehouse
+                // Regular sticker placement from warehouse (EditPanel)
                 // Check if drop is inside the room rectangle (not outside)
                 const rect = e.currentTarget.getBoundingClientRect()
                 const x = (e.clientX - rect.left) / rect.width
@@ -1216,6 +1289,11 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                 
                 // Only allow placement inside the room rectangle
                 if (x < roomMinX || x > roomMaxX || y < roomMinY || y > roomMaxY) {
+                  // Clean up drag state on invalid drop
+                  setDraggingItem(null)
+                  setDragPreview(null)
+                  setDragPosition(null)
+                  setIsActuallyDragging(false)
                   toast({
                     title: 'Invalid Placement',
                     description: 'Stickers can only be placed inside the room.',
@@ -1236,7 +1314,14 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                   layer = 'floor' // Default to floor for middle area
                 }
                 
-                handleDrop(e, layer)
+                // Place the sticker and clean up drag state
+                handleDropSticker(parsed.stickerId, x, y, layer).finally(() => {
+                  // Clean up drag state after placement (success or error)
+                  setDraggingItem(null)
+                  setDragPreview(null)
+                  setDragPosition(null)
+                  setIsActuallyDragging(false)
+                })
               }
             } catch (error) {
               console.error('Invalid drop data:', error)
@@ -1348,15 +1433,15 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                   }`}
                 >
                   {display.type === 'image' && !failedImages.has(sticker.id) ? (
-                    <img
-                      src={display.url}
-                      alt="Sticker"
+                        <img
+                          src={display.url}
+                          alt="Sticker"
                       className={`max-w-[48px] max-h-[48px] object-contain ${
                         isSelected ? 'scale-110' : ''
                       }`}
-                      onError={() => {
-                        setFailedImages((prev) => new Set(prev).add(sticker.id))
-                      }}
+                          onError={() => {
+                            setFailedImages((prev) => new Set(prev).add(sticker.id))
+                          }}
                       draggable={false}
                     />
                   ) : (
@@ -1366,7 +1451,7 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                   )}
                 </div>
               </div>
-            )
+              )
             })}
           
           {/* Pet on floor - randomly positioned in bottom trapezoid */}
@@ -1477,21 +1562,21 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                     {/* Tooltip arrow */}
                     <div className="absolute top-full left-1/2 transform -translate-x-1/2">
                       <div className="w-0 h-0 border-l-[4px] border-r-[4px] border-t-[6px] border-transparent border-t-gray-800/80"></div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           )}
-          
+        </div>
+      </div>
+          )}
+
           {/* Heart particles effect */}
           {hearts.length > 0 && (
             <div className="fixed inset-0 pointer-events-none z-50">
               {hearts.map((heart) => (
-                <div
+      <div
                   key={heart.id}
                   className="absolute animate-heart-float"
-                  style={{
+        style={{
                     left: `${heart.x}px`,
                     top: `${heart.y}px`,
                     transform: 'translate(-50%, -50%)',
@@ -1527,35 +1612,35 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
             {availableStickers.map((sticker) => {
               const stickerEmoji = stickerTypes[sticker.stickerId]?.emoji || sticker.emoji
               return (
-                <div
-                  key={sticker.stickerId}
-                  draggable={sticker.count > 0}
-                  onDragStart={(e) => handleDragStart(e, sticker.stickerId, sticker.count)}
+              <div
+                key={sticker.stickerId}
+                draggable={sticker.count > 0}
+                onDragStart={(e) => handleDragStart(e, sticker.stickerId, sticker.count)}
                   onDragEnd={handleDragEnd}
                   onTouchStart={(e) => handleTouchStart(e, 'sticker', sticker.stickerId, stickerEmoji, sticker.count)}
                   onTouchMove={handleTouchMove}
                   onTouchEnd={handleTouchEnd}
                   className={`aspect-square border-2 border-black p-1 flex flex-col items-center justify-center cursor-grab active:cursor-grabbing touch-none ${
-                    sticker.count === 0 ? 'opacity-40 cursor-not-allowed' : ''
+                  sticker.count === 0 ? 'opacity-40 cursor-not-allowed' : ''
                   } ${draggingItem?.id === sticker.stickerId ? 'opacity-50' : ''}`}
-                >
-                  {sticker.imageUrl && !failedImages.has(sticker.stickerId) ? (
-                    <div className="relative w-full h-full mb-1 flex items-center justify-center overflow-hidden">
-                      <img
-                        src={sticker.imageUrl}
-                        alt={sticker.name}
+              >
+                {sticker.imageUrl && !failedImages.has(sticker.stickerId) ? (
+                  <div className="relative w-full h-full mb-1 flex items-center justify-center overflow-hidden">
+                    <img
+                      src={sticker.imageUrl}
+                      alt={sticker.name}
                         className="h-8 w-8 lg:h-12 lg:w-12 object-contain"
-                        onError={() => {
-                          setFailedImages((prev) => new Set(prev).add(sticker.stickerId))
-                        }}
-                      />
-                    </div>
-                  ) : (
+                      onError={() => {
+                        setFailedImages((prev) => new Set(prev).add(sticker.stickerId))
+                      }}
+                    />
+                  </div>
+                ) : (
                     <div className="text-lg lg:text-xl mb-1">{stickerEmoji}</div>
-                  )}
+                )}
                   <div className="text-[9px] lg:text-[10px] font-semibold uppercase text-center leading-tight line-clamp-1">{sticker.name}</div>
                   <div className="text-[9px] lg:text-[10px] text-black/60">x{sticker.count}</div>
-                </div>
+              </div>
               )
             })}
           </div>

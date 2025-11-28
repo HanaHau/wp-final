@@ -49,7 +49,7 @@ export default function Navigation() {
             {/* Profile 按鈕 */}
             <Button
               variant="ghost"
-              onClick={() => setShowProfile(true)}
+              onClick={() => setShowProfile(!showProfile)}
               className={cn(
                 'flex flex-col items-center gap-1 h-auto py-2 px-4 transition-all',
                 showProfile 
@@ -74,7 +74,10 @@ export default function Navigation() {
           />
           
           {/* Profile Panel */}
-          <div className="fixed bottom-20 left-0 right-0 bg-white border-t-2 border-black z-50 p-4 max-h-[60vh] overflow-y-auto">
+          <div 
+            className="fixed bottom-20 right-4 bg-white border-2 border-black z-50 p-4 max-h-[60vh] overflow-y-auto w-full max-w-[298px]"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold uppercase tracking-wide">個人設定</h2>
               <Button

@@ -250,7 +250,7 @@ export default function StatisticsContent() {
         )}
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
           <Card className="border-2 border-black">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs uppercase tracking-wide text-black/60">Income</CardTitle>
@@ -282,6 +282,17 @@ export default function StatisticsContent() {
                 netIncome > 0 ? 'text-green-700' : netIncome < 0 ? 'text-red-700' : 'text-black'
               }`}>
                 {formatCurrency(netIncome)}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 border-black">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs uppercase tracking-wide text-black/60">Savings</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-700">
+                {monthlyStats ? formatCurrency(monthlyStats.totalDeposit) : '$0'}
               </div>
             </CardContent>
           </Card>

@@ -14,16 +14,34 @@ interface EditPanelProps {
     count: number
     imageUrl?: string
   }>
-  onItemSelect: (type: 'sticker', id: string) => void
+  onDragStart?: (event: React.DragEvent<HTMLDivElement>, stickerId: string, count: number) => void
+  onDragEnd?: () => void
 }
 
 export default function EditPanel({
   isOpen,
   onClose,
   availableStickers,
-  onItemSelect,
+  onDragStart,
+  onDragEnd,
 }: EditPanelProps) {
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set())
+  
+  // Default drag handlers if not provided
+  const handleDragStart = (event: React.DragEvent<HTMLDivElement>, stickerId: string, count: number) => {
+    if (count <= 0) return
+    event.dataTransfer.setData('application/json', JSON.stringify({ stickerId }))
+    event.dataTransfer.effectAllowed = 'copy'
+    if (onDragStart) {
+      onDragStart(event, stickerId, count)
+    }
+  }
+  
+  const handleDragEnd = () => {
+    if (onDragEnd) {
+      onDragEnd()
+    }
+  }
 
   return (
     <>
@@ -47,13 +65,14 @@ export default function EditPanel({
         <div className="flex-1 overflow-y-auto p-4">
           <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
             {availableStickers.map((sticker) => (
-              <button
+              <div
                 key={sticker.stickerId}
-                onClick={() => sticker.count > 0 && onItemSelect('sticker', sticker.stickerId)}
-                disabled={sticker.count === 0}
+                draggable={sticker.count > 0}
+                onDragStart={(e) => handleDragStart(e, sticker.stickerId, sticker.count)}
+                onDragEnd={handleDragEnd}
                 className={`aspect-square border-2 border-black p-2 flex flex-col items-center justify-center transition-all ${
                   sticker.count > 0
-                    ? 'hover:bg-black hover:text-white hover:scale-105 cursor-pointer'
+                    ? 'hover:bg-black hover:text-white hover:scale-105 cursor-grab active:cursor-grabbing'
                     : 'opacity-40 cursor-not-allowed'
                 }`}
               >
@@ -73,7 +92,7 @@ export default function EditPanel({
                   {sticker.name}
                 </div>
                 <div className="text-[10px] font-bold">×{sticker.count}</div>
-              </button>
+              </div>
             ))}
           </div>
 
@@ -95,7 +114,7 @@ export default function EditPanel({
         {/* Footer */}
         <div className="p-4 border-t-2 border-black bg-gray-50">
           <p className="text-xs text-center text-black/60 uppercase tracking-wide">
-            點擊物品以選取並放置到房間中
+            拖放物品到房間中
           </p>
         </div>
       </div>
