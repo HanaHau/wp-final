@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,23 +8,21 @@ datasource db {
 }
 
 model User {
-  id            String       @id @default(cuid())
-  email         String       @unique
-  name          String?
-  image         String?
-  emailVerified DateTime?
-  balance       Float        @default(0) // 帳戶餘額（與寵物點數不同）
-  isInitialized Boolean      @default(false) // 是否完成首次設定
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-
-  // Relations
-  pet           Pet?
-  transactions  Transaction[]
-  categories    Category[]
-  accounts      Account[]
-  sessions      Session[]
+  id             String          @id @default(cuid())
+  email          String          @unique
+  name           String?
+  image          String?
+  emailVerified  DateTime?
+  balance        Float           @default(0)
+  isInitialized  Boolean         @default(false)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  accounts       Account[]
+  categories     Category[]
   customStickers CustomSticker[]
+  pet            Pet?
+  sessions       Session[]
+  transactions   Transaction[]
 
   @@map("users")
 }
@@ -45,8 +40,7 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@map("accounts")
@@ -72,30 +66,28 @@ model VerificationToken {
 }
 
 model Pet {
-  id            String   @id @default(cuid())
-  userId        String   @unique
-  name          String   @default("我的寵物")
-  imageUrl      String?
-  facingDirection String @default("right") // 寵物朝向：left 或 right
-  points        Int      @default(0) // 虛擬點數
-  fullness      Int      @default(50) // 飽足感 0-100
-  mood          Int      @default(50) // 心情值 0-100
-  health        Int      @default(100) // 健康度 0-100
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  purchases PetPurchase[]
-  stickers  RoomSticker[]
-  accessories PetAccessory[]
+  id              String         @id @default(cuid())
+  userId          String         @unique
+  name            String         @default("我的寵物")
+  imageUrl        String?
+  facingDirection String         @default("right")
+  points          Int            @default(0)
+  fullness        Int            @default(50)
+  mood            Int            @default(50)
+  health          Int            @default(100)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  accessories     PetAccessory[]
+  purchases       PetPurchase[]
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stickers        RoomSticker[]
 
   @@map("pets")
 }
 
 model Type {
-  id   Int    @id // 1=支出, 2=收入, 3=存錢
-  name String // 支出/收入/存錢
-
+  id           Int           @id @default(autoincrement())
+  name         String
   categories   Category[]
   transactions Transaction[]
 
@@ -103,19 +95,18 @@ model Type {
 }
 
 model Transaction {
-  id          String      @id @default(cuid())
-  userId      String
-  amount      Float
-  categoryId  String      // FK to Category
-  category    Category    @relation(fields: [categoryId], references: [id])
-  typeId      Int         // FK to Type (1=支出, 2=收入, 3=存錢)
-  type        Type        @relation(fields: [typeId], references: [id])
-  date        DateTime    @default(now())
-  note        String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  userId     String
+  amount     Float
+  categoryId String
+  typeId     Int
+  date       DateTime @default(now())
+  note       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       Type     @relation(fields: [typeId], references: [id])
+  category   Category @relation(fields: [categoryId], references: [id])
 
   @@index([userId, date])
   @@index([categoryId])
@@ -124,19 +115,18 @@ model Transaction {
 }
 
 model Category {
-  id        String      @id @default(cuid())
-  name      String
-  typeId    Int         // FK to Type
-  type      Type        @relation(fields: [typeId], references: [id])
-  userId    String?     // null = 系統預設, non-null = 使用者自訂
-  isDefault Boolean     @default(false) // fallback 類別標記
-  sortOrder Int         @default(0) // 排序順序，fallback 類別為 0
-  color     String?
-  icon      String?
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-
+  id           String        @id @default(cuid())
+  name         String
+  typeId       Int
+  userId       String?
+  isDefault    Boolean       @default(false)
+  sortOrder    Int           @default(0)
+  color        String?
+  icon         String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
   user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         Type          @relation(fields: [typeId], references: [id])
   transactions Transaction[]
 
   @@unique([userId, typeId, name])
@@ -147,34 +137,32 @@ model Category {
 }
 
 model PetPurchase {
-  id         String   @id @default(cuid())
-  petId      String
-  itemId     String   @default("unknown")
-  itemName   String
-  category   String   @default("unknown")
-  cost       Int      // 總花費點數（cost * quantity）
-  quantity   Int      @default(1)
+  id          String   @id @default(cuid())
+  petId       String
+  itemId      String   @default("unknown")
+  itemName    String
+  category    String   @default("unknown")
+  cost        Int
+  quantity    Int      @default(1)
   purchasedAt DateTime @default(now())
-
-  pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
+  pet         Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
 
   @@index([petId, itemId])
   @@map("pet_purchases")
 }
 
 model RoomSticker {
-  id        String   @id @default(cuid())
-  petId     String
-  stickerId String   // 貼紙類型識別碼
-  positionX Float    @default(0.5) // 位置 X (0-1)
-  positionY Float    @default(0.5) // 位置 Y (0-1)
-  rotation  Float    @default(0) // 旋轉角度
-  scale     Float    @default(1) // 縮放比例
-  layer     String   @default("floor") // floor, wall-left, wall-right
+  id         String   @id @default(cuid())
+  petId      String
+  stickerId  String
+  positionX  Float    @default(0.5)
+  positionY  Float    @default(0.5)
+  rotation   Float    @default(0)
+  scale      Float    @default(1)
+  layer      String   @default("floor")
   unlockedAt DateTime @default(now())
-  createdAt DateTime @default(now())
-
-  pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  pet        Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
 
   @@map("room_stickers")
 }
@@ -183,13 +171,12 @@ model CustomSticker {
   id        String   @id @default(cuid())
   userId    String
   name      String
-  imageUrl  String   // 圖片 URL (base64 或上傳後的 URL)
-  category  String   // food, toy, decoration, accessory
-  isPublic  Boolean  @default(false) // 是否公開給所有使用者
+  imageUrl  String
+  category  String
+  isPublic  Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([isPublic, category])
@@ -197,17 +184,15 @@ model CustomSticker {
 }
 
 model PetAccessory {
-  id        String   @id @default(cuid())
-  petId     String
-  accessoryId String // 配件類型識別碼
-  positionX Float    @default(0.5) // 位置 X (0-1, relative to pet)
-  positionY Float    @default(0.5) // 位置 Y (0-1, relative to pet)
-  rotation  Float    @default(0) // 旋轉角度
-  scale     Float    @default(1) // 縮放比例
-  createdAt DateTime @default(now())
-
-  pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
+  id          String   @id @default(cuid())
+  petId       String
+  accessoryId String
+  positionX   Float    @default(0.5)
+  positionY   Float    @default(0.5)
+  rotation    Float    @default(0)
+  scale       Float    @default(1)
+  createdAt   DateTime @default(now())
+  pet         Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
 
   @@map("pet_accessories")
 }
-

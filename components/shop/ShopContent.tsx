@@ -178,7 +178,7 @@ export default function ShopContent() {
         </div>
 
         {/* Points Display */}
-        <Card className="border-2 border-black mb-6">
+        <Card className="mb-6">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -197,7 +197,7 @@ export default function ShopContent() {
               key={cat}
               variant={selectedCategory === cat ? 'default' : 'outline'}
               onClick={() => setSelectedCategory(cat)}
-              className="border-2 border-black whitespace-nowrap"
+              className="rounded-xl whitespace-nowrap"
             >
               {cat.charAt(0).toUpperCase() + cat.slice(1)}
             </Button>
@@ -208,7 +208,7 @@ export default function ShopContent() {
         <div className="grid grid-cols-3 gap-4">
           {/* Make Your Own Sticker - centered in the grid */}
           {selectedCategory === 'all' && (
-            <Card className="border-2 border-black col-span-3 flex items-center justify-center">
+            <Card className="col-span-3 flex items-center justify-center">
               <CardContent className="p-4" style={{ width: 'min(460px, 100%)' }}>
                 <div className="text-center mb-4">
                   <div className="text-5xl mb-2 flex items-center justify-center">
@@ -219,7 +219,7 @@ export default function ShopContent() {
                 </div>
                 <Button
                   onClick={() => setIsCustomStickerDialogOpen(true)}
-                  className="w-full border-2 border-black"
+                  className="w-full rounded-xl"
                 >
                   Create Sticker
                 </Button>
@@ -227,7 +227,7 @@ export default function ShopContent() {
             </Card>
           )}
           {filteredItems.map((item) => (
-            <Card key={item.id} className="border-2 border-black relative">
+            <Card key={item.id} className="relative">
               {/* Public sticker badge */}
               {item.isPublic && !item.isOwn && (
                 <div className="absolute top-2 right-2 bg-black text-white text-[8px] uppercase tracking-wide px-1.5 py-0.5 border border-white">
@@ -264,7 +264,7 @@ export default function ShopContent() {
                     <Button
                       variant="outline"
                       size="icon"
-                      className="border-2 border-black h-7 w-7"
+                      className="rounded-lg border border-black/20 h-7 w-7"
                       onClick={() => adjustQuantity(item.id, -1)}
                       disabled={getQuantity(item.id) === 0}
                     >
@@ -276,7 +276,7 @@ export default function ShopContent() {
                     <Button
                       variant="outline"
                       size="icon"
-                      className="border-2 border-black h-7 w-7"
+                      className="rounded-lg border border-black/20 h-7 w-7"
                       onClick={() => adjustQuantity(item.id, 1)}
                       disabled={getQuantity(item.id) >= 99}
                     >

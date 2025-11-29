@@ -199,13 +199,13 @@ export default function DashboardContent() {
     const color =
       normalized < 30 ? '#c0392b' : normalized < 50 ? '#f39c12' : '#0f172a'
     return (
-      <div className="bg-white border-2 border-black px-4 py-2 min-w-[220px]">
+      <div className="bg-white/90 backdrop-blur-sm rounded-xl border border-black/20 px-4 py-2 min-w-[220px] shadow-sm">
         <div className="flex justify-between items-center mb-2">
           <span className="text-xs text-black/60 uppercase tracking-wide">{label}</span>
           <span className="text-lg font-bold text-black">{normalized}%</span>
         </div>
         <div
-          className="relative w-full h-4 border-2 border-black overflow-hidden"
+          className="relative w-full h-4 rounded-lg border border-black/20 overflow-hidden"
           style={{
             backgroundImage:
               'repeating-linear-gradient(135deg, rgba(0,0,0,0.08) 0 6px, transparent 6px 12px)',
@@ -238,14 +238,14 @@ export default function DashboardContent() {
         {/* 左側：資源顯示 */}
         <div className="flex gap-3 pointer-events-auto">
           {/* 餘額 */}
-          <div className="bg-white border-2 border-black px-3 py-2">
+          <div className="bg-white/90 backdrop-blur-sm rounded-xl border border-black/20 px-3 py-2 shadow-sm">
             <div className="text-xs text-black/60 uppercase tracking-wide">Balance</div>
             <div className={`text-lg font-bold ${userBalance < 0 ? 'text-red-600' : 'text-black'}`}>
               ${userBalance.toLocaleString()}
             </div>
           </div>
           {/* 點數 */}
-          <div className="bg-white border-2 border-black px-3 py-2">
+          <div className="bg-white/90 backdrop-blur-sm rounded-xl border border-black/20 px-3 py-2 shadow-sm">
             <div className="text-xs text-black/60 uppercase tracking-wide">Points</div>
             <div className="text-lg font-bold text-black">{pet?.points || 0}</div>
           </div>
@@ -273,10 +273,10 @@ export default function DashboardContent() {
               const newState = !showEditPanel
               setShowEditPanel(newState)
             }}
-            className={`border-2 border-black p-2 lg:p-3 transition-all shadow-lg ${
+            className={`rounded-xl border border-black/20 p-2 lg:p-3 transition-all shadow-lg ${
               showEditPanel 
                 ? 'bg-black text-white animate-pulse' 
-                : 'bg-white text-black hover:bg-black hover:text-white'
+                : 'bg-white/90 backdrop-blur-sm text-black hover:bg-black/5'
             }`}
             aria-label="開啟倉庫"
             title={showEditPanel ? '倉庫 (點擊關閉)' : '開啟倉庫'}
@@ -316,12 +316,12 @@ export default function DashboardContent() {
       {/* 底部導航 */}
       <Navigation />
 
-      {/* 新增記帳按鈕 - 固定在底部 */}
+      {/* 新增記帳按鈕 - 固定在底部，黑色，一直顯示 */}
       <div className="fixed bottom-24 right-4 z-30">
         <Button
           size="icon"
           onClick={() => setIsDialogOpen(true)}
-          className="w-14 h-14 border-2 border-black rounded-full"
+          className="w-14 h-14 rounded-full bg-black text-white hover:bg-black/80 shadow-lg"
         >
           <Plus className="h-6 w-6" />
         </Button>

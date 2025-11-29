@@ -23,7 +23,7 @@ export default function Navigation() {
 
   return (
     <>
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-black z-50">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-black/20 z-50 shadow-lg">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex justify-around py-3">
             {navItems.map((item) => {
@@ -75,7 +75,7 @@ export default function Navigation() {
           
           {/* Profile Panel */}
           <div 
-            className="fixed bottom-20 right-4 bg-white border-2 border-black z-50 p-4 max-h-[60vh] overflow-y-auto w-full max-w-[298px]"
+            className="fixed bottom-20 right-4 bg-white/95 backdrop-blur-md rounded-2xl border border-black/20 z-50 p-4 max-h-[60vh] overflow-y-auto w-full max-w-[298px] shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-6">
@@ -84,7 +84,7 @@ export default function Navigation() {
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowProfile(false)}
-                className="w-8 h-8 border-2 border-black"
+                className="w-8 h-8 rounded-lg border border-black/20"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -92,7 +92,7 @@ export default function Navigation() {
 
             <div className="space-y-4">
               {/* 使用者資訊 */}
-              <div className="flex items-center gap-3 p-4 border-2 border-black">
+              <div className="flex items-center gap-3 p-4 rounded-xl border border-black/20 bg-white/50 backdrop-blur-sm">
                 <div className="w-12 h-12 bg-black text-white flex items-center justify-center text-lg font-bold">
                   {session?.user?.name?.charAt(0) || 'U'}
                 </div>
@@ -105,7 +105,7 @@ export default function Navigation() {
               {/* 登出按鈕 */}
               <Button
                 variant="outline"
-                className="w-full border-2 border-black justify-start"
+                className="w-full rounded-xl border border-black/20 justify-start"
                 onClick={() => {
                   signOut()
                   setShowProfile(false)

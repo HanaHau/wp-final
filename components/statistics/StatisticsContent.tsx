@@ -195,15 +195,15 @@ export default function StatisticsContent() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold uppercase tracking-wide">Statistics</h1>
           <Link href="/transactions">
-            <Button variant="outline" size="sm" className="border-2 border-black">
+            <Button variant="outline" size="sm">
               View All
             </Button>
           </Link>
         </div>
 
         {/* Month Navigation */}
-        <div className="flex items-center justify-between mb-6 border-2 border-black p-3">
-          <Button variant="ghost" size="icon" onClick={handlePrevMonth} className="border-2 border-black">
+        <div className="flex items-center justify-between mb-6 rounded-xl border border-black/20 bg-white/90 backdrop-blur-sm p-3 shadow-sm">
+          <Button variant="ghost" size="icon" onClick={handlePrevMonth} className="rounded-lg">
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <div 
@@ -213,14 +213,14 @@ export default function StatisticsContent() {
             <div className="text-lg font-bold uppercase">{monthNames[selectedMonth - 1]} {selectedYear}</div>
             <div className="text-xs text-black/60">{monthlyStats?.transactionCount || 0} transactions</div>
           </div>
-          <Button variant="ghost" size="icon" onClick={handleNextMonth} className="border-2 border-black">
+          <Button variant="ghost" size="icon" onClick={handleNextMonth} className="rounded-lg">
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
 
         {/* Month vs Previous Month Comparison */}
         {prevMonthStats && (
-          <Card className="border-2 border-black mb-6">
+          <Card className="mb-6">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs uppercase tracking-wide text-black/60">Month Comparison</CardTitle>
             </CardHeader>
@@ -251,7 +251,7 @@ export default function StatisticsContent() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-          <Card className="border-2 border-black">
+          <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs uppercase tracking-wide text-black/60">Income</CardTitle>
             </CardHeader>
@@ -262,7 +262,7 @@ export default function StatisticsContent() {
             </CardContent>
           </Card>
 
-          <Card className="border-2 border-black">
+          <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs uppercase tracking-wide text-black/60">Expense</CardTitle>
             </CardHeader>
@@ -273,7 +273,7 @@ export default function StatisticsContent() {
             </CardContent>
           </Card>
 
-          <Card className="border-2 border-black">
+          <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs uppercase tracking-wide text-black/60">Net</CardTitle>
             </CardHeader>
@@ -286,7 +286,7 @@ export default function StatisticsContent() {
             </CardContent>
           </Card>
 
-          <Card className="border-2 border-black">
+          <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs uppercase tracking-wide text-black/60">Savings</CardTitle>
             </CardHeader>
@@ -297,7 +297,7 @@ export default function StatisticsContent() {
             </CardContent>
           </Card>
 
-          <Card className="border-2 border-black">
+          <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs uppercase tracking-wide text-black/60">Savings Rate</CardTitle>
             </CardHeader>
@@ -330,7 +330,7 @@ export default function StatisticsContent() {
         {/* Charts Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* Category Pie Chart */}
-          <Card className="border-2 border-black">
+          <Card>
             <CardHeader>
               <CardTitle className="text-sm uppercase tracking-wide">Expense by Category</CardTitle>
             </CardHeader>
@@ -394,7 +394,7 @@ export default function StatisticsContent() {
           </Card>
 
           {/* Daily Expense Bar Chart */}
-          <Card className="border-2 border-black">
+          <Card>
             <CardHeader>
               <CardTitle className="text-sm uppercase tracking-wide">Daily Expenses</CardTitle>
               {hasOnlyOneDay && (
@@ -429,7 +429,7 @@ export default function StatisticsContent() {
 
         {/* Daily Transactions List */}
         {monthlyStats?.dailyStats && Object.keys(monthlyStats.dailyStats).length > 0 && (
-          <Card className="border-2 border-black">
+          <Card>
             <CardHeader>
               <CardTitle className="text-sm uppercase tracking-wide">Daily Breakdown</CardTitle>
             </CardHeader>
@@ -441,7 +441,7 @@ export default function StatisticsContent() {
                     <div
                       key={date}
                       onClick={() => handleDateClick(date)}
-                      className="flex justify-between items-center p-3 border-2 border-black cursor-pointer hover:bg-black/5 transition-colors"
+                      className="flex justify-between items-center p-3 rounded-lg border border-black/20 cursor-pointer hover:bg-black/5 transition-colors"
                     >
                       <div className="flex flex-col">
                         <span className="font-bold text-sm uppercase">{new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>

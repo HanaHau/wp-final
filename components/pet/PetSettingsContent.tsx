@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import PetDisplay from './PetDisplay'
 import Navigation from '@/components/dashboard/Navigation'
+import ImageEditor from '@/components/image/ImageEditor'
 import { formatCurrency } from '@/lib/utils'
 import { ArrowLeft, Upload, ShoppingBag } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -57,6 +58,8 @@ export default function PetSettingsContent() {
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [petName, setPetName] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [showImageEditor, setShowImageEditor] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [accessories, setAccessories] = useState<PetAccessory[]>([])
@@ -124,6 +127,18 @@ export default function PetSettingsContent() {
     }
   }
 
+  const handleImageEditorSave = (editedImageDataUrl: string) => {
+    setImagePreview(editedImageDataUrl)
+    setShowImageEditor(false)
+    // Convert data URL to File for background removal
+    fetch(editedImageDataUrl)
+      .then(res => res.blob())
+      .then(blob => {
+        const file = new File([blob], 'edited-image.png', { type: 'image/png' })
+        setImageFile(file)
+      })
+  }
+
   const handleSave = async () => {
     setSaving(true)
     try {
@@ -132,16 +147,26 @@ export default function PetSettingsContent() {
       // If image file is uploaded, remove background and convert to data URL
       if (imageFile) {
         try {
-          imageUrl = await removeBackground(imageFile)
+          // If we have an edited preview, use it directly (already processed)
+          if (imagePreview && imagePreview.startsWith('data:image/png')) {
+            imageUrl = imagePreview
+          } else {
+            // Otherwise, apply background removal
+            imageUrl = await removeBackground(imageFile)
+          }
         } catch (error) {
           console.error('Background removal error:', error)
-          // Fallback: convert to data URL without removal
-          const reader = new FileReader()
-          imageUrl = await new Promise((resolve, reject) => {
-            reader.onloadend = () => resolve(reader.result as string)
-            reader.onerror = reject
-            reader.readAsDataURL(imageFile)
-          })
+          // Fallback: use preview if available, otherwise convert to data URL
+          if (imagePreview) {
+            imageUrl = imagePreview
+          } else {
+            const reader = new FileReader()
+            imageUrl = await new Promise((resolve, reject) => {
+              reader.onloadend = () => resolve(reader.result as string)
+              reader.onerror = reject
+              reader.readAsDataURL(imageFile)
+            })
+          }
         }
       }
 
@@ -320,7 +345,7 @@ export default function PetSettingsContent() {
             variant="ghost"
             onClick={() => router.push('/dashboard')}
             size="sm"
-            className="border-2 border-black"
+            className="rounded-xl"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
@@ -329,7 +354,7 @@ export default function PetSettingsContent() {
 
         {/* Pet Status Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <Card className="border-2 border-black">
+          <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs uppercase tracking-wide text-black/60">Points</CardTitle>
             </CardHeader>
@@ -337,7 +362,7 @@ export default function PetSettingsContent() {
               <div className="text-2xl font-bold text-black">{pet?.points || 0}</div>
             </CardContent>
           </Card>
-          <Card className="border-2 border-black">
+          <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs uppercase tracking-wide text-black/60">Mood</CardTitle>
             </CardHeader>
@@ -345,7 +370,7 @@ export default function PetSettingsContent() {
               <div className="text-2xl font-bold text-black">{Math.min(pet?.mood || 50, 100)}%</div>
             </CardContent>
           </Card>
-          <Card className="border-2 border-black">
+          <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs uppercase tracking-wide text-black/60">Fullness</CardTitle>
             </CardHeader>
@@ -353,7 +378,7 @@ export default function PetSettingsContent() {
               <div className="text-2xl font-bold text-black">{Math.min(pet?.fullness || 50, 100)}%</div>
             </CardContent>
           </Card>
-          <Card className="border-2 border-black">
+          <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs uppercase tracking-wide text-black/60">Health</CardTitle>
             </CardHeader>
@@ -367,7 +392,7 @@ export default function PetSettingsContent() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           {/* Left: Pet Display */}
           <div className="lg:col-span-2">
-            <Card className="border-2 border-black">
+            <Card>
               <CardContent className="p-8 relative">
                 <PetDisplay 
                   pet={pet} 
@@ -381,7 +406,7 @@ export default function PetSettingsContent() {
                 <Link href="/shop">
                   <Button
                     size="icon"
-                    className="absolute top-4 right-4 w-12 h-12 rounded-full border-2 border-black bg-black text-white hover:bg-black/80 transition-colors"
+                    className="absolute top-4 right-4 w-12 h-12 rounded-full border border-black/20 bg-black text-white hover:bg-black/80 transition-colors shadow-sm"
                     aria-label="Go to Shop"
                   >
                     <ShoppingBag className="h-5 w-5" />
@@ -393,7 +418,7 @@ export default function PetSettingsContent() {
 
           {/* Right: Edit Pet and Accessories */}
           <div className="space-y-4">
-            <Card className="border-2 border-black">
+            <Card>
               <CardHeader>
                 <CardTitle className="text-sm uppercase tracking-wide">Edit Pet</CardTitle>
               </CardHeader>
@@ -416,15 +441,25 @@ export default function PetSettingsContent() {
                       id="petImage"
                       type="file"
                       accept="image/*"
-                      onChange={(e) =>
-                        setImageFile(e.target.files?.[0] || null)
-                      }
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          const reader = new FileReader()
+                          reader.onloadend = () => {
+                            setImagePreview(reader.result as string)
+                            setImageFile(file)
+                            setShowImageEditor(true)
+                          }
+                          reader.readAsDataURL(file)
+                        }
+                      }}
                     />
-                    <Button variant="outline" size="sm" className="border-2 border-black">
-                      <Upload className="h-3 w-3 mr-1" />
-                      Upload
-                    </Button>
                   </div>
+                  {imagePreview && !showImageEditor && (
+                    <div className="mt-2 text-xs text-black/60">
+                      Image selected. Click "Edit Image" to customize.
+                    </div>
+                  )}
                 </div>
 
                 <Button onClick={handleSave} disabled={saving} className="w-full">
@@ -436,6 +471,24 @@ export default function PetSettingsContent() {
         </div>
 
       </div>
+
+      {/* Image Editor Dialog */}
+      {showImageEditor && imagePreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <ImageEditor
+              imageSrc={imagePreview}
+              onSave={handleImageEditorSave}
+              onCancel={() => {
+                setShowImageEditor(false)
+                setImagePreview(null)
+                setImageFile(null)
+              }}
+              title="Edit Pet Image"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Bottom Navigation */}
       <Navigation />

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import ImageEditor from '@/components/image/ImageEditor'
 import { Plus, Upload, X } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
 import { ShopItemCategory } from '@/data/shop-items'
@@ -29,6 +30,7 @@ export default function CustomStickerDialog({
   const [category, setCategory] = useState<ShopItemCategory | ''>('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [showImageEditor, setShowImageEditor] = useState(false)
   const [isPublic, setIsPublic] = useState(false)
   const [uploading, setUploading] = useState(false)
   const { toast } = useToast()
@@ -72,6 +74,7 @@ export default function CustomStickerDialog({
     reader.onloadend = () => {
       if (reader.result) {
         setImagePreview(reader.result as string)
+        setShowImageEditor(true) // Show editor when image is selected
       }
     }
     reader.readAsDataURL(file)
@@ -80,6 +83,27 @@ export default function CustomStickerDialog({
   const handleRemoveImage = () => {
     setImageFile(null)
     setImagePreview(null)
+    setShowImageEditor(false)
+  }
+
+  const handleImageEditorSave = (editedImageDataUrl: string) => {
+    setImagePreview(editedImageDataUrl)
+    setShowImageEditor(false)
+    // Convert data URL to File
+    fetch(editedImageDataUrl)
+      .then(res => res.blob())
+      .then(blob => {
+        const file = new File([blob], 'edited-sticker.png', { type: 'image/png' })
+        setImageFile(file)
+      })
+      .catch(error => {
+        console.error('Error converting edited image to file:', error)
+        toast({
+          title: 'Error',
+          description: 'Failed to process edited image. Please try again.',
+          variant: 'destructive',
+        })
+      })
   }
 
   const handleSubmit = async () => {
@@ -171,8 +195,26 @@ export default function CustomStickerDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-2 border-black max-h-[90vh] flex flex-col">
+    <>
+      {/* Image Editor Modal */}
+      {showImageEditor && imagePreview && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <ImageEditor
+              imageSrc={imagePreview}
+              onSave={handleImageEditorSave}
+              onCancel={() => {
+                setShowImageEditor(false)
+                // Keep the original preview
+              }}
+              title="Edit Sticker Image"
+            />
+          </div>
+        </div>
+      )}
+
+      <Dialog open={open && !showImageEditor} onOpenChange={onOpenChange}>
+        <DialogContent className="max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-sm uppercase tracking-wide">Make Your Own Sticker</DialogTitle>
           <DialogDescription>
@@ -184,25 +226,36 @@ export default function CustomStickerDialog({
           {/* Image Upload */}
           <div>
             <Label className="text-xs uppercase tracking-wide mb-2 block">Image</Label>
-            {imagePreview ? (
-              <div className="relative border-2 border-black p-4">
+            {imagePreview && !showImageEditor ? (
+              <div className="relative rounded-xl border border-black/20 p-4 bg-white/50 backdrop-blur-sm">
                 <img
                   src={imagePreview}
                   alt="Preview"
                   className="w-full h-32 object-contain"
                 />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute top-2 right-2 w-6 h-6 border-2 border-black"
-                  onClick={handleRemoveImage}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
+                <div className="flex gap-2 mt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowImageEditor(true)}
+                    className="rounded-xl"
+                  >
+                    Edit Image
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-lg"
+                    onClick={handleRemoveImage}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
             ) : (
-              <label className="flex flex-col items-center justify-center border-2 border-dashed border-black p-8 cursor-pointer hover:bg-black/5 transition-colors">
+              <label className="flex flex-col items-center justify-center rounded-xl border border-dashed border-black/20 p-8 cursor-pointer hover:bg-black/5 transition-colors">
                 <input
                   type="file"
                   accept="image/*"
@@ -291,6 +344,7 @@ export default function CustomStickerDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    </>
   )
 }
 

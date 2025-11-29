@@ -16,7 +16,7 @@ export default function HamburgerMenu() {
         variant="ghost"
         size="icon"
         onClick={() => setIsOpen(true)}
-        className="w-10 h-10 border-2 border-black"
+        className="w-10 h-10 rounded-xl border border-black/20"
       >
         <svg
           className="w-5 h-5"
@@ -42,14 +42,14 @@ export default function HamburgerMenu() {
           />
           
           {/* Menu */}
-          <div className="fixed top-0 right-0 h-full w-64 bg-white border-l-2 border-black z-50 p-4">
+          <div className="fixed top-0 right-0 h-full w-64 bg-white/95 backdrop-blur-md border-l border-black/20 z-50 p-4 shadow-xl">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold uppercase tracking-wide">Menu</h2>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setIsOpen(false)}
-                className="w-8 h-8 border-2 border-black"
+                className="w-8 h-8 rounded-lg border border-black/20"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -59,7 +59,7 @@ export default function HamburgerMenu() {
               <Link href="/dashboard">
                 <Button
                   variant="outline"
-                  className="w-full justify-start border-2 border-black"
+                  className="w-full justify-start rounded-xl"
                   onClick={() => setIsOpen(false)}
                 >
                   Home
@@ -68,7 +68,7 @@ export default function HamburgerMenu() {
               <Link href="/statistics">
                 <Button
                   variant="outline"
-                  className="w-full justify-start border-2 border-black"
+                  className="w-full justify-start rounded-xl"
                   onClick={() => setIsOpen(false)}
                 >
                   Statistics
@@ -77,7 +77,7 @@ export default function HamburgerMenu() {
               <Link href="/transactions">
                 <Button
                   variant="outline"
-                  className="w-full justify-start border-2 border-black"
+                  className="w-full justify-start rounded-xl"
                   onClick={() => setIsOpen(false)}
                 >
                   Transactions
@@ -86,7 +86,7 @@ export default function HamburgerMenu() {
               <Link href="/pet">
                 <Button
                   variant="outline"
-                  className="w-full justify-start border-2 border-black"
+                  className="w-full justify-start rounded-xl"
                   onClick={() => setIsOpen(false)}
                 >
                   Pet Settings
@@ -95,7 +95,7 @@ export default function HamburgerMenu() {
               <Link href="/shop">
                 <Button
                   variant="outline"
-                  className="w-full justify-start border-2 border-black"
+                  className="w-full justify-start rounded-xl"
                   onClick={() => setIsOpen(false)}
                 >
                   Shop
@@ -103,7 +103,7 @@ export default function HamburgerMenu() {
               </Link>
             </div>
 
-            <div className="mt-8 pt-6 border-t-2 border-black">
+            <div className="mt-8 pt-6 border-t border-black/20">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 bg-black text-white flex items-center justify-center text-xs font-bold">
                   {session?.user?.name?.charAt(0) || 'U'}
@@ -115,7 +115,7 @@ export default function HamburgerMenu() {
               </div>
               <Button
                 variant="outline"
-                className="w-full border-2 border-black"
+                className="w-full rounded-xl"
                 onClick={() => {
                   signOut()
                   setIsOpen(false)

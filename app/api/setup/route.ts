@@ -14,19 +14,25 @@ const setupSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser()
-    if (!user) {
+    if (!user || !user.email) {
       return NextResponse.json({ error: '未授權' }, { status: 401 })
     }
 
-    // 檢查是否已經完成設定
+    // 使用 email 查找用戶，因為 ID 可能不一致
     const userRecord = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { isInitialized: true },
+      where: { email: user.email },
+      select: { id: true, isInitialized: true },
     })
 
-    if (userRecord?.isInitialized) {
+    if (!userRecord) {
+      return NextResponse.json({ error: '用戶不存在' }, { status: 404 })
+    }
+
+    if (userRecord.isInitialized) {
       return NextResponse.json({ error: '已經完成首次設定' }, { status: 400 })
     }
+
+    const dbUserId = userRecord.id
 
     const body = await request.json()
     console.log('收到設定請求:', { 
@@ -40,7 +46,7 @@ export async function POST(request: NextRequest) {
     // 更新使用者餘額和設定狀態
     try {
       await prisma.user.update({
-        where: { id: user.id },
+        where: { id: dbUserId },
         data: {
           balance: validatedData.initialBalance,
           isInitialized: true,
@@ -59,13 +65,13 @@ export async function POST(request: NextRequest) {
     try {
       // 先檢查寵物是否已存在
       const existingPet = await prisma.pet.findUnique({
-        where: { userId: user.id },
+        where: { userId: dbUserId },
       })
 
       if (existingPet) {
         // 如果寵物已存在，更新它
         await prisma.pet.update({
-          where: { userId: user.id },
+          where: { userId: dbUserId },
           data: {
             name: validatedData.petName,
             imageUrl: petImageUrl,
@@ -77,7 +83,7 @@ export async function POST(request: NextRequest) {
         // 如果寵物不存在，建立新的
         await prisma.pet.create({
           data: {
-            userId: user.id,
+            userId: dbUserId,
             name: validatedData.petName,
             imageUrl: petImageUrl,
             facingDirection: facingDir,
@@ -117,12 +123,13 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   try {
     const user = await getCurrentUser()
-    if (!user) {
+    if (!user || !user.email) {
       return NextResponse.json({ error: '未授權' }, { status: 401 })
     }
 
+    // 使用 email 查找用戶，因為 ID 可能不一致
     const userRecord = await prisma.user.findUnique({
-      where: { id: user.id },
+      where: { email: user.email },
       select: { isInitialized: true },
     })
 

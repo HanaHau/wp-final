@@ -337,7 +337,7 @@ export default function TransactionDialog({
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="border-2 border-black"
+                className="rounded-xl"
                 required
               />
             </div>
@@ -349,7 +349,7 @@ export default function TransactionDialog({
                   type="button"
                   variant={type === 'EXPENSE' ? 'default' : 'outline'}
                   onClick={() => setType('EXPENSE')}
-                  className="border-2 border-black"
+                  className="rounded-xl"
                 >
                   Expense
                 </Button>
@@ -357,7 +357,7 @@ export default function TransactionDialog({
                   type="button"
                   variant={type === 'INCOME' ? 'default' : 'outline'}
                   onClick={() => setType('INCOME')}
-                  className="border-2 border-black"
+                  className="rounded-xl"
                 >
                   Income
                 </Button>
@@ -365,7 +365,7 @@ export default function TransactionDialog({
                   type="button"
                   variant={type === 'DEPOSIT' ? 'default' : 'outline'}
                   onClick={() => setType('DEPOSIT')}
-                  className="border-2 border-black"
+                  className="rounded-xl"
                 >
                   Deposit
                 </Button>
@@ -421,7 +421,7 @@ export default function TransactionDialog({
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Enter note..."
                 rows={2}
-                className="border-2 border-black"
+                className="rounded-xl"
               />
             </div>
           </div>

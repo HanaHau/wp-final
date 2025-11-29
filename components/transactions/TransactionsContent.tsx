@@ -112,7 +112,7 @@ export default function TransactionsContent() {
           <h1 className="text-2xl font-bold uppercase tracking-wide">Transactions</h1>
           <Button
             onClick={() => setIsDialogOpen(true)}
-            className="border-2 border-black"
+            className="rounded-xl"
           >
             <Plus className="h-4 w-4 mr-2" />
             New
@@ -122,10 +122,10 @@ export default function TransactionsContent() {
         {/* Filters */}
         <div className="mb-6 flex gap-4">
           <Select value={filterType} onValueChange={setFilterType}>
-            <SelectTrigger className="border-2 border-black w-40">
+            <SelectTrigger className="w-40">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="border-2 border-black bg-white">
+            <SelectContent>
               <SelectItem value="ALL">All Types</SelectItem>
               <SelectItem value="EXPENSE">Expense</SelectItem>
               <SelectItem value="INCOME">Income</SelectItem>
@@ -136,7 +136,7 @@ export default function TransactionsContent() {
         </div>
 
         {/* Transactions List */}
-        <Card className="border-2 border-black">
+        <Card>
           <CardHeader>
             <CardTitle className="text-sm uppercase tracking-wide">
               {safeTransactions.length} Transactions
@@ -152,7 +152,7 @@ export default function TransactionsContent() {
                 {paginatedTransactions.map((transaction) => (
                   <div
                     key={transaction.id}
-                    className="flex items-center justify-between p-4 border-2 border-black"
+                    className="flex items-center justify-between p-4 rounded-xl border border-black/20 bg-white/50 backdrop-blur-sm mb-2"
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-1">
@@ -198,7 +198,7 @@ export default function TransactionsContent() {
                           variant="ghost"
                           size="icon"
                           onClick={() => handleEdit(transaction)}
-                          className="h-8 w-8 border-2 border-black"
+                          className="h-8 w-8 rounded-lg"
                         >
                           <Edit className="h-3 w-3" />
                         </Button>
@@ -206,7 +206,7 @@ export default function TransactionsContent() {
                           variant="ghost"
                           size="icon"
                           onClick={() => handleDelete(transaction.id)}
-                          className="h-8 w-8 border-2 border-black"
+                          className="h-8 w-8 rounded-lg"
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -219,12 +219,12 @@ export default function TransactionsContent() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between mt-6 pt-4 border-t-2 border-black">
+              <div className="flex items-center justify-between mt-6 pt-4 border-t border-black/20">
                 <Button
                   variant="outline"
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="border-2 border-black"
+                  className="rounded-xl"
                 >
                   <ChevronLeft className="h-4 w-4 mr-2" />
                   Previous
@@ -236,7 +236,7 @@ export default function TransactionsContent() {
                   variant="outline"
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
-                  className="border-2 border-black"
+                  className="rounded-xl"
                 >
                   Next
                   <ChevronRight className="h-4 w-4 ml-2" />
