@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
             name: validatedData.petName,
             imageUrl: petImageUrl,
             facingDirection: facingDir,
-            points: 0,
+            points: 50, // 新用戶初始 points 為 50
             fullness: 70,
             mood: 70,
             lastLoginDate: now,

@@ -226,6 +226,22 @@ export async function PUT(
       },
     })
 
+    // 整理帳目（編輯）+5 points
+    const pet = await prisma.pet.findUnique({
+      where: { userId: user.id },
+    })
+
+    if (pet) {
+      await prisma.pet.update({
+        where: { id: pet.id },
+        data: {
+          points: {
+            increment: 5,
+          },
+        },
+      })
+    }
+
     return NextResponse.json(updatedTransaction)
   } catch (error) {
     if (error instanceof z.ZodError) {

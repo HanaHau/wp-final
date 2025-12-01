@@ -231,6 +231,22 @@ export async function POST(request: NextRequest) {
     // 更新寵物狀態（根據記帳行為）
     await updatePetStatus(user.id, typeId, validatedData.amount)
 
+    // 記一筆帳 +10 points
+    const pet = await prisma.pet.findUnique({
+      where: { userId: user.id },
+    })
+
+    if (pet) {
+      await prisma.pet.update({
+        where: { id: pet.id },
+        data: {
+          points: {
+            increment: 10,
+          },
+        },
+      })
+    }
+
     // 檢查並發放貼紙獎勵 - 已禁用自動創建 sticker
     // await checkAndRewardStickers(user.id)
 

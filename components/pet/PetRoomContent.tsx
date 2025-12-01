@@ -108,6 +108,17 @@ export default function PetRoomContent() {
 
   useEffect(() => {
     fetchAllData()
+    // 記錄訪問 pet page（每天限一次，+5 points）
+    fetch('/api/pet/visit', { method: 'POST' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.pointsGained > 0) {
+          console.log(`Pet page 訪問獎勵: +${data.pointsGained} points`)
+        }
+      })
+      .catch(error => {
+        console.error('記錄 pet page 訪問失敗:', error)
+      })
   }, [refreshKey])
 
   const fetchAllData = async () => {

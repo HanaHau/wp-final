@@ -67,22 +67,23 @@ model VerificationToken {
 }
 
 model Pet {
-  id              String         @id @default(cuid())
-  userId          String         @unique
-  name            String         @default("我的寵物")
-  imageUrl        String?
-  facingDirection String         @default("right")
-  points          Int            @default(0)
-  fullness        Int            @default(70)
-  mood            Int            @default(70)
-  lastLoginDate   DateTime?      // 追蹤最後登入日期（用於判斷是否為當天第一次登入）
-  lastDailyReset  DateTime?      // 追蹤最後一次每日重置的時間（用於判斷是否需要重置）
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  accessories     PetAccessory[]
-  purchases       PetPurchase[]
-  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  stickers        RoomSticker[]
+  id                String         @id @default(cuid())
+  userId            String         @unique
+  name              String         @default("我的寵物")
+  imageUrl          String?
+  facingDirection   String         @default("right")
+  points            Int            @default(0)
+  fullness          Int            @default(70)
+  mood              Int            @default(70)
+  lastLoginDate     DateTime?      // 追蹤最後登入日期（用於判斷是否為當天第一次登入）
+  lastDailyReset    DateTime?      // 追蹤最後一次每日重置的時間（用於判斷是否需要重置）
+  lastPetPageVisit  DateTime?      // 追蹤最後一次訪問 pet page 的日期（用於判斷是否為當天第一次訪問）
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  accessories       PetAccessory[]
+  purchases         PetPurchase[]
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stickers          RoomSticker[]
 
   @@map("pets")
 }
