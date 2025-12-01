@@ -97,7 +97,7 @@ export async function GET() {
     const customStickers = await prisma.customSticker.findMany({
       where: {
         id: { in: customStickerIds },
-        category: { in: ['toy', 'decoration'] }, // Only Toy and Decoration categories
+        category: 'decoration', // Only Decoration category (toys merged into decoration)
       },
     })
 
@@ -140,7 +140,7 @@ export async function GET() {
       const customStickerId = stickerId.replace('custom-', '')
       const customSticker = customStickerMap.get(customStickerId)
       
-      // Skip if sticker not found or not in Toy/Decoration category
+      // Skip if sticker not found or not in Decoration category
       if (!customSticker) continue
       
       const total = customTotalBySticker[stickerId] || 0

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import Navigation from '@/components/dashboard/Navigation'
 import { ShoppingBag, Plus } from 'lucide-react'
 import { useSession } from 'next-auth/react'
-import { SHOP_ITEMS, ShopItem } from '@/data/shop-items'
+import { SHOP_ITEMS, ShopItem, ShopItemCategory } from '@/data/shop-items'
 import CustomStickerDialog from './CustomStickerDialog'
 
 interface Pet {
@@ -192,7 +192,7 @@ export default function ShopContent() {
 
         {/* Category Filter */}
         <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-          {['all', 'food', 'toy', 'decoration', 'accessory'].map((cat) => (
+          {['all', 'food', 'decoration', 'accessory'].map((cat) => (
             <Button
               key={cat}
               variant={selectedCategory === cat ? 'default' : 'outline'}
@@ -252,7 +252,11 @@ export default function ShopContent() {
                     <div className="text-5xl mb-2" style={{ height: '3rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{item.emoji}</div>
                   )}
                   <h3 className="font-bold text-sm uppercase tracking-wide">{item.name}</h3>
-                  <p className="text-xs text-black/60 mt-1">{item.description}</p>
+                  <div className="mt-1">
+                    <span className="inline-block text-[10px] uppercase tracking-wide px-2 py-0.5 bg-black/10 border border-black/20 rounded">
+                      {item.category}
+                    </span>
+                  </div>
                 </div>
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs uppercase tracking-wide text-black/60">Cost</span>

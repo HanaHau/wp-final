@@ -9,7 +9,7 @@ const customStickerSchema = z.object({
     (val) => val.startsWith('data:image/') || val.startsWith('http://') || val.startsWith('https://'),
     { message: 'Image URL must be a valid data URL or HTTP(S) URL' }
   ),
-  category: z.enum(['food', 'toy', 'decoration', 'accessory']),
+  category: z.enum(['food', 'decoration', 'accessory']),
   isPublic: z.boolean().default(false),
 })
 

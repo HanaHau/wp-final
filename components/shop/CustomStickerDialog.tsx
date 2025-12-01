@@ -294,7 +294,6 @@ export default function CustomStickerDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="food">Food</SelectItem>
-                <SelectItem value="toy">Toy</SelectItem>
                 <SelectItem value="decoration">Decoration</SelectItem>
                 <SelectItem value="accessory">Accessory</SelectItem>
               </SelectContent>
