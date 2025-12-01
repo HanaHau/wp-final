@@ -38,6 +38,7 @@ export async function GET() {
           mood: 70,
           lastLoginDate: now,
           lastDailyReset: now,
+          consecutiveLoginDays: 0, // 初始連續登入天數為 0
         },
         include: {
           purchases: true,
@@ -60,8 +61,10 @@ export async function GET() {
     let updateData: {
       mood?: number
       fullness?: number
+      points?: number
       lastLoginDate?: Date
       lastDailyReset?: Date
+      consecutiveLoginDays?: number
     } = {}
     
     // 如果需要每日重置
@@ -74,14 +77,41 @@ export async function GET() {
       updateData.lastDailyReset = today
     }
     
-    // 如果是當天第一次登入，mood +5
+    // 如果是當天第一次登入
     if (isFirstLoginToday) {
       const currentMood = updateData.mood ?? pet.mood
       updateData.mood = Math.min(100, currentMood + 5) // 直接 +5
       updateData.lastLoginDate = now
+      
+      // 檢查連續登入
+      if (lastLogin) {
+        const yesterday = new Date(today)
+        yesterday.setDate(yesterday.getDate() - 1)
+        const lastLoginDate = new Date(lastLogin.getFullYear(), lastLogin.getMonth(), lastLogin.getDate())
+        
+        // 如果最後登入是昨天，連續登入天數 +1
+        if (lastLoginDate.getTime() === yesterday.getTime()) {
+          const newConsecutiveDays = (pet.consecutiveLoginDays || 0) + 1
+          updateData.consecutiveLoginDays = newConsecutiveDays
+          
+          // 如果連續登入達到5天，給予20點獎勵
+          if (newConsecutiveDays >= 5) {
+            updateData.points = (pet.points || 0) + 20
+            updateData.consecutiveLoginDays = 0 // 重置連續登入天數
+            console.log(`連續登入5天獎勵：+20 points`)
+          }
+        } else {
+          // 如果不是連續登入（中間有間斷），重置為1
+          updateData.consecutiveLoginDays = 1
+        }
+      } else {
+        // 如果沒有最後登入記錄，設為1（第一次登入或重置後）
+        updateData.consecutiveLoginDays = 1
+      }
     } else if (!pet.lastLoginDate) {
       // 如果 lastLoginDate 為 null，也更新它
       updateData.lastLoginDate = now
+      updateData.consecutiveLoginDays = 1
     }
     
     // 如果有需要更新的數據，執行更新

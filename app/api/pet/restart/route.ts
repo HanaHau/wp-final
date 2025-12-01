@@ -31,6 +31,7 @@ export async function POST() {
         lastLoginDate: now,
         lastDailyReset: today,
         lastPetPageVisit: null, // 重置，讓用戶可以再次獲得訪問獎勵
+        consecutiveLoginDays: 0, // 重置連續登入天數
       },
     })
 

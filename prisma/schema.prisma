@@ -78,6 +78,7 @@ model Pet {
   lastLoginDate     DateTime?      // 追蹤最後登入日期（用於判斷是否為當天第一次登入）
   lastDailyReset    DateTime?      // 追蹤最後一次每日重置的時間（用於判斷是否需要重置）
   lastPetPageVisit  DateTime?      // 追蹤最後一次訪問 pet page 的日期（用於判斷是否為當天第一次訪問）
+  consecutiveLoginDays Int         @default(0) // 追蹤連續登入天數
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
   accessories       PetAccessory[]

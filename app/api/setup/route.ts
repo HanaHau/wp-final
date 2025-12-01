@@ -105,19 +105,20 @@ export async function POST(request: NextRequest) {
       } else {
         // 如果寵物不存在，建立新的
         const now = new Date()
-        await prisma.pet.create({
-          data: {
-            userId: dbUserId,
-            name: validatedData.petName,
-            imageUrl: petImageUrl,
-            facingDirection: facingDir,
-            points: 50, // 新用戶初始 points 為 50
-            fullness: 70,
-            mood: 70,
-            lastLoginDate: now,
-            lastDailyReset: now,
-          },
-        })
+              await prisma.pet.create({
+                data: {
+                  userId: dbUserId,
+                  name: validatedData.petName,
+                  imageUrl: petImageUrl,
+                  facingDirection: facingDir,
+                  points: 50, // 新用戶初始 points 為 50
+                  fullness: 70,
+                  mood: 70,
+                  lastLoginDate: now,
+                  lastDailyReset: now,
+                  consecutiveLoginDays: 0, // 初始連續登入天數為 0
+                },
+              })
         console.log('寵物建立成功')
       }
     } catch (error) {

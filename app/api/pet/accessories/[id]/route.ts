@@ -18,6 +18,7 @@ async function getOrCreatePet(userId: string) {
         mood: 70,
         lastLoginDate: now,
         lastDailyReset: now,
+        consecutiveLoginDays: 0, // 初始連續登入天數為 0
       },
     })
   }
