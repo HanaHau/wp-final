@@ -4,6 +4,8 @@ import { useEffect, useState, useRef } from 'react'
 import Navigation from '@/components/dashboard/Navigation'
 import { useToast } from '@/components/ui/use-toast'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+// Dialog 已移除，死亡覆蓋層由全局 PetDeathOverlay 組件處理
 import { Pencil, Check, X } from 'lucide-react'
 import FeedPanel from './FeedPanel'
 import DecorPanel from './DecorPanel'
@@ -105,6 +107,13 @@ export default function PetRoomContent() {
   const [isEditingName, setIsEditingName] = useState(false)
   const [petNameInput, setPetNameInput] = useState('')
   const [isSavingName, setIsSavingName] = useState(false)
+  
+  // Pet death state - 移除本地狀態，使用全局 PetDeathOverlay
+  // const [showRestartDialog, setShowRestartDialog] = useState(false)
+  // const [isRestarting, setIsRestarting] = useState(false)
+  
+  // Check if pet is dead - 保留用於禁用操作
+  const isPetDead = pet && (pet.mood <= 0 || pet.fullness <= 0)
 
   useEffect(() => {
     fetchAllData()
@@ -390,14 +399,44 @@ export default function PetRoomContent() {
   }
 
   // Handle pet click
-  const handlePetClick = () => {
+  const handlePetClick = async () => {
+    if (isPetDead) return // 寵物死亡時不執行操作
+    
     setPetState('happy')
     showParticleEffect('❤️', 3)
+    
+    try {
+      const res = await fetch('/api/pet/pet', {
+        method: 'POST',
+      })
+      if (!res.ok) throw new Error('Failed to pet')
+      const data = await res.json()
+      
+      toast({
+        title: data.message || 'Pet petted!',
+        description: `心情 +${data.moodGain ?? 2}`,
+      })
+      
+      // Update pet data
+      setTimeout(async () => {
+        try {
+          const petRes = await fetch('/api/pet')
+          const petData = await petRes.json()
+          setPet(petData)
+        } catch (error) {
+          console.error('Failed to update pet data:', error)
+        }
+      }, 500)
+    } catch (error: any) {
+      console.error('Pet pet error:', error)
+    }
+    
     setTimeout(() => setPetState('idle'), 600)
   }
 
   // Handle feed pet
   const handleFeedPet = async (itemId: string) => {
+    if (isPetDead) return // 寵物死亡時不執行操作
     const food = foodItems.find(f => f.itemId === itemId)
     if (!food || !petImageRef.current) return
 
@@ -537,6 +576,8 @@ export default function PetRoomContent() {
     }
   }
 
+  // 移除本地的重新開始邏輯，使用全局 PetDeathOverlay 組件處理
+
   // Handle accessory drop
   const handleAccessoryDrop = async (accessoryId: string, positionX: number, positionY: number) => {
     try {
@@ -606,6 +647,8 @@ export default function PetRoomContent() {
           backgroundImage: 'url(/pet_background.png)',
         }}
       />
+      
+      {/* 死亡覆蓋層已移至全局 PetDeathOverlay 組件 */}
       
       {/* Main Content with Container */}
       <div className="flex-1 overflow-hidden max-w-7xl mx-auto w-full px-4 pt-4 pb-24 flex flex-col relative z-50">
@@ -841,6 +884,8 @@ export default function PetRoomContent() {
 
       {/* Bottom Navigation */}
       <Navigation />
+
+      {/* 重新開始遊戲對話框已移至全局 PetDeathOverlay 組件 */}
     </div>
   )
 }
