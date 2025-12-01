@@ -9,6 +9,7 @@ import FeedPanel from './FeedPanel'
 import DecorPanel from './DecorPanel'
 import PetStatusHUD from './PetStatusHUD'
 import PetActionBar from './PetActionBar'
+import { SHOP_ITEM_MAP } from '@/data/shop-items'
 
 interface Pet {
   id: string
@@ -18,7 +19,6 @@ interface Pet {
   points: number
   fullness: number
   mood: number
-  health: number
 }
 
 interface RoomSticker {
@@ -98,6 +98,7 @@ export default function PetRoomContent() {
     life: number
   }>>([])
   const petImageRef = useRef<HTMLDivElement>(null)
+  const particleCounterRef = useRef(0)
   
   // Pet name editing state
   const [isEditingName, setIsEditingName] = useState(false)
@@ -274,19 +275,18 @@ export default function PetRoomContent() {
   }
 
   const getItemEmoji = (itemId: string): string => {
-    const emojiMap: Record<string, string> = {
-      food1: '🍖',
-      food2: '🥩',
-      food3: '🍗',
-      water: '💧',
-      sticker1: '🎨',
-      sticker2: '🌟',
-      sticker3: '🎪',
-      cat: '🐱',
-      acc1: '🎀',
-      acc2: '👑',
+    // 優先從 SHOP_ITEM_MAP 獲取 emoji
+    const shopItem = SHOP_ITEM_MAP[itemId]
+    if (shopItem) {
+      return shopItem.emoji
     }
-    return emojiMap[itemId] || '⬛'
+    
+    // 如果不在 SHOP_ITEM_MAP 中，使用備用 emoji
+    const fallbackEmojiMap: Record<string, string> = {
+      water: '💧',
+      cat: '🐱',
+    }
+    return fallbackEmojiMap[itemId] || '⬛'
   }
 
   // Show particle effect
@@ -300,8 +300,9 @@ export default function PetRoomContent() {
     const newParticles = Array.from({ length: count }, (_, i) => {
       const angle = (Math.PI * 2 * i) / count
       const speed = 2 + Math.random() * 2
+      particleCounterRef.current += 1
       return {
-        id: `particle-${Date.now()}-${i}`,
+        id: `particle-${Date.now()}-${particleCounterRef.current}-${i}-${Math.random().toString(36).substr(2, 9)}`,
         emoji,
         x: centerX + (Math.random() - 0.5) * 40,
         y: centerY + (Math.random() - 0.5) * 40,
@@ -571,7 +572,6 @@ export default function PetRoomContent() {
           <PetStatusHUD
             mood={pet.mood}
             fullness={pet.fullness}
-            health={pet.health}
           />
         </div>
 

@@ -12,7 +12,6 @@ interface Pet {
   points: number
   fullness: number
   mood: number
-  health: number
 }
 
 interface PetAccessory {

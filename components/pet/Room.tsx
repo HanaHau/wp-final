@@ -43,7 +43,6 @@ interface Pet {
   points: number
   fullness: number
   mood: number
-  health: number
 }
 
 interface PetAccessory {
@@ -757,7 +756,7 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
       const data = await res.json()
       toast({
         title: data.message || 'Pet petted!',
-        description: `Mood: +5`,
+        description: `心情 +${data.moodGain ?? 2}`,
       })
       onPetFed?.()
     } catch (error: any) {

@@ -15,7 +15,6 @@ interface Pet {
   points: number
   fullness: number
   mood: number
-  health: number
   needsAttention?: boolean
   isSick?: boolean
   isUnhappy?: boolean
@@ -253,7 +252,6 @@ export default function DashboardContent() {
           <div className="flex gap-3 pointer-events-auto">
             {renderStatCard('Mood', pet?.mood)}
             {renderStatCard('Fullness', pet?.fullness)}
-            {renderStatCard('Health', pet?.health)}
           </div>
 
           {/* Warning banner - separate if needed */}

@@ -18,11 +18,12 @@ export async function POST() {
       return NextResponse.json({ error: 'Pet not found' }, { status: 404 })
     }
 
-    // Update pet stats (mood +5, cap at 100)
+    // Update pet stats (mood +2, cap at 100)
+    const moodIncrease = 2 // 直接 +2
     const updatedPet = await prisma.pet.update({
       where: { id: pet.id },
       data: {
-        mood: Math.min(100, pet.mood + 5),
+        mood: Math.min(100, pet.mood + moodIncrease),
         updatedAt: new Date(), // Update interaction time
       },
     })
@@ -40,6 +41,7 @@ export async function POST() {
     return NextResponse.json({
       pet: updatedPet,
       message: randomMessage,
+      moodGain: moodIncrease,
     })
   } catch (error) {
     console.error('Pet pet error:', error)

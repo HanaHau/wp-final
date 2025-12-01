@@ -54,14 +54,16 @@ export async function POST(request: NextRequest) {
     })
 
     if (!pet) {
+      const now = new Date()
       pet = await prisma.pet.create({
         data: {
           userId: user.id,
           name: '我的寵物',
           points: 0,
-          fullness: 50,
-          mood: 50,
-          health: 100,
+          fullness: 70,
+          mood: 70,
+          lastLoginDate: now,
+          lastDailyReset: now,
         },
       })
     }

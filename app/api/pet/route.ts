@@ -28,14 +28,16 @@ export async function GET() {
 
     // 如果沒有寵物，建立一隻預設寵物
     if (!pet) {
+      const now = new Date()
       pet = await prisma.pet.create({
         data: {
           userId: user.id,
           name: '我的寵物',
           points: 0,
-          fullness: 50,
-          mood: 50,
-          health: 100,
+          fullness: 70,
+          mood: 70,
+          lastLoginDate: now,
+          lastDailyReset: now,
         },
         include: {
           purchases: true,
@@ -43,42 +45,62 @@ export async function GET() {
       })
     }
 
-    // Check daily interaction and update pet stats if needed
+    // 每日重置邏輯（00:00 刷新）
     const now = new Date()
-    const lastUpdate = pet.updatedAt
-    const hoursSinceUpdate = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60)
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const lastReset = pet.lastDailyReset ? new Date(pet.lastDailyReset) : null
     
-    // If more than 24 hours since last interaction, decrease stats
-    if (hoursSinceUpdate > 24) {
-      const daysSinceUpdate = Math.floor(hoursSinceUpdate / 24)
-      const moodDecrease = Math.min(daysSinceUpdate * 5, pet.mood)
-      const fullnessDecrease = Math.min(daysSinceUpdate * 5, pet.fullness)
-      const healthDecrease = Math.min(daysSinceUpdate * 2, pet.health)
-      
-      if (moodDecrease > 0 || fullnessDecrease > 0 || healthDecrease > 0) {
-        pet = await prisma.pet.update({
-          where: { id: pet.id },
-          data: {
-            mood: Math.max(0, pet.mood - moodDecrease),
-            fullness: Math.max(0, pet.fullness - fullnessDecrease),
-            health: Math.max(0, pet.health - healthDecrease),
-          },
-          include: {
-            purchases: true,
-          },
-        })
-      }
+    // 檢查是否需要每日重置（如果 lastDailyReset 是昨天或更早）
+    const needsDailyReset = !lastReset || lastReset < today
+    
+    // 檢查是否為當天第一次登入
+    const lastLogin = pet.lastLoginDate ? new Date(pet.lastLoginDate) : null
+    const isFirstLoginToday = !lastLogin || lastLogin < today
+    
+    let updateData: {
+      mood?: number
+      fullness?: number
+      lastLoginDate?: Date
+      lastDailyReset?: Date
+    } = {}
+    
+    // 如果需要每日重置
+    if (needsDailyReset) {
+      // Mood 每天 -25%, Fullness 每天 -10%
+      const newMood = Math.max(0, Math.floor(pet.mood * 0.75)) // -25%
+      const newFullness = Math.max(0, Math.floor(pet.fullness * 0.9)) // -10%
+      updateData.mood = newMood
+      updateData.fullness = newFullness
+      updateData.lastDailyReset = today
+    }
+    
+    // 如果是當天第一次登入，mood +5
+    if (isFirstLoginToday) {
+      const currentMood = updateData.mood ?? pet.mood
+      updateData.mood = Math.min(100, currentMood + 5) // 直接 +5
+      updateData.lastLoginDate = now
+    } else if (!pet.lastLoginDate) {
+      // 如果 lastLoginDate 為 null，也更新它
+      updateData.lastLoginDate = now
+    }
+    
+    // 如果有需要更新的數據，執行更新
+    if (Object.keys(updateData).length > 0) {
+      pet = await prisma.pet.update({
+        where: { id: pet.id },
+        data: updateData,
+        include: {
+          purchases: true,
+        },
+      })
     }
 
     // Add warning flags and ensure imageUrl has default value
     const petWithWarnings = {
       ...pet,
       imageUrl: pet.imageUrl || '/cat.png', // 如果為 null，使用預設圖片
-      needsAttention: hoursSinceUpdate > 24,
-      isSick: pet.health < 30,
       isUnhappy: pet.mood < 30,
       isHungry: pet.fullness < 30,
-      daysSinceInteraction: Math.floor(hoursSinceUpdate / 24),
     }
 
     return NextResponse.json(petWithWarnings)

@@ -21,7 +21,6 @@ interface Pet {
   points: number
   fullness: number
   mood: number
-  health: number
 }
 
 interface Purchase {
@@ -376,14 +375,6 @@ export default function PetSettingsContent() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-black">{Math.min(pet?.fullness || 50, 100)}%</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs uppercase tracking-wide text-black/60">Health</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-black">{Math.min(pet?.health || 100, 100)}%</div>
             </CardContent>
           </Card>
         </div>

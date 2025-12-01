@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
         console.log('寵物更新成功')
       } else {
         // 如果寵物不存在，建立新的
+        const now = new Date()
         await prisma.pet.create({
           data: {
             userId: dbUserId,
@@ -88,9 +89,10 @@ export async function POST(request: NextRequest) {
             imageUrl: petImageUrl,
             facingDirection: facingDir,
             points: 0,
-            fullness: 50,
-            mood: 50,
-            health: 100,
+            fullness: 70,
+            mood: 70,
+            lastLoginDate: now,
+            lastDailyReset: now,
           },
         })
         console.log('寵物建立成功')

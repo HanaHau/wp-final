@@ -67,16 +67,16 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      // Update pet stats (mood +10, fullness +15, cap at 100)
+      // Update pet stats: fullness 增加量為食物的 cost 數
+      const fullnessIncrease = item.cost
       const updatedPet = await tx.pet.update({
         where: { id: pet.id },
         data: {
-          mood: Math.min(100, pet.mood + 10),
-          fullness: Math.min(100, pet.fullness + 15),
+          fullness: Math.min(100, pet.fullness + fullnessIncrease),
         },
       })
 
-      return updatedPet
+      return { pet: updatedPet, fullnessGain: fullnessIncrease }
     })
 
     // Generate pet message based on mood
@@ -90,8 +90,9 @@ export async function POST(request: NextRequest) {
     const randomMessage = messages[Math.floor(Math.random() * messages.length)]
 
     return NextResponse.json({
-      pet: result,
+      pet: result.pet,
       message: randomMessage,
+      fullnessGain: result.fullnessGain,
     })
   } catch (error) {
     if (error instanceof z.ZodError) {
