@@ -19,6 +19,7 @@ export async function GET() {
         image: true,
         balance: true,
         isInitialized: true,
+        userID: true,
       },
     })
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
@@ -20,6 +20,23 @@ export default function Navigation() {
   const pathname = usePathname()
   const [showProfile, setShowProfile] = useState(false)
   const { data: session } = useSession()
+  const [userID, setUserID] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (showProfile) {
+      // 獲取用戶資訊（包含 userID）
+      fetch('/api/user')
+        .then(res => res.json())
+        .then(data => {
+          if (data.userID) {
+            setUserID(data.userID)
+          }
+        })
+        .catch(error => {
+          console.error('取得 userID 失敗:', error)
+        })
+    }
+  }, [showProfile])
 
   return (
     <>
@@ -97,7 +114,7 @@ export default function Navigation() {
                   {session?.user?.name?.charAt(0) || 'U'}
                 </div>
                 <div className="flex-1">
-                  <div className="text-base font-bold">{session?.user?.name || 'User'}</div>
+                  <div className="text-base font-bold">{userID}</div>
                   <div className="text-sm text-black/60">{session?.user?.email}</div>
                 </div>
               </div>

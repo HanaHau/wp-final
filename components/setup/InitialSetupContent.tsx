@@ -15,7 +15,7 @@ type FacingDirection = 'left' | 'right'
 export default function InitialSetupContent() {
   const router = useRouter()
   const { toast } = useToast()
-  const [initialBalance, setInitialBalance] = useState<string>('0')
+  const [userID, setUserID] = useState<string>('')
   const [petName, setPetName] = useState<string>('我的寵物')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
@@ -73,12 +73,19 @@ export default function InitialSetupContent() {
   }
 
   const handleSubmit = async () => {
-    const balance = parseFloat(initialBalance)
-    
-    if (isNaN(balance) || balance < 0) {
+    if (!userID.trim()) {
       toast({
         title: '驗證錯誤',
-        description: '請輸入有效的初始餘額（必須大於或等於 0）。',
+        description: '請輸入 userID。',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    if (userID.length > 50) {
+      toast({
+        title: '驗證錯誤',
+        description: 'userID 長度不能超過 50 個字元。',
         variant: 'destructive',
       })
       return
@@ -120,7 +127,7 @@ export default function InitialSetupContent() {
       }
 
       const requestBody = {
-        initialBalance: parseFloat(initialBalance),
+        userID: userID.trim(),
         petName: petName.trim(),
         petImageUrl,
         facingDirection,
@@ -137,7 +144,18 @@ export default function InitialSetupContent() {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: '未知錯誤' }))
         console.error('API 錯誤回應:', errorData)
-        throw new Error(errorData.error || errorData.details || '設定失敗')
+        const errorMessage = errorData.error || errorData.details || '設定失敗'
+        // 如果是 userID 重複錯誤，特別處理
+        if (errorMessage.includes('userID') || errorMessage.includes('已被使用')) {
+          toast({
+            title: 'userID 已被使用',
+            description: errorMessage,
+            variant: 'destructive',
+          })
+          setIsSubmitting(false)
+          return
+        }
+        throw new Error(errorMessage)
       }
 
       toast({
@@ -174,23 +192,23 @@ export default function InitialSetupContent() {
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* 初始餘額設定 */}
+          {/* UserID 設定 */}
           <div>
-            <Label htmlFor="initialBalance" className="text-sm uppercase tracking-wide text-black/60">
-              初始帳戶餘額
+            <Label htmlFor="userID" className="text-sm uppercase tracking-wide text-black/60">
+              UserID <span className="text-red-600">*</span>
             </Label>
             <p className="text-xs text-black/40 mt-1 mb-2">
-              這是您的帳戶餘額，與寵物點數不同。寵物點數是透過「存錢」功能獲得的。
+              請輸入您的 userID（最多 50 個字元）。此 ID 必須是唯一的，若已被使用，請選擇其他 ID。
             </p>
             <Input
-              id="initialBalance"
-              type="number"
-              min="0"
-              step="0.01"
-              value={initialBalance}
-              onChange={(e) => setInitialBalance(e.target.value)}
-              placeholder="0"
+              id="userID"
+              type="text"
+              value={userID}
+              onChange={(e) => setUserID(e.target.value)}
+              placeholder="請輸入 userID"
               className="mt-2"
+              maxLength={50}
+              required
             />
           </div>
 
@@ -320,8 +338,8 @@ export default function InitialSetupContent() {
           </DialogHeader>
           <div className="space-y-2 py-4">
             <div className="text-sm">
-              <span className="font-semibold">初始餘額：</span>
-              <span>{parseFloat(initialBalance).toLocaleString('zh-TW', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 元</span>
+              <span className="font-semibold">UserID：</span>
+              <span>{userID.trim() || '未設定'}</span>
             </div>
             <div className="text-sm">
               <span className="font-semibold">寵物名稱：</span>

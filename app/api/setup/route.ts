@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
 const setupSchema = z.object({
-  initialBalance: z.number().min(0),
+  userID: z.string().min(1).max(50),
   petName: z.string().min(1).max(20),
   petImageUrl: z.string().optional().nullable(),
   facingDirection: z.enum(['left', 'right']).default('right'),
@@ -43,18 +43,41 @@ export async function POST(request: NextRequest) {
     const validatedData = setupSchema.parse(body)
     console.log('驗證通過:', validatedData)
 
-    // 更新使用者餘額和設定狀態
+    // 檢查 userID 是否已被使用
+    const existingUserWithUserID = await prisma.user.findFirst({
+      where: { 
+        userID: validatedData.userID,
+        id: { not: dbUserId }, // 排除當前用戶
+      },
+      select: { id: true },
+    })
+
+    if (existingUserWithUserID) {
+      return NextResponse.json(
+        { error: '此 userID 已被使用，請選擇其他 userID' },
+        { status: 400 }
+      )
+    }
+
+    // 更新使用者 userID 和設定狀態
     try {
       await prisma.user.update({
         where: { id: dbUserId },
         data: {
-          balance: validatedData.initialBalance,
+          userID: validatedData.userID,
           isInitialized: true,
         },
       })
       console.log('使用者更新成功')
-    } catch (error) {
+    } catch (error: any) {
       console.error('更新使用者失敗:', error)
+      // 如果是唯一性約束錯誤
+      if (error.code === 'P2002' && error.meta?.target?.includes('userID')) {
+        return NextResponse.json(
+          { error: '此 userID 已被使用，請選擇其他 userID' },
+          { status: 400 }
+        )
+      }
       throw error
     }
 

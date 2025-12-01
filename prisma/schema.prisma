@@ -10,6 +10,7 @@ datasource db {
 model User {
   id             String          @id @default(cuid())
   email          String          @unique
+  userID         String?         @unique // 使用者自訂 ID
   name           String?
   image          String?
   emailVerified  DateTime?
