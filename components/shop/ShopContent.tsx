@@ -22,8 +22,8 @@ export default function ShopContent() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [isCustomStickerDialogOpen, setIsCustomStickerDialogOpen] = useState(false)
-  const [customStickers, setCustomStickers] = useState<Array<{ id: string; name: string; imageUrl: string; category: ShopItemCategory; userId?: string }>>([])
-  const [publicStickers, setPublicStickers] = useState<Array<{ id: string; name: string; imageUrl: string; category: ShopItemCategory; userId: string; user: { name: string | null; email: string } }>>([])
+  const [customStickers, setCustomStickers] = useState<Array<{ id: string; name: string; imageUrl: string; category: ShopItemCategory; price: number; userId?: string }>>([])
+  const [publicStickers, setPublicStickers] = useState<Array<{ id: string; name: string; imageUrl: string; category: ShopItemCategory; price: number; userId: string; user: { name: string | null; email: string } }>>([])
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set())
 
   useEffect(() => {
@@ -130,7 +130,7 @@ export default function ShopContent() {
     id: `custom-${cs.id}`,
     name: cs.name,
     emoji: '🖼️',
-    cost: 100,
+    cost: cs.price || 100, // 使用貼紙設定的價格
     description: 'Custom sticker',
     category: cs.category,
     imageUrl: cs.imageUrl,
@@ -145,7 +145,7 @@ export default function ShopContent() {
       id: `custom-${ps.id}`,
       name: ps.name,
       emoji: '🖼️',
-      cost: 100,
+      cost: ps.price || 100, // 使用貼紙設定的價格
       description: 'Custom sticker',
       category: ps.category,
       imageUrl: ps.imageUrl,

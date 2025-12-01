@@ -10,6 +10,14 @@ const customStickerSchema = z.object({
     { message: 'Image URL must be a valid data URL or HTTP(S) URL' }
   ),
   category: z.enum(['food', 'decoration', 'accessory']),
+  price: z.union([z.literal(50), z.literal(100), z.literal(150), z.string()]).transform((val) => {
+    // 支援數字或字符串輸入
+    const num = typeof val === 'string' ? parseInt(val) : val
+    if (num !== 50 && num !== 100 && num !== 150) {
+      throw new Error('Price must be 50, 100, or 150')
+    }
+    return num
+  }), // 未來購買該貼紙的價格
   isPublic: z.boolean().default(false),
 })
 
@@ -68,12 +76,12 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const COST = 100
+    const CREATION_COST = 100 // 創建貼紙的固定費用
 
     // Check if user has enough points
-    if (pet.points < COST) {
+    if (pet.points < CREATION_COST) {
       return NextResponse.json(
-        { error: 'Not enough points. Custom stickers cost 100 points.' },
+        { error: 'Not enough points. Creating custom stickers costs 100 points.' },
         { status: 400 }
       )
     }
@@ -85,6 +93,7 @@ export async function POST(request: NextRequest) {
         name: validatedData.name,
         imageUrl: validatedData.imageUrl,
         category: validatedData.category,
+        price: validatedData.price, // 未來購買該貼紙的價格
         isPublic: validatedData.isPublic,
       },
     })
@@ -94,8 +103,8 @@ export async function POST(request: NextRequest) {
       prisma.pet.update({
         where: { id: pet.id },
         data: {
-          points: { decrement: COST },
-          mood: { increment: Math.min(5, Math.floor(COST / 10)) },
+          points: { decrement: CREATION_COST },
+          mood: { increment: Math.min(5, Math.floor(CREATION_COST / 10)) },
         },
       }),
       prisma.petPurchase.create({
@@ -104,7 +113,7 @@ export async function POST(request: NextRequest) {
           itemId: `custom-${customSticker.id}`,
           itemName: validatedData.name,
           category: validatedData.category,
-          cost: COST,
+          cost: CREATION_COST, // 創建時的費用
           quantity: 1,
         },
       }),
@@ -116,12 +125,14 @@ export async function POST(request: NextRequest) {
     )
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.error('Validation error:', error.errors)
       return NextResponse.json(
         { error: 'Validation failed', details: error.errors },
         { status: 400 }
       )
     }
     console.error('Create custom sticker error:', error)
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
     const errorMessage = error instanceof Error ? error.message : String(error)
     return NextResponse.json(
       { error: 'Failed to create custom sticker', details: errorMessage },

@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       item = {
         id: validatedData.itemId,
         name: customSticker.name,
-        cost: 100,
+        cost: customSticker.price, // 使用貼紙設定的價格
         category: customSticker.category,
       }
     } else {

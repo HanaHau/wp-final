@@ -19,17 +19,39 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = feedSchema.parse(body)
 
-    const item = SHOP_ITEM_MAP[validatedData.itemId]
-    if (!item || item.category !== 'food') {
-      return NextResponse.json({ error: 'Invalid food item' }, { status: 400 })
-    }
-
     const pet = await prisma.pet.findUnique({
       where: { userId: user.id },
     })
 
     if (!pet) {
       return NextResponse.json({ error: 'Pet not found' }, { status: 404 })
+    }
+
+    // Check if it's a custom sticker or regular shop item
+    let itemCost: number
+    let itemCategory: string
+    
+    if (validatedData.itemId.startsWith('custom-')) {
+      // Custom sticker - get from database
+      const customStickerId = validatedData.itemId.replace('custom-', '')
+      const customSticker = await prisma.customSticker.findUnique({
+        where: { id: customStickerId },
+      })
+      
+      if (!customSticker || customSticker.category !== 'food') {
+        return NextResponse.json({ error: 'Invalid food item' }, { status: 400 })
+      }
+      
+      itemCost = customSticker.price
+      itemCategory = customSticker.category
+    } else {
+      // Regular shop item
+      const item = SHOP_ITEM_MAP[validatedData.itemId]
+      if (!item || item.category !== 'food') {
+        return NextResponse.json({ error: 'Invalid food item' }, { status: 400 })
+      }
+      itemCost = item.cost
+      itemCategory = item.category
     }
 
     // Check if user has this food item
@@ -67,8 +89,8 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      // Update pet stats: fullness 增加量為食物的 cost 數
-      const fullnessIncrease = item.cost
+      // Update pet stats: fullness 增加量為食物的 cost/price 數
+      const fullnessIncrease = itemCost
       const updatedPet = await tx.pet.update({
         where: { id: pet.id },
         data: {

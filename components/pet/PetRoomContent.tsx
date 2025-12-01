@@ -45,6 +45,7 @@ interface FoodItem {
   name: string
   emoji: string
   count: number
+  imageUrl?: string | null // For custom stickers
 }
 
 interface PetAccessory {
@@ -118,11 +119,47 @@ export default function PetRoomContent() {
       setPet(petData)
       setPetNameInput(petData.name || '我的寵物')
       
-      // Extract food items from purchases
+      // Extract food items from purchases (including custom stickers with food category)
       const purchases = petData.purchases || []
       const foodPurchases = purchases.filter((p: any) => 
-        p.itemId.startsWith('food') || p.itemId === 'water'
+        p.itemId.startsWith('food') || 
+        p.itemId === 'water' ||
+        p.category === 'food' // Include custom stickers with food category
       )
+      
+      // Fetch custom stickers for food items (both own and public)
+      const customFoodItemIds = foodPurchases
+        .filter((p: any) => p.itemId.startsWith('custom-'))
+        .map((p: any) => p.itemId.replace('custom-', ''))
+      
+      let customStickersMap = new Map<string, { imageUrl: string }>()
+      if (customFoodItemIds.length > 0) {
+        try {
+          // Fetch own custom stickers
+          const customStickersRes = await fetch('/api/custom-stickers')
+          if (customStickersRes.ok) {
+            const customStickers = await customStickersRes.json()
+            customStickers.forEach((cs: any) => {
+              if (customFoodItemIds.includes(cs.id)) {
+                customStickersMap.set(`custom-${cs.id}`, { imageUrl: cs.imageUrl })
+              }
+            })
+          }
+          
+          // Fetch public custom stickers (for purchased public stickers)
+          const publicStickersRes = await fetch('/api/custom-stickers/public')
+          if (publicStickersRes.ok) {
+            const publicStickers = await publicStickersRes.json()
+            publicStickers.forEach((ps: any) => {
+              if (customFoodItemIds.includes(ps.id) && !customStickersMap.has(`custom-${ps.id}`)) {
+                customStickersMap.set(`custom-${ps.id}`, { imageUrl: ps.imageUrl })
+              }
+            })
+          }
+        } catch (error) {
+          console.error('Failed to fetch custom stickers:', error)
+        }
+      }
       
       const foodMap = new Map<string, FoodItem>()
       foodPurchases.forEach((p: any) => {
@@ -130,11 +167,17 @@ export default function PetRoomContent() {
         if (existing) {
           existing.count += p.quantity
         } else {
+          // For custom stickers, use 🖼️ emoji and get imageUrl, otherwise use getItemEmoji
+          const isCustom = p.itemId.startsWith('custom-')
+          const emoji = isCustom ? '🖼️' : getItemEmoji(p.itemId)
+          const customSticker = isCustom ? customStickersMap.get(p.itemId) : null
+          
           foodMap.set(p.itemId, {
             itemId: p.itemId,
             name: p.itemName,
-            emoji: getItemEmoji(p.itemId),
+            emoji: emoji,
             count: p.quantity,
+            imageUrl: customSticker?.imageUrl || null,
           })
         }
       })
@@ -405,11 +448,47 @@ export default function PetRoomContent() {
           const petData = await petRes.json()
           setPet(petData)
           
-          // Update food items count
+          // Update food items count (including custom stickers with food category)
           const purchases = petData.purchases || []
           const foodPurchases = purchases.filter((p: any) => 
-            p.itemId.startsWith('food') || p.itemId === 'water'
+            p.itemId.startsWith('food') || 
+            p.itemId === 'water' ||
+            p.category === 'food' // Include custom stickers with food category
           )
+          
+          // Fetch custom stickers for food items (both own and public)
+          const customFoodItemIds = foodPurchases
+            .filter((p: any) => p.itemId.startsWith('custom-'))
+            .map((p: any) => p.itemId.replace('custom-', ''))
+          
+          let customStickersMap = new Map<string, { imageUrl: string }>()
+          if (customFoodItemIds.length > 0) {
+            try {
+              // Fetch own custom stickers
+              const customStickersRes = await fetch('/api/custom-stickers')
+              if (customStickersRes.ok) {
+                const customStickers = await customStickersRes.json()
+                customStickers.forEach((cs: any) => {
+                  if (customFoodItemIds.includes(cs.id)) {
+                    customStickersMap.set(`custom-${cs.id}`, { imageUrl: cs.imageUrl })
+                  }
+                })
+              }
+              
+              // Fetch public custom stickers (for purchased public stickers)
+              const publicStickersRes = await fetch('/api/custom-stickers/public')
+              if (publicStickersRes.ok) {
+                const publicStickers = await publicStickersRes.json()
+                publicStickers.forEach((ps: any) => {
+                  if (customFoodItemIds.includes(ps.id) && !customStickersMap.has(`custom-${ps.id}`)) {
+                    customStickersMap.set(`custom-${ps.id}`, { imageUrl: ps.imageUrl })
+                  }
+                })
+              }
+            } catch (error) {
+              console.error('Failed to fetch custom stickers:', error)
+            }
+          }
           
           const foodMap = new Map<string, FoodItem>()
           foodPurchases.forEach((p: any) => {
@@ -417,11 +496,17 @@ export default function PetRoomContent() {
             if (existing) {
               existing.count += p.quantity
             } else {
+              // For custom stickers, use 🖼️ emoji and get imageUrl, otherwise use getItemEmoji
+              const isCustom = p.itemId.startsWith('custom-')
+              const emoji = isCustom ? '🖼️' : getItemEmoji(p.itemId)
+              const customSticker = isCustom ? customStickersMap.get(p.itemId) : null
+              
               foodMap.set(p.itemId, {
                 itemId: p.itemId,
                 name: p.itemName,
-                emoji: getItemEmoji(p.itemId),
+                emoji: emoji,
                 count: p.quantity,
+                imageUrl: customSticker?.imageUrl || null,
               })
             }
           })

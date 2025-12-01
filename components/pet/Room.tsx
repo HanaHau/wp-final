@@ -33,6 +33,7 @@ interface FoodItem {
   name: string
   emoji: string
   count: number
+  imageUrl?: string | null // For custom stickers
 }
 
 interface Pet {
@@ -1599,7 +1600,7 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
       <div className="hidden">
         {/* Sticker palette */}
         <div className="relative flex flex-col w-full min-h-[180px] rounded-xl border border-black/20 bg-white/90 backdrop-blur-sm px-3 py-2 shadow-sm">
-          <h3 className="text-xs text-black/60 uppercase tracking-wide mb-2 sticky top-0 bg-white">Stickers</h3>
+          <h3 className="text-xs text-black/60 uppercase tracking-wide mb-2 sticky top-0 bg-white">Decor</h3>
           {availableStickers.length === 0 && (
             <div className="text-center py-4">
               <p className="text-[10px] text-center text-black/40 mb-2">尚無貼紙</p>
@@ -1672,7 +1673,16 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                     } ${draggingItem?.id === food.itemId ? 'opacity-50' : ''}`}
                   >
                     <div className="relative w-full h-full mb-1 flex items-center justify-center">
-                      <span className="text-lg lg:text-xl">{food.emoji}</span>
+                      {food.imageUrl ? (
+                        <img
+                          src={food.imageUrl}
+                          alt={food.name}
+                          className="max-w-full max-h-full object-contain"
+                          style={{ maxHeight: '1.5rem', maxWidth: '1.5rem' }}
+                        />
+                      ) : (
+                        <span className="text-lg lg:text-xl">{food.emoji}</span>
+                      )}
                     </div>
                     <div className="text-[9px] lg:text-[10px] font-semibold uppercase text-center leading-tight line-clamp-1">{food.name}</div>
                     <div className="text-[9px] lg:text-[10px] text-black/60">x{food.count}</div>

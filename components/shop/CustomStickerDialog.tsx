@@ -18,7 +18,8 @@ interface CustomStickerDialogProps {
   petPoints?: number
 }
 
-const COST = 100
+const CREATION_COST = 100 // 創建貼紙的固定費用
+const PURCHASE_PRICES = [50, 100, 150] as const // 未來購買該貼紙的價格選項
 
 export default function CustomStickerDialog({
   open,
@@ -28,6 +29,7 @@ export default function CustomStickerDialog({
 }: CustomStickerDialogProps) {
   const [name, setName] = useState('')
   const [category, setCategory] = useState<ShopItemCategory | ''>('')
+  const [purchasePrice, setPurchasePrice] = useState<50 | 100 | 150>(100) // 未來購買該貼紙的價格
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [showImageEditor, setShowImageEditor] = useState(false)
@@ -134,10 +136,10 @@ export default function CustomStickerDialog({
       return
     }
 
-    if (petPoints < COST) {
+    if (petPoints < CREATION_COST) {
       toast({
         title: 'Not Enough Points',
-        description: `Custom stickers cost ${COST} points. You have ${petPoints} points.`,
+        description: `Creating custom stickers costs ${CREATION_COST} points. You have ${petPoints} points.`,
         variant: 'destructive',
       })
       return
@@ -160,6 +162,7 @@ export default function CustomStickerDialog({
           name: name.trim(),
           imageUrl,
           category,
+          price: purchasePrice,
           isPublic,
         }),
       })
@@ -178,6 +181,7 @@ export default function CustomStickerDialog({
       // Reset form
       setName('')
       setCategory('')
+      setPurchasePrice(100)
       setImageFile(null)
       setImagePreview(null)
       setIsPublic(false)
@@ -300,6 +304,29 @@ export default function CustomStickerDialog({
             </Select>
           </div>
 
+          {/* Purchase Price Select */}
+          <div>
+            <Label className="text-xs uppercase tracking-wide mb-2 block">
+              Future Purchase Price <span className="text-red-600">*</span>
+            </Label>
+            <Select 
+              value={purchasePrice.toString()} 
+              onValueChange={(value) => setPurchasePrice(parseInt(value) as 50 | 100 | 150)}
+            >
+              <SelectTrigger className="border-2 border-black">
+                <SelectValue placeholder="Select price" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="50">50 pts</SelectItem>
+                <SelectItem value="100">100 pts</SelectItem>
+                <SelectItem value="150">150 pts</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-black/60 mt-1">
+              This is the price others will pay to purchase this sticker
+            </p>
+          </div>
+
           {/* Public Option */}
           <div className="flex items-center gap-2 p-3 border-2 border-black">
             <input
@@ -316,8 +343,8 @@ export default function CustomStickerDialog({
 
           {/* Cost Display */}
           <div className="flex items-center justify-between p-3 border-2 border-black bg-black/5">
-            <span className="text-xs uppercase tracking-wide text-black/60">Cost</span>
-            <span className="font-bold text-lg">{COST} pts</span>
+            <span className="text-xs uppercase tracking-wide text-black/60">Creation Cost</span>
+            <span className="font-bold text-lg">{CREATION_COST} pts</span>
           </div>
         </div>
 
@@ -331,14 +358,14 @@ export default function CustomStickerDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={uploading || petPoints < COST}
+            disabled={uploading || petPoints < CREATION_COST}
             className="border-2 border-black bg-black text-white hover:bg-black/90"
           >
             {uploading
               ? 'Creating...'
-              : petPoints < COST
-                ? `Need ${COST} pts`
-                : `Create Sticker (${COST} pts)`}
+              : petPoints < CREATION_COST
+                ? `Need ${CREATION_COST} pts`
+                : `Create Sticker (${CREATION_COST} pts)`}
           </Button>
         </DialogFooter>
       </DialogContent>

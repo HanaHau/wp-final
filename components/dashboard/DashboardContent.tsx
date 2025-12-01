@@ -44,6 +44,7 @@ interface FoodItem {
   name: string
   emoji: string
   count: number
+  imageUrl?: string | null // For custom stickers
 }
 
 interface PetAccessory {

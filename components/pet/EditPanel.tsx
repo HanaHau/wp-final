@@ -134,7 +134,7 @@ export default function EditPanel({
             }`}
           >
             <Sticker className="h-4 w-4" />
-            <span>Stickers</span>
+            <span>Decor</span>
             {stickersCount > 0 && (
               <span className={`text-xs px-1.5 py-0.5 rounded-full ${
                 activeTab === 'stickers' ? 'bg-white/20' : 'bg-black/10'
@@ -183,7 +183,7 @@ export default function EditPanel({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
-          {/* Stickers Tab */}
+          {/* Decorations Tab */}
           {activeTab === 'stickers' && (
             <>
               <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">

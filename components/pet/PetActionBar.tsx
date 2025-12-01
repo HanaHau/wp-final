@@ -29,7 +29,7 @@ export default function PetActionBar({ onFeedClick, onDecorClick }: PetActionBar
         style={{ borderRadius: '50px' }}
       >
         <Sparkles className="h-6 w-6 text-gray-700 group-hover:text-gray-900" />
-        <span className="text-xs font-semibold uppercase tracking-wide text-gray-700 group-hover:text-gray-900">Decor</span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-gray-700 group-hover:text-gray-900">Accessory</span>
       </button>
     </div>
   )

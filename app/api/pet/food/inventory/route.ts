@@ -40,22 +40,62 @@ export async function GET() {
       totalByFood[purchase.itemId] = (totalByFood[purchase.itemId] || 0) + purchase.quantity
     }
 
-    const foodItems = Object.keys(totalByFood)
-      .map((itemId) => {
-        const total = totalByFood[itemId] || 0
-        if (total <= 0) return null
+    // Separate regular food items and custom stickers
+    const regularFoodItemIds = Object.keys(totalByFood).filter(id => !id.startsWith('custom-'))
+    const customFoodItemIds = Object.keys(totalByFood).filter(id => id.startsWith('custom-'))
+    
+    // Get custom sticker details
+    const customStickerIds = customFoodItemIds.map(id => id.replace('custom-', ''))
+    const customStickers = customStickerIds.length > 0
+      ? await prisma.customSticker.findMany({
+          where: {
+            id: { in: customStickerIds },
+            category: 'food',
+          },
+        })
+      : []
+    
+    const customStickerMap = new Map(customStickers.map(cs => [cs.id, cs]))
+    
+    const foodItems = [
+      // Regular food items
+      ...regularFoodItemIds
+        .map((itemId) => {
+          const total = totalByFood[itemId] || 0
+          if (total <= 0) return null
 
-        const meta = SHOP_ITEM_MAP[itemId]
-        if (!meta || meta.category !== 'food') return null
+          const meta = SHOP_ITEM_MAP[itemId]
+          if (!meta || meta.category !== 'food') return null
 
-        return {
-          itemId,
-          name: meta.name,
-          emoji: meta.emoji,
-          count: total,
-        }
-      })
-      .filter(Boolean)
+          return {
+            itemId,
+            name: meta.name,
+            emoji: meta.emoji,
+            count: total,
+            imageUrl: null,
+          }
+        })
+        .filter(Boolean),
+      // Custom stickers with food category
+      ...customFoodItemIds
+        .map((itemId) => {
+          const total = totalByFood[itemId] || 0
+          if (total <= 0) return null
+
+          const customStickerId = itemId.replace('custom-', '')
+          const customSticker = customStickerMap.get(customStickerId)
+          if (!customSticker) return null
+
+          return {
+            itemId,
+            name: customSticker.name,
+            emoji: '🖼️',
+            count: total,
+            imageUrl: customSticker.imageUrl,
+          }
+        })
+        .filter(Boolean),
+    ]
 
     return NextResponse.json(foodItems)
   } catch (error) {

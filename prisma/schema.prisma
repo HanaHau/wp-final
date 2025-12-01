@@ -174,6 +174,7 @@ model CustomSticker {
   name      String
   imageUrl  String
   category  String
+  price     Int      @default(100) // 未來購買該貼紙的價格（50, 100, 150）
   isPublic  Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

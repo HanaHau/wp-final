@@ -9,6 +9,7 @@ interface FoodItem {
   name: string
   emoji: string
   count: number
+  imageUrl?: string | null // For custom stickers
 }
 
 interface FeedPanelProps {
@@ -78,7 +79,18 @@ export default function FeedPanel({
                       : 'opacity-40 cursor-not-allowed'
                   }`}
                 >
-                  <span className="text-4xl mb-2">{food.emoji}</span>
+                  {food.imageUrl ? (
+                    <div className="relative w-full mb-2 flex items-center justify-center" style={{ height: '3rem' }}>
+                      <img
+                        src={food.imageUrl}
+                        alt={food.name}
+                        className="max-w-full max-h-full object-contain"
+                        style={{ maxHeight: '3rem', maxWidth: '3rem' }}
+                      />
+                    </div>
+                  ) : (
+                    <span className="text-4xl mb-2">{food.emoji}</span>
+                  )}
                   <div className="text-[10px] font-bold uppercase text-center line-clamp-1 mb-1">
                     {food.name}
                   </div>
