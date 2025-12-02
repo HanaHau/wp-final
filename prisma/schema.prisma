@@ -24,6 +24,11 @@ model User {
   pet            Pet?
   sessions       Session[]
   transactions   Transaction[]
+  friendsAsUser  Friend[]        @relation("UserFriends")
+  friendsAsFriend Friend[]       @relation("FriendUsers")
+  sentMessages   FriendMessage[] @relation("SenderMessages")
+  receivedMessages FriendMessage[] @relation("ReceiverMessages")
+  missions        Mission[]
 
   @@map("users")
 }
@@ -200,4 +205,56 @@ model PetAccessory {
   pet         Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
 
   @@map("pet_accessories")
+}
+
+model Friend {
+  id        String   @id @default(cuid())
+  userId    String   // 發送好友請求的使用者
+  friendId  String   // 被加為好友的使用者
+  status    String   @default("PENDING") // PENDING, accepted, blocked
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation("UserFriends", fields: [userId], references: [id], onDelete: Cascade)
+  friend    User     @relation("FriendUsers", fields: [friendId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, friendId])
+  @@index([userId])
+  @@index([friendId])
+  @@map("friends")
+}
+
+model FriendMessage {
+  id        String   @id @default(cuid())
+  senderId  String   // 發送訊息的使用者
+  receiverId String  // 接收訊息的使用者（寵物主人）
+  petId     String   // 相關的寵物 ID
+  message   String?  // 留言內容（可選）
+  action    String   // pet, feed, message
+  createdAt DateTime @default(now())
+  sender    User     @relation("SenderMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver  User     @relation("ReceiverMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([receiverId, petId])
+  @@index([senderId])
+  @@map("friend_messages")
+}
+
+model Mission {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   // "daily" or "weekly"
+  missionId   String   // e.g., "record_transaction", "check_pet", etc.
+  progress    Int      @default(0)
+  target      Int      // e.g., 1 for daily, 5 for weekly
+  completed   Boolean  @default(false)
+  claimed     Boolean  @default(false)
+  completedAt DateTime?
+  weekStart   DateTime? // For weekly missions, track which week
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type, missionId, weekStart])
+  @@index([userId, type])
+  @@map("missions")
 }

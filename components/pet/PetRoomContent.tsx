@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import Navigation from '@/components/dashboard/Navigation'
 import { useToast } from '@/components/ui/use-toast'
 import { Input } from '@/components/ui/input'
@@ -11,6 +11,8 @@ import FeedPanel from './FeedPanel'
 import DecorPanel from './DecorPanel'
 import PetStatusHUD from './PetStatusHUD'
 import PetActionBar from './PetActionBar'
+import MindBackground from './MindBackground'
+import Aurora from './Aurora'
 import { SHOP_ITEM_MAP } from '@/data/shop-items'
 
 interface Pet {
@@ -627,6 +629,7 @@ export default function PetRoomContent() {
     }
   }
 
+
   if (loading || !pet) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-white">
@@ -639,20 +642,11 @@ export default function PetRoomContent() {
   }
 
   return (
-    <div className="h-screen bg-white flex flex-col overflow-hidden relative pb-20">
-      {/* Background layer - above navbar but below content */}
-      <div 
-        className="fixed top-0 left-0 right-0 bottom-20 bg-cover bg-center bg-no-repeat z-40"
-        style={{
-          backgroundImage: 'url(/pet_background.png)',
-        }}
-      />
+    <div className="h-screen bg-black flex flex-col overflow-hidden relative pb-20">
+      <MindBackground />
+      <Aurora />
       
-      {/* 死亡覆蓋層已移至全局 PetDeathOverlay 組件 */}
-      
-      {/* Main Content with Container */}
       <div className="flex-1 overflow-hidden max-w-7xl mx-auto w-full px-4 pt-4 pb-24 flex flex-col relative z-50">
-        {/* Pet Name Editor - Above HUD */}
         <div className="mb-8 mt-8 flex justify-center flex-shrink-0">
           <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full border border-gray-300 shadow-sm px-4 py-2">
             {isEditingName ? (
@@ -706,7 +700,6 @@ export default function PetRoomContent() {
           </div>
         </div>
 
-        {/* Status HUD */}
         <div className="mb-0 flex justify-center flex-shrink-0">
           <PetStatusHUD
             mood={pet.mood}
@@ -714,10 +707,8 @@ export default function PetRoomContent() {
           />
         </div>
 
-        {/* Pet Display Container - Vertical Portrait Style */}
         <div className="flex-1 flex items-center justify-center min-h-0 mb-6">
           <div className="relative w-full max-w-md h-full flex items-center justify-center">
-            {/* Pet container - aligned to circle in background, positioned lower */}
             <div
               ref={petImageRef}
               className="relative w-[350px] h-[350px] max-w-[350px] max-h-[350px] min-w-[250px] min-h-[250px] flex items-center justify-center translate-y-8"
@@ -755,7 +746,6 @@ export default function PetRoomContent() {
                 }
               }}
             >
-                {/* Pet Image */}
                 <img
                   src={pet.imageUrl || '/cat.png'}
                   alt={pet.name}
@@ -772,7 +762,6 @@ export default function PetRoomContent() {
                   onClick={handlePetClick}
                 />
                 
-                {/* Accessories positioned relative to pet */}
                 {accessories.map((accessory) => (
                   <div
                     key={accessory.id}
@@ -806,7 +795,6 @@ export default function PetRoomContent() {
           </div>
         </div>
 
-        {/* Action Bar - Inside Container */}
         <div className="flex justify-center flex-shrink-0">
           <PetActionBar
             onFeedClick={() => {
@@ -814,7 +802,7 @@ export default function PetRoomContent() {
                 setShowFeedPanel(false)
               } else {
                 setShowFeedPanel(true)
-                setShowDecorPanel(false) // Close decor panel if open
+                setShowDecorPanel(false)
               }
             }}
             onDecorClick={() => {
@@ -822,14 +810,13 @@ export default function PetRoomContent() {
                 setShowDecorPanel(false)
               } else {
                 setShowDecorPanel(true)
-                setShowFeedPanel(false) // Close feed panel if open
+                setShowFeedPanel(false)
               }
             }}
           />
         </div>
       </div>
 
-      {/* Feeding Animation */}
       {feedingAnimation && (
         <div
           className="fixed pointer-events-none z-[9999]"
@@ -844,7 +831,6 @@ export default function PetRoomContent() {
         </div>
       )}
 
-      {/* Particle Effects */}
       {particles.map(particle => (
         <div
           key={particle.id}
@@ -861,7 +847,6 @@ export default function PetRoomContent() {
         </div>
       ))}
 
-      {/* Feed Panel - Slides from left */}
       <FeedPanel
         isOpen={showFeedPanel}
         onClose={() => setShowFeedPanel(false)}
@@ -869,7 +854,6 @@ export default function PetRoomContent() {
         onFeedPet={handleFeedPet}
       />
 
-      {/* Decor Panel - Slides from right */}
       <DecorPanel
         isOpen={showDecorPanel}
         onClose={() => setShowDecorPanel(false)}
@@ -881,11 +865,7 @@ export default function PetRoomContent() {
         }}
       />
 
-
-      {/* Bottom Navigation */}
       <Navigation />
-
-      {/* 重新開始遊戲對話框已移至全局 PetDeathOverlay 組件 */}
     </div>
   )
 }

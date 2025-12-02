@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { updateMissionProgress } from '@/lib/missions'
 
 const petUpdateSchema = z.object({
   name: z.string().min(1).max(20).optional(),
@@ -77,8 +78,9 @@ export async function GET() {
       updateData.lastDailyReset = today
     }
     
-    // 如果是當天第一次登入
     if (isFirstLoginToday) {
+      // 更新任務：查看寵物狀態
+      await updateMissionProgress(userRecord.id, 'daily', 'check_pet', 1)
       const currentMood = updateData.mood ?? pet.mood
       updateData.mood = Math.min(100, currentMood + 5) // 直接 +5
       updateData.lastLoginDate = now

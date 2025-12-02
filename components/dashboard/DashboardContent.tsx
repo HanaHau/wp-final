@@ -5,8 +5,10 @@ import { useSession, signOut } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
 import Room from '@/components/pet/Room'
 import TransactionDialog from '@/components/transaction/TransactionDialog'
+import MissionsPanel from '@/components/missions/MissionsPanel'
+import MissionNotification from '@/components/missions/MissionNotification'
 import Navigation from './Navigation'
-import { Plus, Package } from 'lucide-react'
+import { Plus, Package, ListChecks } from 'lucide-react'
 
 interface Pet {
   id: string
@@ -57,6 +59,14 @@ interface PetAccessory {
   imageUrl?: string | null
 }
 
+interface AvailableAccessory {
+  accessoryId: string
+  name: string
+  emoji: string
+  count: number
+  imageUrl?: string | null
+}
+
 export default function DashboardContent() {
   const { data: session } = useSession()
   const [pet, setPet] = useState<Pet | null>(null)
@@ -69,6 +79,8 @@ export default function DashboardContent() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [showEditPanel, setShowEditPanel] = useState(false)
+  const [showMissionsDialog, setShowMissionsDialog] = useState(false)
+  const [hasUnclaimedMissions, setHasUnclaimedMissions] = useState(false)
 
   useEffect(() => {
     fetchUser()
@@ -78,7 +90,22 @@ export default function DashboardContent() {
     fetchFoodInventory()
     fetchAccessories()
     fetchAccessoryInventory()
+    checkUnclaimedMissions()
+    const interval = setInterval(checkUnclaimedMissions, 3000)
+    return () => clearInterval(interval)
   }, [])
+
+  const checkUnclaimedMissions = async () => {
+    try {
+      const res = await fetch('/api/missions/completed')
+      if (res.ok) {
+        const data = await res.json()
+        setHasUnclaimedMissions(data.missions && data.missions.length > 0)
+      }
+    } catch (error) {
+      console.error('檢查未領取任務失敗:', error)
+    }
+  }
 
   // 當打開倉庫時，自動進入編輯模式（通過 Room 組件內部處理）
 
@@ -174,13 +201,14 @@ export default function DashboardContent() {
   const handleTransactionAdded = async () => {
     console.log('記帳完成，開始更新資料...')
     setIsDialogOpen(false)
-    // 等待一小段時間確保 API 完成
     await new Promise(resolve => setTimeout(resolve, 100))
-    await fetchUser() // 等待餘額更新完成
+    await fetchUser()
     fetchPet()
     fetchStickers()
     fetchStickerInventory()
     fetchFoodInventory()
+    
+    // 任務更新現在由 API 端處理，不需要在這裡更新
   }
 
   const handleStickerPlaced = () => {
@@ -233,10 +261,25 @@ export default function DashboardContent() {
 
   return (
     <div className="min-h-screen bg-white relative overflow-hidden">
+      {/* 任務完成通知 */}
+      <MissionNotification />
+      
       {/* 頂部資訊欄 - 極簡設計 */}
       <div className="absolute top-0 left-0 right-0 z-20 flex justify-between items-start p-4 pointer-events-none">
         {/* 左側：資源顯示 */}
         <div className="flex gap-3 pointer-events-auto">
+          {/* 任務按鈕 */}
+          <button
+            onClick={() => setShowMissionsDialog(true)}
+            className="bg-white/90 backdrop-blur-sm rounded-lg border border-black/20 w-16 h-18 flex items-center justify-center shadow-sm hover:bg-black/5 transition-colors relative"
+            aria-label="查看任務"
+            title="任務"
+          >
+            <ListChecks className="h-5 w-5 text-black" />
+            {hasUnclaimedMissions && (
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+            )}
+          </button>
           {/* 餘額 */}
           <div className="bg-white/90 backdrop-blur-sm rounded-xl border border-black/20 px-3 py-2 shadow-sm">
             <div className="text-xs text-black/60 uppercase tracking-wide">Balance</div>
@@ -284,6 +327,24 @@ export default function DashboardContent() {
           </button>
         </div>
       </div>
+
+      {/* 左側任務邊欄 */}
+      {showMissionsDialog && (
+        <div className="fixed left-4 top-20 bottom-24 w-80 bg-white/95 backdrop-blur-md rounded-2xl border border-black/20 shadow-xl z-40 overflow-hidden flex flex-col">
+          <div className="p-4 border-b border-black/20 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-black uppercase tracking-wide">任務</h2>
+            <button
+              onClick={() => setShowMissionsDialog(false)}
+              className="w-6 h-6 flex items-center justify-center hover:bg-black/5 rounded transition-colors"
+            >
+              <span className="text-black/60 text-xl leading-none">×</span>
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            <MissionsPanel />
+          </div>
+        </div>
+      )}
 
       {/* 主內容區 - 房間顯示 */}
       <main className="flex-1 flex items-start justify-start px-4 pb-20 pt-24 gap-4">

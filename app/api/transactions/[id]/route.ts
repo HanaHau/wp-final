@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { updateMissionProgress } from '@/lib/missions'
 
 const transactionSchema = z.object({
   amount: z.number().positive(),
@@ -226,7 +227,6 @@ export async function PUT(
       },
     })
 
-    // 整理帳目（編輯）+5 points
     const pet = await prisma.pet.findUnique({
       where: { userId: user.id },
     })
@@ -241,6 +241,9 @@ export async function PUT(
         },
       })
     }
+
+    // 更新任務：整理帳目(任一編輯)
+    await updateMissionProgress(user.id, 'daily', 'edit_transaction', 1)
 
     return NextResponse.json(updatedTransaction)
   } catch (error) {

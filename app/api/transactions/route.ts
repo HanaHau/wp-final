@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { updateMissionProgress } from '@/lib/missions'
 
 const transactionSchema = z.object({
   amount: z.number().positive(),
@@ -230,6 +231,9 @@ export async function POST(request: NextRequest) {
 
     // 更新寵物狀態（根據記帳行為）
     await updatePetStatus(user.id, typeId, validatedData.amount)
+
+    // 更新任務：今日記帳1筆
+    await updateMissionProgress(user.id, 'daily', 'record_transaction', 1)
 
     // 記一筆帳 +10 points
     const pet = await prisma.pet.findUnique({

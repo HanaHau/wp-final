@@ -41,3 +41,55 @@ export async function GET() {
   }
 }
 
+// PUT /api/user - 更新使用者資訊
+export async function PUT(request: Request) {
+  try {
+    const user = await getCurrentUser()
+    if (!user) {
+      return NextResponse.json({ error: '未授權' }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const { name, userID, image } = body
+
+    const updateData: any = {}
+    if (name !== undefined) updateData.name = name
+    if (image !== undefined) updateData.image = image
+    if (userID !== undefined) {
+      if (userID && userID.trim()) {
+        const existingUser = await prisma.user.findUnique({
+          where: { userID: userID.trim() },
+        })
+        if (existingUser && existingUser.id !== user.id) {
+          return NextResponse.json({ error: '此 User ID 已被使用' }, { status: 400 })
+        }
+        updateData.userID = userID.trim()
+      } else {
+        updateData.userID = null
+      }
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        userID: true,
+        name: true,
+        image: true,
+        balance: true,
+        isInitialized: true,
+      },
+    })
+
+    return NextResponse.json(updatedUser)
+  } catch (error: any) {
+    console.error('更新使用者資訊失敗:', error)
+    if (error.code === 'P2002') {
+      return NextResponse.json({ error: '此 User ID 已被使用' }, { status: 400 })
+    }
+    return NextResponse.json({ error: '更新使用者資訊失敗' }, { status: 500 })
+  }
+}
+
