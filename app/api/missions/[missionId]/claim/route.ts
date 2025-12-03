@@ -11,6 +11,12 @@ const getWeekStart = (date: Date = new Date()): Date => {
   return weekStart
 }
 
+const getDayStart = (date: Date = new Date()): Date => {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
 export async function POST(
   request: Request,
   { params }: { params: { missionId: string } }
@@ -30,41 +36,47 @@ export async function POST(
       return NextResponse.json({ error: '使用者不存在' }, { status: 404 })
     }
 
-    const { missionId } = params
-    const weekStart = getWeekStart()
+    const { missionId: missionCode } = params
 
-    // 查找任務
-    const mission = await prisma.mission.findFirst({
+    // 查找任務定義
+    const missionDef = await prisma.mission.findUnique({
+      where: { code: missionCode },
+    })
+
+    if (!missionDef) {
+      return NextResponse.json({ error: '任務定義不存在' }, { status: 404 })
+    }
+
+    const periodStart = missionDef.type === 'weekly' ? getWeekStart() : getDayStart()
+
+    // 查找用戶任務記錄
+    const userMission = await prisma.missionUser.findUnique({
       where: {
-        userId: userRecord.id,
-        missionId,
-        type: missionId.startsWith('record_5_days') || missionId.startsWith('interact_3_friends') ? 'weekly' : 'daily',
-        weekStart: missionId.startsWith('record_5_days') || missionId.startsWith('interact_3_friends') ? weekStart : null,
+        userId_missionId_periodStart: {
+          userId: userRecord.id,
+          missionId: missionDef.id,
+          periodStart: periodStart,
+        },
       },
     })
 
-    if (!mission) {
+    if (!userMission) {
       return NextResponse.json({ error: '任務不存在' }, { status: 404 })
     }
 
     // 檢查任務是否完成
-    if (!mission.completed) {
+    if (!userMission.completed) {
       return NextResponse.json({ error: '任務尚未完成' }, { status: 400 })
     }
 
     // 檢查是否已經領取過
-    if (mission.claimed) {
+    if (userMission.claimed) {
       return NextResponse.json({ error: '獎勵已領取' }, { status: 400 })
     }
 
-    // 計算點數
-    const points = mission.type === 'daily'
-      ? (mission.missionId === 'record_transaction' ? 10 : 5)
-      : (mission.missionId === 'record_5_days' ? 40 : 30)
-
     // 更新任務為已領取
-    await prisma.mission.update({
-      where: { id: mission.id },
+    const updatedMission = await prisma.missionUser.update({
+      where: { id: userMission.id },
       data: { claimed: true },
     })
 
@@ -78,7 +90,7 @@ export async function POST(
         where: { id: pet.id },
         data: {
           points: {
-            increment: points,
+            increment: missionDef.reward,
           },
         },
       })
@@ -86,10 +98,14 @@ export async function POST(
 
     return NextResponse.json({ 
       message: '已領取點數', 
-      points,
+      points: missionDef.reward,
       mission: {
-        ...mission,
-        claimed: true,
+        ...updatedMission,
+        missionCode: missionDef.code,
+        name: missionDef.title,
+        points: missionDef.reward,
+        target: missionDef.target,
+        type: missionDef.type,
       }
     })
   } catch (error) {

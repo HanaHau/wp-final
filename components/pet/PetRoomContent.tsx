@@ -11,8 +11,8 @@ import FeedPanel from './FeedPanel'
 import DecorPanel from './DecorPanel'
 import PetStatusHUD from './PetStatusHUD'
 import PetActionBar from './PetActionBar'
-import MindBackground from './MindBackground'
-import Aurora from './Aurora'
+import VoidBackground from './VoidBackground'
+import { motion } from 'framer-motion'
 import { SHOP_ITEM_MAP } from '@/data/shop-items'
 
 interface Pet {
@@ -642,13 +642,12 @@ export default function PetRoomContent() {
   }
 
   return (
-    <div className="h-screen bg-black flex flex-col overflow-hidden relative pb-20">
-      <MindBackground />
-      <Aurora />
+    <div className="h-screen flex flex-col overflow-hidden relative pb-20 bg-[#050505]">
+      <VoidBackground />
       
       <div className="flex-1 overflow-hidden max-w-7xl mx-auto w-full px-4 pt-4 pb-24 flex flex-col relative z-50">
         <div className="mb-8 mt-8 flex justify-center flex-shrink-0">
-          <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full border border-gray-300 shadow-sm px-4 py-2">
+          <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20 shadow-lg px-4 py-2">
             {isEditingName ? (
               <>
                 <Input
@@ -661,7 +660,7 @@ export default function PetRoomContent() {
                       handleCancelEditName()
                     }
                   }}
-                  className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 py-1 text-center min-w-[120px] max-w-[200px]"
+                  className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 py-1 text-center min-w-[120px] max-w-[200px] text-white/90 placeholder-white/60"
                   autoFocus
                   maxLength={20}
                   disabled={isSavingName}
@@ -669,31 +668,31 @@ export default function PetRoomContent() {
                 <button
                   onClick={handleSaveName}
                   disabled={isSavingName}
-                  className="p-1 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50"
+                  className="p-1 hover:bg-white/20 rounded-full transition-colors disabled:opacity-50"
                   title="儲存"
                 >
-                  <Check className="h-4 w-4 text-gray-700" />
+                  <Check className="h-4 w-4 text-white/90" />
                 </button>
                 <button
                   onClick={handleCancelEditName}
                   disabled={isSavingName}
-                  className="p-1 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50"
+                  className="p-1 hover:bg-white/20 rounded-full transition-colors disabled:opacity-50"
                   title="取消"
                 >
-                  <X className="h-4 w-4 text-gray-700" />
+                  <X className="h-4 w-4 text-white/90" />
                 </button>
               </>
             ) : (
               <>
-                <span className="px-2 py-1 text-sm font-semibold text-gray-700 min-w-[120px] text-center">
+                <span className="px-2 py-1 text-sm font-semibold text-white/90 min-w-[120px] text-center">
                   {pet.name}
                 </span>
                 <button
                   onClick={handleStartEditName}
-                  className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                  className="p-1 hover:bg-white/20 rounded-full transition-colors"
                   title="編輯名稱"
                 >
-                  <Pencil className="h-4 w-4 text-gray-700" />
+                  <Pencil className="h-4 w-4 text-white/90" />
                 </button>
               </>
             )}
@@ -709,12 +708,21 @@ export default function PetRoomContent() {
 
         <div className="flex-1 flex items-center justify-center min-h-0 mb-6">
           <div className="relative w-full max-w-md h-full flex items-center justify-center">
-            <div
+            <motion.div
               ref={petImageRef}
-              className="relative w-[350px] h-[350px] max-w-[350px] max-h-[350px] min-w-[250px] min-h-[250px] flex items-center justify-center translate-y-8"
+              className="relative w-[350px] h-[350px] max-w-[350px] max-h-[350px] min-w-[250px] min-h-[250px] flex items-center justify-center z-10"
               style={{
                 width: 'clamp(250px, 70%, 350px)',
                 height: 'clamp(250px, 70%, 350px)',
+              }}
+              animate={{
+                y: [-10, 10, -10],
+                rotate: [-1, 1, -1],
+              }}
+              transition={{
+                duration: 6,
+                repeat: Infinity,
+                ease: "easeInOut",
               }}
               onDragOver={(e) => {
                 e.preventDefault()
@@ -758,9 +766,13 @@ export default function PetRoomContent() {
                     maxWidth: '100%',
                     maxHeight: '100%',
                     objectFit: 'contain',
+                    filter: 'drop-shadow(0 0 30px rgba(255,255,255,0.2))',
                   }}
                   onClick={handlePetClick}
                 />
+                
+                {/* 寵物腳下的聚光燈效果 */}
+                <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-40 h-4 bg-white/10 blur-xl rounded-full" />
                 
                 {accessories.map((accessory) => (
                   <div
@@ -791,7 +803,7 @@ export default function PetRoomContent() {
                     </div>
                   </div>
                 ))}
-            </div>
+            </motion.div>
           </div>
         </div>
 

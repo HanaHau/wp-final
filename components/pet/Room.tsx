@@ -388,6 +388,7 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
     if (!draggingItem) return
 
     const handleMouseMove = (e: MouseEvent) => {
+      // 持續更新拖曳位置，讓物件跟隨游標
       setDragPosition({ x: e.clientX, y: e.clientY })
       // Update drag preview for emoji stickers
       if (dragPreview) {
@@ -396,8 +397,13 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
     }
 
     // 使用 capture phase 確保能捕獲到事件
+    // 同時監聽 document 級別的事件，確保即使游標移出元素也能追蹤
+    document.addEventListener('mousemove', handleMouseMove, true)
     window.addEventListener('mousemove', handleMouseMove, true)
-    return () => window.removeEventListener('mousemove', handleMouseMove, true)
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove, true)
+      window.removeEventListener('mousemove', handleMouseMove, true)
+    }
   }, [draggingItem, dragPreview])
 
   useEffect(() => {
@@ -579,21 +585,47 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
 
   const handleDragStart = (event: React.DragEvent<HTMLDivElement>, stickerId: string, count: number) => {
     if (count <= 0) return
-    event.dataTransfer.setData('application/json', JSON.stringify({ stickerId }))
-    event.dataTransfer.effectAllowed = 'copy'
-    setDraggingItem({ type: 'sticker', id: stickerId })
-    setDragPosition({ x: event.clientX, y: event.clientY })
     
-    // Set drag preview for sticker from EditPanel
+    // 找到對應的貼紙
     const availableSticker = availableStickers.find(s => s.stickerId === stickerId)
     const stickerType = STICKER_TYPES[stickerId]
     const emoji = availableSticker?.emoji || stickerType?.emoji || '⬛'
     
-    // Create empty drag image to use custom preview
-    const emptyImg = document.createElement('img')
-    emptyImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
-    event.dataTransfer.setDragImage(emptyImg, 0, 0)
+    // 創建自定義拖曳圖像，類似 DecorPanel 的方式，讓物件跟隨游標
+    const dragImage = document.createElement('div')
+    dragImage.style.position = 'absolute'
+    dragImage.style.top = '-1000px'
+    dragImage.style.left = '-1000px'
+    dragImage.style.width = '64px'
+    dragImage.style.height = '64px'
+    dragImage.style.display = 'flex'
+    dragImage.style.alignItems = 'center'
+    dragImage.style.justifyContent = 'center'
     
+    if (availableSticker?.imageUrl && !failedImages.has(stickerId)) {
+      dragImage.innerHTML = `<img src="${availableSticker.imageUrl}" style="width: 64px; height: 64px; object-contain;" />`
+    } else {
+      dragImage.innerHTML = `<span style="font-size: 48px;">${emoji}</span>`
+    }
+    
+    document.body.appendChild(dragImage)
+    event.dataTransfer.setDragImage(dragImage, 32, 32)
+    
+    // 設置拖曳數據
+    event.dataTransfer.setData('application/json', JSON.stringify({ stickerId }))
+    event.dataTransfer.effectAllowed = 'copy'
+    event.dataTransfer.dropEffect = 'copy'
+    
+    // 清理臨時元素
+    setTimeout(() => {
+      if (document.body.contains(dragImage)) {
+        document.body.removeChild(dragImage)
+      }
+    }, 0)
+    
+    // 設置拖曳狀態（用於視覺反饋，但主要使用瀏覽器原生拖曳圖像）
+    setDraggingItem({ type: 'sticker', id: stickerId })
+    setDragPosition({ x: event.clientX, y: event.clientY })
     setDragPreview({ x: event.clientX, y: event.clientY, emoji })
     setIsActuallyDragging(true)
   }
@@ -775,7 +807,16 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
 
   const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault()
-    event.dataTransfer.dropEffect = 'copy'
+    event.stopPropagation()
+    // Chrome 在 onDragOver 中無法讀取 getData，所以根據 draggingItem 狀態判斷
+    // 如果有 draggingItem 且是 move-sticker，使用 'move'，否則使用 'copy'
+    if (draggingItem?.type === 'sticker') {
+      // 檢查是否是移動現有貼紙（在 stickers 中找到）
+      const isMovingExisting = stickers.some(s => s.id === draggingItem.id)
+      event.dataTransfer.dropEffect = isMovingExisting ? 'move' : 'copy'
+    } else {
+      event.dataTransfer.dropEffect = 'copy'
+    }
   }
 
   const handleDropSticker = async (stickerId: string, positionX: number, positionY: number, layer: 'floor' | 'wall-left' | 'wall-right') => {
@@ -804,18 +845,26 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
       }
 
       const data = await res.json()
-      // Trigger place bounce animation for newly placed sticker
-      if (data.id) {
-        setJustPlaced(data.id)
-        setTimeout(() => setJustPlaced(null), 600)
-      }
+      
+      // 先刷新數據，讓貼紙出現在正確位置（完全參考移動貼紙的邏輯）
+      onStickerPlaced?.()
+      
+      // 等待數據刷新完成後再清理狀態（完全參考移動貼紙的邏輯）
+      // 使用 requestAnimationFrame 確保 DOM 已更新
+      // 注意：不設置 justPlaced 動畫，避免位置誤差（移動貼紙也沒有動畫）
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          // 移動貼紙時沒有動畫，新放置貼紙也不使用動畫，保持一致性
+        })
+      })
 
       toast({
         title: '貼紙已放置！',
         description: '成功添加裝飾到房間',
       })
-      onStickerPlaced?.()
     } catch (error: any) {
+      // 如果失敗，刷新以恢復正確狀態
+      onStickerPlaced?.()
       toast({
         title: '放置失敗',
         description: error?.message || '請稍後再試',
@@ -930,15 +979,17 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
         />
       )}
 
-      {/* Unified drag overlay for all stickers being dragged */}
+      {/* Unified drag overlay for all stickers being dragged - only show for existing stickers being moved */}
       {draggingItem && draggingItem.type === 'sticker' && dragPosition && (() => {
         // Check if it's an existing sticker in the room
         const draggedSticker = stickers.find(s => s.id === draggingItem.id)
         
+        // Only show overlay for existing stickers being moved, not for new stickers from EditPanel
+        // New stickers use browser's native drag image which follows cursor
         if (draggedSticker) {
           // Existing sticker being moved
           const display = getStickerDisplay(draggedSticker)
-  return (
+          return (
             <div
               className="fixed pointer-events-none z-[9999] opacity-90 animate-drag-glow"
               style={{
@@ -961,36 +1012,9 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
               )}
             </div>
           )
-        } else {
-          // New sticker from EditPanel
-          const availableSticker = availableStickers.find(s => s.stickerId === draggingItem.id)
-          const stickerType = STICKER_TYPES[draggingItem.id]
-          const emoji = availableSticker?.emoji || stickerType?.emoji || '⬛'
-          
-          return (
-            <div
-              className="fixed pointer-events-none z-[9999] opacity-90 animate-drag-glow"
-              style={{
-                left: `${dragPosition.x}px`,
-                top: `${dragPosition.y}px`,
-                transform: `translate(-50%, -50%) scale(1.3)`,
-                filter: 'drop-shadow(0 15px 30px rgba(0,0,0,0.5))',
-                transition: 'none', // No transition for smooth following
-              }}
-            >
-              {availableSticker?.imageUrl && !failedImages.has(draggingItem.id) ? (
-                <img
-                  src={availableSticker.imageUrl}
-                  alt="Sticker"
-                  className="max-w-[60px] max-h-[60px] object-contain"
-                  draggable={false}
-                />
-              ) : (
-                <span className="text-4xl">{emoji}</span>
-              )}
-            </div>
-          )
         }
+        // Don't show overlay for new stickers - use browser's native drag image
+        return null
       })()}
 
       {/* Drag overlay for food items */}
@@ -1083,6 +1107,10 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
           style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
           onDragOver={handleDragOver}
           onDrop={(e) => {
+            // Chrome 需要明確阻止默認行為和冒泡
+            e.preventDefault()
+            e.stopPropagation()
+            
             const data = e.dataTransfer.getData('application/json')
             if (!data) return
 
@@ -1318,14 +1346,17 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                   layer = 'floor' // Default to floor for middle area
                 }
                 
-                // Place the sticker and clean up drag state
-                handleDropSticker(parsed.stickerId, x, y, layer).finally(() => {
-                  // Clean up drag state after placement (success or error)
-                  setDraggingItem(null)
-                  setDragPreview(null)
-                  setDragPosition(null)
-                  setIsActuallyDragging(false)
-                })
+                // Immediately clean up drag state to prevent visual jump (similar to accessory)
+                setDraggingItem(null)
+                setDragPreview(null)
+                setDragPosition(null)
+                setIsActuallyDragging(false)
+                
+                // 記錄放置位置，用於後續驗證
+                const dropPosition = { x, y, layer }
+                
+                // Place the sticker (clean state first, then place - like accessory)
+                handleDropSticker(parsed.stickerId, x, y, layer)
               }
             } catch (error) {
               console.error('Invalid drop data:', error)
@@ -1377,8 +1408,12 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                       e.preventDefault()
                       return
                     }
-                    // 阻止文字選取
+                    
+                    // Chrome 需要明確設置這些屬性
                     e.dataTransfer.effectAllowed = 'move'
+                    e.dataTransfer.dropEffect = 'move'
+                    
+                    // 設置拖曳數據
                     e.dataTransfer.setData('application/json', JSON.stringify({ 
                       type: 'move-sticker', 
                       stickerId: sticker.id 
@@ -1406,6 +1441,9 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                     } else if (display.type === 'image') {
                       setDragPreview({ x: e.clientX, y: e.clientY, emoji: '' })
                     }
+                    
+                    // Chrome 需要明確阻止默認行為
+                    e.stopPropagation()
                   }}
                   onDrag={(e) => {
                     // 在拖曳過程中更新位置，並標記為真正在拖曳
@@ -1416,19 +1454,26 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                         setDragPreview({ ...dragPreview, x: e.clientX, y: e.clientY })
                       }
                     }
+                    // Chrome 需要明確阻止默認行為
+                    e.preventDefault()
+                    e.stopPropagation()
                   }}
                   onDragEnd={(e) => {
+                    // Chrome 需要明確阻止默認行為
+                    e.preventDefault()
+                    e.stopPropagation()
+                    
                     // 如果正在處理 drop，不清理狀態（等待 drop 完成）
                     if (isProcessingDrop.current) {
                       return
                     }
-                    // 如果沒有正在拖曳的貼紙，立即清理
-                    if (!draggingStickerIdRef.current) {
-                      setDraggingItem(null)
-                      setDragPreview(null)
-                      setDragPosition(null)
-                      setIsActuallyDragging(false)
-                    }
+                    
+                    // 清理拖曳狀態
+                    draggingStickerIdRef.current = null
+                    setDraggingItem(null)
+                    setDragPreview(null)
+                    setDragPosition(null)
+                    setIsActuallyDragging(false)
                   }}
                 >
                 <div
@@ -1477,6 +1522,18 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
               onMouseLeave={() => !isPetting && setShowPetTooltip(false)}
               onClick={handlePetPet}
             >
+              {/* Spotlight effect on ground - 聚光燈效果 */}
+              <div 
+                className="absolute left-1/2 top-full transform -translate-x-1/2 pointer-events-none"
+                style={{
+                  width: '140px',
+                  height: '60px',
+                  background: 'radial-gradient(ellipse, rgba(255, 255, 255, 0.15) 0%, rgba(200, 220, 255, 0.08) 30%, rgba(0, 0, 0, 0) 70%)',
+                  filter: 'blur(20px)',
+                  marginTop: '10px',
+                  zIndex: -1,
+                }}
+              />
               <div className="relative w-24 h-24 lg:w-32 lg:h-32">
                 <Image
                   src={pet.imageUrl || '/cat.png'}

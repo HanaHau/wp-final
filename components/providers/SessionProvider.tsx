@@ -2,6 +2,7 @@
 
 import { SessionProvider as NextAuthSessionProvider } from 'next-auth/react'
 import PetDeathOverlay from '@/components/pet/PetDeathOverlay'
+import MissionToastManager from '@/components/missions/MissionToastManager'
 
 export default function SessionProvider({
   children,
@@ -12,6 +13,7 @@ export default function SessionProvider({
     <NextAuthSessionProvider>
       {children}
       <PetDeathOverlay />
+      <MissionToastManager />
     </NextAuthSessionProvider>
   )
 }

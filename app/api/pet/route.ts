@@ -13,12 +13,22 @@ const petUpdateSchema = z.object({
 export async function GET() {
   try {
     const user = await getCurrentUser()
-    if (!user) {
+    if (!user || !user.email) {
       return NextResponse.json({ error: '未授權' }, { status: 401 })
     }
 
+    // 從資料庫獲取用戶 ID，因為 session 的 ID 可能不一致
+    const userRecord = await prisma.user.findUnique({
+      where: { email: user.email },
+      select: { id: true },
+    })
+
+    if (!userRecord) {
+      return NextResponse.json({ error: '用戶不存在' }, { status: 404 })
+    }
+
     let pet = await prisma.pet.findUnique({
-      where: { userId: user.id },
+      where: { userId: userRecord.id },
       include: {
         purchases: {
           orderBy: { purchasedAt: 'desc' },
@@ -32,7 +42,7 @@ export async function GET() {
       const now = new Date()
       pet = await prisma.pet.create({
         data: {
-          userId: user.id,
+          userId: userRecord.id,
           name: '我的寵物',
           points: 50, // 新用戶初始 points 為 50
           fullness: 70,
@@ -70,17 +80,18 @@ export async function GET() {
     
     // 如果需要每日重置
     if (needsDailyReset) {
-      // Mood 每天 -25%, Fullness 每天 -10%
-      const newMood = Math.max(0, Math.floor(pet.mood * 0.75)) // -25%
-      const newFullness = Math.max(0, Math.floor(pet.fullness * 0.9)) // -10%
+      // Mood 每天 -25 點, Fullness 每天 -10 點
+      const newMood = Math.max(0, pet.mood - 25) // -25 點
+      const newFullness = Math.max(0, pet.fullness - 10) // -10 點
       updateData.mood = newMood
       updateData.fullness = newFullness
       updateData.lastDailyReset = today
     }
     
+    let missionCompleted = null
     if (isFirstLoginToday) {
       // 更新任務：查看寵物狀態
-      await updateMissionProgress(userRecord.id, 'daily', 'check_pet', 1)
+      missionCompleted = await updateMissionProgress(userRecord.id, 'daily', 'check_pet', 1)
       const currentMood = updateData.mood ?? pet.mood
       updateData.mood = Math.min(100, currentMood + 5) // 直接 +5
       updateData.lastLoginDate = now
@@ -135,7 +146,10 @@ export async function GET() {
       isHungry: pet.fullness < 30,
     }
 
-    return NextResponse.json(petWithWarnings)
+    return NextResponse.json({
+      ...petWithWarnings,
+      missionCompleted: missionCompleted || undefined,
+    })
   } catch (error) {
     console.error('取得寵物資訊錯誤:', error)
     return NextResponse.json({ error: '取得寵物資訊失敗' }, { status: 500 })
@@ -146,15 +160,25 @@ export async function GET() {
 export async function PUT(request: NextRequest) {
   try {
     const user = await getCurrentUser()
-    if (!user) {
+    if (!user || !user.email) {
       return NextResponse.json({ error: '未授權' }, { status: 401 })
+    }
+
+    // 從資料庫獲取用戶 ID，因為 session 的 ID 可能不一致
+    const userRecord = await prisma.user.findUnique({
+      where: { email: user.email },
+      select: { id: true },
+    })
+
+    if (!userRecord) {
+      return NextResponse.json({ error: '用戶不存在' }, { status: 404 })
     }
 
     const body = await request.json()
     const validatedData = petUpdateSchema.parse(body)
 
     const pet = await prisma.pet.findUnique({
-      where: { userId: user.id },
+      where: { userId: userRecord.id },
     })
 
     if (!pet) {

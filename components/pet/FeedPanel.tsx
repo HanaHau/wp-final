@@ -30,7 +30,7 @@ export default function FeedPanel({
       {/* Panel - slides in from left */}
       <div
         data-feed-panel
-        className={`fixed top-0 left-0 bottom-20 z-[60] bg-white border-r-4 border-black w-full max-w-sm flex flex-col shadow-2xl transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 bottom-20 z-[60] bg-white/10 backdrop-blur-md border-r border-white/20 w-full max-w-sm flex flex-col shadow-2xl transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
         style={{
@@ -38,25 +38,25 @@ export default function FeedPanel({
         }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b-2 border-black bg-white">
-          <h2 className="text-xl font-bold uppercase tracking-wide">餵食</h2>
+        <div className="flex items-center justify-between p-4 border-b border-white/20 bg-white/5">
+          <h2 className="text-xl font-bold uppercase tracking-wide text-white/90">餵食</h2>
           <button
             onClick={onClose}
-            className="p-2 border-2 border-black hover:bg-black hover:text-white transition-colors"
+            className="p-2 border border-white/20 hover:bg-white/20 hover:border-white/30 transition-colors rounded"
             aria-label="關閉"
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5 text-white/90" />
           </button>
         </div>
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
           {foodItems.length === 0 ? (
-            <div className="text-center py-12 text-black/60">
+            <div className="text-center py-12 text-white/60">
               <p className="text-sm uppercase tracking-wide mb-2">沒有食物</p>
               <p className="text-xs mb-4">前往商店購買！</p>
               <Link href="/shop">
-                <button className="inline-flex items-center gap-2 px-4 py-2 border-2 border-black hover:bg-black hover:text-white transition-colors text-xs font-semibold uppercase tracking-wide">
+                <button className="inline-flex items-center gap-2 px-4 py-2 border border-white/20 hover:bg-white/20 hover:border-white/30 transition-colors text-xs font-semibold uppercase tracking-wide rounded">
                   <ShoppingCart className="h-4 w-4" />
                   前往商店
                 </button>
@@ -73,9 +73,9 @@ export default function FeedPanel({
                     }
                   }}
                   disabled={food.count === 0}
-                  className={`aspect-square border-2 border-black p-3 flex flex-col items-center justify-center transition-all ${
+                  className={`aspect-square border border-white/20 p-3 flex flex-col items-center justify-center transition-all rounded ${
                     food.count > 0
-                      ? 'hover:bg-black hover:text-white hover:scale-105 cursor-pointer active:scale-95'
+                      ? 'hover:bg-white/20 hover:border-white/30 hover:scale-105 cursor-pointer active:scale-95'
                       : 'opacity-40 cursor-not-allowed'
                   }`}
                 >
@@ -91,10 +91,10 @@ export default function FeedPanel({
                   ) : (
                     <span className="text-4xl mb-2">{food.emoji}</span>
                   )}
-                  <div className="text-[10px] font-bold uppercase text-center line-clamp-1 mb-1">
+                  <div className="text-[10px] font-bold uppercase text-center line-clamp-1 mb-1 text-white/90">
                     {food.name}
                   </div>
-                  <div className="text-xs font-bold">×{food.count}</div>
+                  <div className="text-xs font-bold text-white/90">×{food.count}</div>
                 </button>
               ))}
             </div>
@@ -102,8 +102,8 @@ export default function FeedPanel({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t-2 border-black bg-gray-50">
-          <p className="text-xs text-center text-black/60 uppercase tracking-wide">
+        <div className="p-4 border-t border-white/20 bg-white/5">
+          <p className="text-xs text-center text-white/60 uppercase tracking-wide">
             點擊食物來餵食你的寵物
           </p>
         </div>

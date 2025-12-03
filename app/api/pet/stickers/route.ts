@@ -107,11 +107,21 @@ async function hasStickerInventory(petId: string, stickerId: string, userId: str
 export async function GET() {
   try {
     const user = await getCurrentUser()
-    if (!user) {
+    if (!user || !user.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const pet = await getOrCreatePet(user.id)
+    // 從資料庫獲取用戶 ID，因為 session 的 ID 可能不一致
+    const userRecord = await prisma.user.findUnique({
+      where: { email: user.email },
+      select: { id: true },
+    })
+
+    if (!userRecord) {
+      return NextResponse.json({ error: '用戶不存在' }, { status: 404 })
+    }
+
+    const pet = await getOrCreatePet(userRecord.id)
 
     const stickers = await prisma.roomSticker.findMany({
       where: { petId: pet.id },
@@ -147,20 +157,30 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser()
-    if (!user) {
+    if (!user || !user.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // 從資料庫獲取用戶 ID，因為 session 的 ID 可能不一致
+    const userRecord = await prisma.user.findUnique({
+      where: { email: user.email },
+      select: { id: true },
+    })
+
+    if (!userRecord) {
+      return NextResponse.json({ error: '用戶不存在' }, { status: 404 })
     }
 
     const body = await request.json()
     const payload = stickerCreateSchema.parse(body)
 
-    const pet = await getOrCreatePet(user.id)
+    const pet = await getOrCreatePet(userRecord.id)
 
     // Use a transaction to atomically check inventory and create sticker
     // This prevents race conditions when placing multiple stickers quickly
     const result = await prisma.$transaction(async (tx) => {
       // Check inventory within transaction to get accurate count
-      const canUseSticker = await hasStickerInventoryInTx(tx, pet.id, payload.stickerId, user.id)
+      const canUseSticker = await hasStickerInventoryInTx(tx, pet.id, payload.stickerId, userRecord.id)
       if (!canUseSticker) {
         throw new Error('No available stickers. Please purchase this item first or check your inventory.')
       }

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { formatCurrency, formatTransactionDate } from '@/lib/utils'
 import TransactionDialog from '@/components/transaction/TransactionDialog'
 import { Edit, Trash2 } from 'lucide-react'
+import { useToast } from '@/components/ui/use-toast'
 
 interface Transaction {
   id: string
@@ -33,6 +34,7 @@ export default function DailyTransactionsDialog({
   const [loading, setLoading] = useState(false)
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const { toast } = useToast()
 
   useEffect(() => {
     if (open && date) {
@@ -135,7 +137,11 @@ export default function DailyTransactionsDialog({
       }
     } catch (error) {
       console.error('Delete error:', error)
-      alert('Failed to delete transaction')
+      toast({
+        title: '刪除失敗',
+        description: 'Failed to delete transaction',
+        variant: 'destructive',
+      })
     }
   }
 
@@ -165,7 +171,7 @@ export default function DailyTransactionsDialog({
             {transactions.map((transaction) => (
               <div
                 key={transaction.id}
-                className="flex justify-between items-center p-3 border-2 border-black"
+                className="flex justify-between items-center p-3 rounded-xl border border-black/20 bg-white/90 backdrop-blur-sm"
               >
                 <div className="flex flex-col flex-1">
                   <div className="flex items-center gap-2">
@@ -187,7 +193,7 @@ export default function DailyTransactionsDialog({
                       variant="ghost"
                       size="icon"
                       onClick={() => handleEdit(transaction)}
-                      className="h-8 w-8 border-2 border-black"
+                      className="h-8 w-8 rounded-lg border border-black/20"
                     >
                       <Edit className="h-3 w-3" />
                     </Button>
@@ -195,7 +201,7 @@ export default function DailyTransactionsDialog({
                       variant="ghost"
                       size="icon"
                       onClick={() => handleDelete(transaction.id)}
-                      className="h-8 w-8 border-2 border-black"
+                      className="h-8 w-8 rounded-lg border border-black/20"
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>

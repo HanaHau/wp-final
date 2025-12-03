@@ -282,7 +282,6 @@ export default function CustomStickerDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter sticker name"
-              className="border-2 border-black"
               maxLength={50}
             />
           </div>
@@ -293,7 +292,7 @@ export default function CustomStickerDialog({
               Category <span className="text-red-600">*</span>
             </Label>
             <Select value={category} onValueChange={(value) => setCategory(value as ShopItemCategory)}>
-              <SelectTrigger className="border-2 border-black">
+              <SelectTrigger>
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
@@ -313,7 +312,7 @@ export default function CustomStickerDialog({
               value={purchasePrice.toString()} 
               onValueChange={(value) => setPurchasePrice(parseInt(value) as 50 | 100 | 150)}
             >
-              <SelectTrigger className="border-2 border-black">
+              <SelectTrigger>
                 <SelectValue placeholder="Select price" />
               </SelectTrigger>
               <SelectContent>
@@ -328,13 +327,13 @@ export default function CustomStickerDialog({
           </div>
 
           {/* Public Option */}
-          <div className="flex items-center gap-2 p-3 border-2 border-black">
+          <div className="flex items-center gap-2 p-3 rounded-xl border border-black/20 bg-white/90 backdrop-blur-sm">
             <input
               type="checkbox"
               id="is-public"
               checked={isPublic}
               onChange={(e) => setIsPublic(e.target.checked)}
-              className="w-4 h-4 border-2 border-black"
+              className="w-4 h-4 rounded border border-black/20"
             />
             <Label htmlFor="is-public" className="text-xs uppercase tracking-wide cursor-pointer">
               Make this sticker public (visible to all users)
@@ -342,7 +341,7 @@ export default function CustomStickerDialog({
           </div>
 
           {/* Cost Display */}
-          <div className="flex items-center justify-between p-3 border-2 border-black bg-black/5">
+          <div className="flex items-center justify-between p-3 rounded-xl border border-black/20 bg-white/90 backdrop-blur-sm">
             <span className="text-xs uppercase tracking-wide text-black/60">Creation Cost</span>
             <span className="font-bold text-lg">{CREATION_COST} pts</span>
           </div>
@@ -352,14 +351,14 @@ export default function CustomStickerDialog({
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
-            className="border-2 border-black"
+            className="rounded-xl"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={uploading || petPoints < CREATION_COST}
-            className="border-2 border-black bg-black text-white hover:bg-black/90"
+            className="rounded-xl"
           >
             {uploading
               ? 'Creating...'

@@ -22,14 +22,8 @@ export async function GET() {
     }
 
     console.log('查詢已完成任務...')
-    console.log('prisma 對象:', typeof prisma, 'mission 存在:', 'mission' in prisma)
     
-    if (!('mission' in prisma)) {
-      console.error('❌ prisma.mission 不存在！')
-      throw new Error('Prisma Client 未正確初始化 mission 模型')
-    }
-    
-    const completedMissions = await prisma.mission.findMany({
+    const completedMissions = await prisma.missionUser.findMany({
       where: {
         userId: userRecord.id,
         completed: true,
@@ -37,15 +31,19 @@ export async function GET() {
           gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
         },
       },
+      include: {
+        mission: true,
+      },
       orderBy: { completedAt: 'desc' },
     })
     console.log('已完成任務數量:', completedMissions.length)
 
     const missions = completedMissions.map((m) => ({
-      missionId: m.missionId,
-      name: getMissionName(m.missionId),
-      points: getMissionPoints(m.type, m.missionId),
-      type: m.type,
+      missionId: m.mission.code, // 保持向後兼容
+      missionCode: m.mission.code,
+      name: m.mission.title,
+      points: m.mission.reward,
+      type: m.mission.type,
     }))
 
     return NextResponse.json({ missions })
@@ -57,24 +55,4 @@ export async function GET() {
   }
 }
 
-function getMissionName(missionId: string): string {
-  const names: Record<string, string> = {
-    record_transaction: '今日記帳1筆',
-    check_pet: '查看寵物狀態',
-    edit_transaction: '整理帳目(任一編輯)',
-    visit_friend: '拜訪1位好友',
-    pet_friend: '摸摸好友寵物',
-    record_5_days: '本週記帳達5天',
-    interact_3_friends: '與3位好友互動',
-  }
-  return names[missionId] || missionId
-}
-
-function getMissionPoints(type: string, missionId: string): number {
-  if (type === 'daily') {
-    return missionId === 'record_transaction' ? 10 : 5
-  } else {
-    return missionId === 'record_5_days' ? 40 : 30
-  }
-}
 

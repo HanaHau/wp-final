@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { X, ShoppingCart, Sticker, Utensils, Sparkles } from 'lucide-react'
+import { useState } from 'react'
+import { X, ShoppingCart, Sticker } from 'lucide-react'
 import Link from 'next/link'
 
 interface EditPanelProps {
@@ -33,7 +33,7 @@ interface EditPanelProps {
   onAccessoryDragStart?: (event: React.DragEvent<HTMLDivElement>, accessoryId: string, count: number) => void
 }
 
-type TabType = 'stickers' | 'food' | 'accessories'
+type TabType = 'stickers'
 
 export default function EditPanel({
   isOpen,
@@ -51,34 +51,55 @@ export default function EditPanel({
   
   // Default drag handlers if not provided
   const handleDragStart = (event: React.DragEvent<HTMLDivElement>, stickerId: string, count: number) => {
-    if (count <= 0) return
+    if (count <= 0) {
+      event.preventDefault()
+      return
+    }
+    
+    // 找到對應的貼紙
+    const sticker = availableStickers.find(s => s.stickerId === stickerId)
+    
+    // 創建自定義拖曳圖像，類似 DecorPanel 的方式
+    const dragImage = document.createElement('div')
+    dragImage.style.position = 'absolute'
+    dragImage.style.top = '-1000px'
+    dragImage.style.left = '-1000px'
+    dragImage.style.width = '64px'
+    dragImage.style.height = '64px'
+    dragImage.style.display = 'flex'
+    dragImage.style.alignItems = 'center'
+    dragImage.style.justifyContent = 'center'
+    
+    if (sticker?.imageUrl && !failedImages.has(stickerId)) {
+      dragImage.innerHTML = `<img src="${sticker.imageUrl}" style="width: 64px; height: 64px; object-contain;" />`
+    } else {
+      const emoji = sticker?.emoji || '⬛'
+      dragImage.innerHTML = `<span style="font-size: 48px;">${emoji}</span>`
+    }
+    
+    document.body.appendChild(dragImage)
+    event.dataTransfer.setDragImage(dragImage, 32, 32)
+    
+    // 設置拖曳數據 - Chrome 需要明確設置這些
     event.dataTransfer.setData('application/json', JSON.stringify({ stickerId }))
     event.dataTransfer.effectAllowed = 'copy'
+    event.dataTransfer.dropEffect = 'copy'
+    
+    // 清理臨時元素
+    setTimeout(() => {
+      if (document.body.contains(dragImage)) {
+        document.body.removeChild(dragImage)
+      }
+    }, 0)
+    
+    // Chrome 需要明確阻止默認行為
+    event.stopPropagation()
+    
     if (onDragStart) {
       onDragStart(event, stickerId, count)
     }
   }
 
-  const handleFoodDragStart = (event: React.DragEvent<HTMLDivElement>, itemId: string, count: number) => {
-    if (count <= 0) return
-    const dragData = { type: 'food', itemId }
-    event.dataTransfer.setData('application/json', JSON.stringify(dragData))
-    event.dataTransfer.effectAllowed = 'copy'
-    if (onFoodDragStart) {
-      onFoodDragStart(event, itemId, count)
-    }
-  }
-
-  const handleAccessoryDragStart = (event: React.DragEvent<HTMLDivElement>, accessoryId: string, count: number) => {
-    if (count <= 0) return
-    const dragData = { type: 'accessory', accessoryId }
-    event.dataTransfer.setData('application/json', JSON.stringify(dragData))
-    event.dataTransfer.effectAllowed = 'copy'
-    if (onAccessoryDragStart) {
-      onAccessoryDragStart(event, accessoryId, count)
-    }
-  }
-  
   const handleDragEnd = () => {
     if (onDragEnd) {
       onDragEnd()
@@ -87,23 +108,6 @@ export default function EditPanel({
 
   // Get total counts for tabs
   const stickersCount = availableStickers.filter(s => s.count > 0).length
-  const foodCount = foodItems.filter(f => f.count > 0).length
-  const accessoriesCount = availableAccessories.filter(a => a.count > 0).length
-
-  // Determine which tab to show by default
-  const getDefaultTab = (): TabType => {
-    if (stickersCount > 0) return 'stickers'
-    if (foodCount > 0) return 'food'
-    if (accessoriesCount > 0) return 'accessories'
-    return 'stickers'
-  }
-
-  // Set default tab when panel opens
-  useEffect(() => {
-    if (isOpen) {
-      setActiveTab(getDefaultTab())
-    }
-  }, [isOpen, stickersCount, foodCount, accessoriesCount])
 
   return (
     <>
@@ -123,209 +127,67 @@ export default function EditPanel({
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-black/20 bg-white/50 backdrop-blur-sm">
-          <button
-            onClick={() => setActiveTab('stickers')}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium uppercase tracking-wide transition-colors ${
-              activeTab === 'stickers'
-                ? 'bg-black text-white'
-                : 'text-black/60 hover:text-black hover:bg-black/5'
-            }`}
-          >
+        {/* Header with count */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-black/20 bg-white/50 backdrop-blur-sm">
+          <div className="flex items-center gap-2">
             <Sticker className="h-4 w-4" />
-            <span>Decor</span>
+            <span className="text-sm font-medium uppercase tracking-wide">Decor</span>
             {stickersCount > 0 && (
-              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                activeTab === 'stickers' ? 'bg-white/20' : 'bg-black/10'
-              }`}>
+              <span className="text-xs px-1.5 py-0.5 rounded-full bg-black/10">
                 {stickersCount}
               </span>
             )}
-          </button>
-          <button
-            onClick={() => setActiveTab('food')}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium uppercase tracking-wide transition-colors ${
-              activeTab === 'food'
-                ? 'bg-black text-white'
-                : 'text-black/60 hover:text-black hover:bg-black/5'
-            }`}
-          >
-            <Utensils className="h-4 w-4" />
-            <span>Food</span>
-            {foodCount > 0 && (
-              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                activeTab === 'food' ? 'bg-white/20' : 'bg-black/10'
-              }`}>
-                {foodCount}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab('accessories')}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium uppercase tracking-wide transition-colors ${
-              activeTab === 'accessories'
-                ? 'bg-black text-white'
-                : 'text-black/60 hover:text-black hover:bg-black/5'
-            }`}
-          >
-            <Sparkles className="h-4 w-4" />
-            <span>Accessories</span>
-            {accessoriesCount > 0 && (
-              <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                activeTab === 'accessories' ? 'bg-white/20' : 'bg-black/10'
-              }`}>
-                {accessoriesCount}
-              </span>
-            )}
-          </button>
+          </div>
         </div>
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
-          {/* Decorations Tab */}
-          {activeTab === 'stickers' && (
-            <>
-              <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
-                {availableStickers.map((sticker) => (
-                  <div
-                    key={sticker.stickerId}
-                    draggable={sticker.count > 0}
-                    onDragStart={(e) => handleDragStart(e, sticker.stickerId, sticker.count)}
-                    onDragEnd={handleDragEnd}
-                    className={`aspect-square rounded-lg border border-black/20 p-2 flex flex-col items-center justify-center transition-all ${
-                      sticker.count > 0
-                        ? 'hover:bg-black/5 hover:scale-105 cursor-grab active:cursor-grabbing bg-white/50 backdrop-blur-sm'
-                        : 'opacity-40 cursor-not-allowed bg-white/30'
-                    }`}
-                  >
-                    {sticker.imageUrl && !failedImages.has(sticker.stickerId) ? (
-                      <img
-                        src={sticker.imageUrl}
-                        alt={sticker.name}
-                        className="w-full h-full object-contain mb-1"
-                        onError={() => {
-                          setFailedImages((prev) => new Set(prev).add(sticker.stickerId))
-                        }}
-                      />
-                    ) : (
-                      <span className="text-3xl mb-1">{sticker.emoji}</span>
-                    )}
-                    <div className="text-[8px] font-bold uppercase text-center line-clamp-1">
-                      {sticker.name}
-                    </div>
-                    <div className="text-[10px] font-bold">×{sticker.count}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Empty state */}
-              {availableStickers.length === 0 && (
-                <div className="text-center py-12 text-black/60">
-                  <p className="text-sm uppercase tracking-wide">倉庫空空的</p>
-                  <p className="text-xs mt-2 mb-4">前往商店購買貼紙吧！</p>
-                  <Link href="/shop">
-                    <button className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-black/20 hover:bg-black/5 transition-colors text-xs font-semibold uppercase tracking-wide">
-                      <ShoppingCart className="h-4 w-4" />
-                      前往商店
-                    </button>
-                  </Link>
+          <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
+            {availableStickers.map((sticker) => (
+              <div
+                key={sticker.stickerId}
+                draggable={sticker.count > 0}
+                onDragStart={(e) => handleDragStart(e, sticker.stickerId, sticker.count)}
+                onDragEnd={handleDragEnd}
+                className={`aspect-square rounded-lg border border-black/20 p-2 flex flex-col items-center justify-center transition-all ${
+                  sticker.count > 0
+                    ? 'hover:bg-black/5 hover:scale-105 cursor-grab active:cursor-grabbing bg-white/50 backdrop-blur-sm'
+                    : 'opacity-40 cursor-not-allowed bg-white/30'
+                }`}
+              >
+                {sticker.imageUrl && !failedImages.has(sticker.stickerId) ? (
+                  <img
+                    src={sticker.imageUrl}
+                    alt={sticker.name}
+                    className="w-full h-full object-contain mb-1"
+                    onError={() => {
+                      setFailedImages((prev) => new Set(prev).add(sticker.stickerId))
+                    }}
+                    draggable={false}
+                  />
+                ) : (
+                  <span className="text-3xl mb-1" draggable={false}>{sticker.emoji}</span>
+                )}
+                <div className="text-[8px] font-bold uppercase text-center line-clamp-1">
+                  {sticker.name}
                 </div>
-              )}
-            </>
-          )}
-
-          {/* Food Tab */}
-          {activeTab === 'food' && (
-            <>
-              <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
-                {foodItems.map((food) => (
-                  <div
-                    key={food.itemId}
-                    draggable={food.count > 0}
-                    onDragStart={(e) => handleFoodDragStart(e, food.itemId, food.count)}
-                    onDragEnd={handleDragEnd}
-                    className={`aspect-square rounded-lg border border-black/20 p-2 flex flex-col items-center justify-center transition-all ${
-                      food.count > 0
-                        ? 'hover:bg-black/5 hover:scale-105 cursor-grab active:cursor-grabbing bg-white/50 backdrop-blur-sm'
-                        : 'opacity-40 cursor-not-allowed bg-white/30'
-                    }`}
-                  >
-                    <span className="text-3xl mb-1">{food.emoji}</span>
-                    <div className="text-[8px] font-bold uppercase text-center line-clamp-1">
-                      {food.name}
-                    </div>
-                    <div className="text-[10px] font-bold">×{food.count}</div>
-                  </div>
-                ))}
+                <div className="text-[10px] font-bold">×{sticker.count}</div>
               </div>
+            ))}
+          </div>
 
-              {/* Empty state */}
-              {foodItems.length === 0 && (
-                <div className="text-center py-12 text-black/60">
-                  <p className="text-sm uppercase tracking-wide">尚無食物</p>
-                  <p className="text-xs mt-2 mb-4">前往商店購買食物吧！</p>
-                  <Link href="/shop">
-                    <button className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-black/20 hover:bg-black/5 transition-colors text-xs font-semibold uppercase tracking-wide">
-                      <ShoppingCart className="h-4 w-4" />
-                      前往商店
-                    </button>
-                  </Link>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* Accessories Tab */}
-          {activeTab === 'accessories' && (
-            <>
-              <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
-                {availableAccessories.map((accessory) => (
-                  <div
-                    key={accessory.accessoryId}
-                    draggable={accessory.count > 0}
-                    onDragStart={(e) => handleAccessoryDragStart(e, accessory.accessoryId, accessory.count)}
-                    onDragEnd={handleDragEnd}
-                    className={`aspect-square rounded-lg border border-black/20 p-2 flex flex-col items-center justify-center transition-all ${
-                      accessory.count > 0
-                        ? 'hover:bg-black/5 hover:scale-105 cursor-grab active:cursor-grabbing bg-white/50 backdrop-blur-sm'
-                        : 'opacity-40 cursor-not-allowed bg-white/30'
-                    }`}
-                  >
-                    {accessory.imageUrl && !failedImages.has(accessory.accessoryId) ? (
-                      <img
-                        src={accessory.imageUrl}
-                        alt={accessory.name}
-                        className="w-full h-full object-contain mb-1"
-                        onError={() => {
-                          setFailedImages((prev) => new Set(prev).add(accessory.accessoryId))
-                        }}
-                      />
-                    ) : (
-                      <span className="text-3xl mb-1">{accessory.emoji}</span>
-                    )}
-                    <div className="text-[8px] font-bold uppercase text-center line-clamp-1">
-                      {accessory.name}
-                    </div>
-                    <div className="text-[10px] font-bold">×{accessory.count}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Empty state */}
-              {availableAccessories.length === 0 && (
-                <div className="text-center py-12 text-black/60">
-                  <p className="text-sm uppercase tracking-wide">尚無配件</p>
-                  <p className="text-xs mt-2 mb-4">前往商店購買配件吧！</p>
-                  <Link href="/shop">
-                    <button className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-black/20 hover:bg-black/5 transition-colors text-xs font-semibold uppercase tracking-wide">
-                      <ShoppingCart className="h-4 w-4" />
-                      前往商店
-                    </button>
-                  </Link>
-                </div>
-              )}
-            </>
+          {/* Empty state */}
+          {availableStickers.length === 0 && (
+            <div className="text-center py-12 text-black/60">
+              <p className="text-sm uppercase tracking-wide">倉庫空空的</p>
+              <p className="text-xs mt-2 mb-4">前往商店購買貼紙吧！</p>
+              <Link href="/shop">
+                <button className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-black/20 hover:bg-black/5 transition-colors text-xs font-semibold uppercase tracking-wide">
+                  <ShoppingCart className="h-4 w-4" />
+                  前往商店
+                </button>
+              </Link>
+            </div>
           )}
         </div>
 

@@ -39,9 +39,8 @@ export default function MissionNotification() {
       }
     }
 
+    // 只在初始載入時檢查一次，之後不再自動刷新
     checkCompletedMissions()
-    const interval = setInterval(checkCompletedMissions, 2000)
-    return () => clearInterval(interval)
   }, [hasShownNotification])
 
   if (!showNotification || completedMissions.length === 0) {

@@ -1,13 +1,13 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useSession } from 'next-auth/react'
+import { useSession, signOut } from 'next-auth/react'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import Navigation from '@/components/dashboard/Navigation'
-import { Upload, Save, User } from 'lucide-react'
+import { Upload, Save, User, LogOut } from 'lucide-react'
 import Image from 'next/image'
 
 interface UserData {
@@ -82,6 +82,7 @@ export default function ProfileContent() {
   }
 
   const handleSave = async () => {
+    console.log('=== handleSave 開始執行 ===')
     setSaving(true)
     try {
       let imageUrl = userData?.image || null
@@ -103,28 +104,59 @@ export default function ProfileContent() {
         }
       }
 
+      // 如果用戶已經有 userID，則不發送 userID 欄位（不允許修改）
+      const requestBody: any = {
+        name: name.trim() || null,
+      }
+      
+      // 只有在圖片有變化時才發送 image
+      if (imageFile || imageUrl !== userData?.image) {
+        requestBody.image = imageUrl
+      }
+      
+      // 只有在用戶還沒有 userID 時，才發送 userID 欄位
+      if (!userData?.userID) {
+        requestBody.userID = userID.trim() || null
+      }
+
+      console.log('發送更新請求:', requestBody)
+      console.log('當前 userData:', userData)
+      console.log('當前 name:', name)
+
       const res = await fetch('/api/user', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim() || null,
-          userID: userID.trim() || null,
-          image: imageUrl,
-        }),
+        body: JSON.stringify(requestBody),
       })
+
+      console.log('API 回應狀態:', res.status, res.statusText)
 
       if (!res.ok) {
         const error = await res.json()
+        console.error('API 錯誤:', error)
         throw new Error(error.error || '更新失敗')
       }
+
+      const updatedData = await res.json()
+      console.log('API 返回的資料:', updatedData)
+      
+      // 直接使用 API 返回的資料更新狀態
+      setUserData(updatedData)
+      setName(updatedData.name || '')
+      setUserID(updatedData.userID || '')
+      setImagePreview(updatedData.image)
+      setImageFile(null) // 清除已上傳的檔案
+
+      console.log('狀態已更新，新的 name:', updatedData.name)
 
       toast({
         title: '成功',
         description: '個人資料已更新',
       })
-
-      await fetchUserData()
     } catch (error: any) {
+      console.error('handleSave 發生錯誤:', error)
+      console.error('錯誤詳情:', error.message)
+      console.error('錯誤堆疊:', error.stack)
       toast({
         title: '失敗',
         description: error.message || '請稍後再試',
@@ -132,6 +164,7 @@ export default function ProfileContent() {
       })
     } finally {
       setSaving(false)
+      console.log('handleSave 完成，saving 狀態設為 false')
     }
   }
 
@@ -222,10 +255,13 @@ export default function ProfileContent() {
                   value={userID}
                   onChange={(e) => setUserID(e.target.value)}
                   placeholder="輸入您的 User ID"
-                  className="max-w-md"
+                  className={`max-w-md ${userData?.userID ? 'bg-gray-50' : ''}`}
+                  disabled={!!userData?.userID}
                 />
                 <p className="text-xs text-black/60 mt-2">
-                  此 ID 將用於好友搜尋，設定後無法更改
+                  {userData?.userID 
+                    ? 'User ID 無法更改' 
+                    : '此 ID 將用於好友搜尋，設定後無法更改'}
                 </p>
               </div>
 
@@ -253,6 +289,17 @@ export default function ProfileContent() {
             >
               <Save className="h-4 w-4" />
               {saving ? '儲存中...' : '儲存變更'}
+            </Button>
+          </div>
+
+          <div className="flex justify-center pt-4">
+            <Button
+              variant="outline"
+              onClick={() => signOut()}
+              className="gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              登出
             </Button>
           </div>
         </div>

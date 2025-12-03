@@ -8,27 +8,27 @@ datasource db {
 }
 
 model User {
-  id             String          @id @default(cuid())
-  email          String          @unique
-  userID         String?         @unique // 使用者自訂 ID
-  name           String?
-  image          String?
-  emailVerified  DateTime?
-  balance        Float           @default(0)
-  isInitialized  Boolean         @default(false)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  accounts       Account[]
-  categories     Category[]
-  customStickers CustomSticker[]
-  pet            Pet?
-  sessions       Session[]
-  transactions   Transaction[]
-  friendsAsUser  Friend[]        @relation("UserFriends")
-  friendsAsFriend Friend[]       @relation("FriendUsers")
-  sentMessages   FriendMessage[] @relation("SenderMessages")
+  id               String          @id @default(cuid())
+  email            String          @unique
+  userID           String?         @unique // 使用者自訂 ID
+  name             String?
+  image            String?
+  emailVerified    DateTime?
+  balance          Float           @default(0)
+  isInitialized    Boolean         @default(false)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  accounts         Account[]
+  categories       Category[]
+  customStickers   CustomSticker[]
+  pet              Pet?
+  sessions         Session[]
+  transactions     Transaction[]
+  friendsAsUser    Friend[]        @relation("UserFriends")
+  friendsAsFriend  Friend[]        @relation("FriendUsers")
+  sentMessages     FriendMessage[] @relation("SenderMessages")
   receivedMessages FriendMessage[] @relation("ReceiverMessages")
-  missions        Mission[]
+  missionUsers     MissionUser[]
 
   @@map("users")
 }
@@ -72,24 +72,24 @@ model VerificationToken {
 }
 
 model Pet {
-  id                String         @id @default(cuid())
-  userId            String         @unique
-  name              String         @default("我的寵物")
-  imageUrl          String?
-  facingDirection   String         @default("right")
-  points            Int            @default(0)
-  fullness          Int            @default(70)
-  mood              Int            @default(70)
-  lastLoginDate     DateTime?      // 追蹤最後登入日期（用於判斷是否為當天第一次登入）
-  lastDailyReset    DateTime?      // 追蹤最後一次每日重置的時間（用於判斷是否需要重置）
-  lastPetPageVisit  DateTime?      // 追蹤最後一次訪問 pet page 的日期（用於判斷是否為當天第一次訪問）
-  consecutiveLoginDays Int         @default(0) // 追蹤連續登入天數
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
-  accessories       PetAccessory[]
-  purchases         PetPurchase[]
-  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  stickers          RoomSticker[]
+  id                   String         @id @default(cuid())
+  userId               String         @unique
+  name                 String         @default("我的寵物")
+  imageUrl             String?
+  facingDirection      String         @default("right")
+  points               Int            @default(0)
+  fullness             Int            @default(70)
+  mood                 Int            @default(70)
+  lastLoginDate        DateTime? // 追蹤最後登入日期（用於判斷是否為當天第一次登入）
+  lastDailyReset       DateTime? // 追蹤最後一次每日重置的時間（用於判斷是否需要重置）
+  lastPetPageVisit     DateTime? // 追蹤最後一次訪問 pet page 的日期（用於判斷是否為當天第一次訪問）
+  consecutiveLoginDays Int            @default(0) // 追蹤連續登入天數
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  accessories          PetAccessory[]
+  purchases            PetPurchase[]
+  user                 User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stickers             RoomSticker[]
 
   @@map("pets")
 }
@@ -209,8 +209,8 @@ model PetAccessory {
 
 model Friend {
   id        String   @id @default(cuid())
-  userId    String   // 發送好友請求的使用者
-  friendId  String   // 被加為好友的使用者
+  userId    String // 發送好友請求的使用者
+  friendId  String // 被加為好友的使用者
   status    String   @default("PENDING") // PENDING, accepted, blocked
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -224,15 +224,15 @@ model Friend {
 }
 
 model FriendMessage {
-  id        String   @id @default(cuid())
-  senderId  String   // 發送訊息的使用者
-  receiverId String  // 接收訊息的使用者（寵物主人）
-  petId     String   // 相關的寵物 ID
-  message   String?  // 留言內容（可選）
-  action    String   // pet, feed, message
-  createdAt DateTime @default(now())
-  sender    User     @relation("SenderMessages", fields: [senderId], references: [id], onDelete: Cascade)
-  receiver  User     @relation("ReceiverMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  senderId   String // 發送訊息的使用者
+  receiverId String // 接收訊息的使用者（寵物主人）
+  petId      String // 相關的寵物 ID
+  message    String? // 留言內容（可選）
+  action     String // pet, feed, message
+  createdAt  DateTime @default(now())
+  sender     User     @relation("SenderMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User     @relation("ReceiverMessages", fields: [receiverId], references: [id], onDelete: Cascade)
 
   @@index([receiverId, petId])
   @@index([senderId])
@@ -240,21 +240,35 @@ model FriendMessage {
 }
 
 model Mission {
-  id          String   @id @default(cuid())
-  userId      String
-  type        String   // "daily" or "weekly"
-  missionId   String   // e.g., "record_transaction", "check_pet", etc.
-  progress    Int      @default(0)
-  target      Int      // e.g., 1 for daily, 5 for weekly
-  completed   Boolean  @default(false)
-  claimed     Boolean  @default(false)
-  completedAt DateTime?
-  weekStart   DateTime? // For weekly missions, track which week
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String        @id @default(cuid())
+  code         String        @unique // e.g., "record_transaction"
+  title        String
+  description  String
+  type         String // "daily" | "weekly" | "event"
+  target       Int // target progress
+  reward       Int
+  active       Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  userMissions MissionUser[]
 
-  @@unique([userId, type, missionId, weekStart])
-  @@index([userId, type])
   @@map("missions")
+}
+
+model MissionUser {
+  id          String    @id @default(cuid())
+  userId      String
+  missionId   String
+  periodStart DateTime // daily: YYYY-MM-DD 00:00 , weekly: Monday 00:00
+  progress    Int       @default(0)
+  completed   Boolean   @default(false)
+  claimed     Boolean   @default(false)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mission     Mission   @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, missionId, periodStart])
+  @@map("mission_user")
 }

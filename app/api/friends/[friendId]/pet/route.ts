@@ -3,6 +3,16 @@ import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { updateMissionProgress } from '@/lib/missions'
 
+// Helper function to get week start (Monday 00:00)
+const getWeekStart = (date: Date = new Date()): Date => {
+  const d = new Date(date)
+  const day = d.getDay()
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1) // Adjust to Monday
+  const weekStart = new Date(d.setDate(diff))
+  weekStart.setHours(0, 0, 0, 0)
+  return weekStart
+}
+
 // Pet friend's pet
 export async function POST(
   request: NextRequest,
@@ -60,6 +70,29 @@ export async function POST(
       data: { mood: newMood },
     })
 
+    // 更新每週任務：與3位好友互動（只計算不同的好友）
+    // 在創建記錄之前檢查
+    const weekStart = getWeekStart()
+    
+    // 查詢本週已經互動過的不同好友（包括 pet, feed 兩種互動）
+    const interactedFriends = await prisma.friendMessage.findMany({
+      where: {
+        senderId: userRecord.id,
+        createdAt: {
+          gte: weekStart,
+        },
+      },
+      select: {
+        receiverId: true,
+      },
+    })
+    
+    // 獲取不同的好友 ID 集合
+    const distinctFriendIds = new Set(interactedFriends.map(msg => msg.receiverId))
+    
+    // 檢查當前互動的好友是否已經在本週互動過
+    const isNewFriendInteraction = !distinctFriendIds.has(friendId)
+
     await prisma.friendMessage.create({
       data: {
         senderId: userRecord.id,
@@ -70,24 +103,21 @@ export async function POST(
     })
 
     // 更新任務進度
-    await updateMissionProgress(userRecord.id, 'daily', 'pet_friend', 1)
+    const dailyMissionCompleted = await updateMissionProgress(userRecord.id, 'daily', 'pet_friend', 1)
     
-    // 更新每週任務：與3位好友互動
-    const interactions = await prisma.friendMessage.findMany({
-      where: {
-        senderId: userRecord.id,
-        createdAt: {
-          gte: new Date(new Date().setDate(new Date().getDate() - 7)),
-        },
-      },
-      distinct: ['receiverId'],
-    })
-    
-    await updateMissionProgress(userRecord.id, 'weekly', 'interact_3_friends', interactions.length)
+    // 如果是新的好友互動，更新每週任務進度
+    let weeklyMissionCompleted = null
+    if (isNewFriendInteraction) {
+      weeklyMissionCompleted = await updateMissionProgress(userRecord.id, 'weekly', 'interact_3_friends', 1)
+    }
+
+    // 優先返回每日任務完成信息（如果有的話），否則返回每週任務完成信息
+    const missionCompleted = dailyMissionCompleted || weeklyMissionCompleted
 
     return NextResponse.json({
       message: '已撫摸好友的寵物',
       moodGain: 1,
+      missionCompleted: missionCompleted || undefined,
     })
   } catch (error) {
     console.error('Pet friend pet error:', error)

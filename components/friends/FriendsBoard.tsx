@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/ui/use-toast'
 import { Input } from '@/components/ui/input'
@@ -31,6 +31,26 @@ export default function FriendsBoard({ initialFriends }: FriendsBoardProps) {
   const [searchFilter, setSearchFilter] = useState('')
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showInvitationDialog, setShowInvitationDialog] = useState(false)
+  const [invitationCount, setInvitationCount] = useState(0)
+
+  const fetchInvitationCount = async () => {
+    try {
+      const res = await fetch('/api/friends/invitations/count')
+      if (res.ok) {
+        const data = await res.json()
+        setInvitationCount(data.count || 0)
+      }
+    } catch (error) {
+      console.error('取得邀請數量失敗:', error)
+    }
+  }
+
+  useEffect(() => {
+    fetchInvitationCount()
+    // 每30秒刷新一次邀請數量
+    const interval = setInterval(fetchInvitationCount, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
   const filteredFriends = useMemo(() => {
     if (!searchFilter.trim()) {
@@ -51,6 +71,7 @@ export default function FriendsBoard({ initialFriends }: FriendsBoardProps) {
   }
 
   const handleInvitationAccepted = () => {
+    fetchInvitationCount()
     window.location.reload()
   }
 
@@ -84,10 +105,15 @@ export default function FriendsBoard({ initialFriends }: FriendsBoardProps) {
               <Button
                 onClick={() => setShowInvitationDialog(true)}
                 variant="outline"
-                className="gap-2"
+                className="gap-2 relative"
               >
                 <Mail className="h-4 w-4" />
                 <span className="hidden sm:inline">邀請</span>
+                {invitationCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                    {invitationCount > 9 ? '9+' : invitationCount}
+                  </span>
+                )}
               </Button>
               <Button
                 onClick={() => setShowAddDialog(true)}
@@ -140,7 +166,13 @@ export default function FriendsBoard({ initialFriends }: FriendsBoardProps) {
 
       <InvitationDialog
         open={showInvitationDialog}
-        onOpenChange={setShowInvitationDialog}
+        onOpenChange={(open) => {
+          setShowInvitationDialog(open)
+          if (!open) {
+            // 關閉對話框時刷新邀請數量
+            fetchInvitationCount()
+          }
+        }}
         onInvitationAccepted={handleInvitationAccepted}
       />
 

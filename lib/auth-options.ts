@@ -49,6 +49,7 @@ export const authOptions: NextAuthOptions = {
       if (account?.provider === 'google' && user.email) {
         try {
           // Upsert user - create if doesn't exist, update if exists
+          // 允許更新 name 和 image（name 可以更新，只有 userID 不能改）
           await prisma.user.upsert({
             where: { email: user.email },
             update: {

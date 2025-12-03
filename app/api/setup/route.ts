@@ -3,6 +3,21 @@ import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
+const getWeekStart = (date: Date = new Date()): Date => {
+  const d = new Date(date)
+  const day = d.getDay()
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+  const weekStart = new Date(d.setDate(diff))
+  weekStart.setHours(0, 0, 0, 0)
+  return weekStart
+}
+
+const getDayStart = (date: Date = new Date()): Date => {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
 const setupSchema = z.object({
   userID: z.string().min(1).max(50),
   petName: z.string().min(1).max(20),
@@ -125,6 +140,48 @@ export async function POST(request: NextRequest) {
       console.error('建立/更新寵物失敗:', error)
       console.error('錯誤詳情:', error instanceof Error ? error.stack : error)
       throw error
+    }
+
+    // 為新用戶創建當前的每日和每週任務記錄
+    try {
+      const allMissionDefs = await prisma.mission.findMany({
+        where: { active: true },
+      })
+
+      const dayStart = getDayStart()
+      const weekStart = getWeekStart()
+
+      for (const missionDef of allMissionDefs) {
+        const periodStart = missionDef.type === 'weekly' ? weekStart : dayStart
+        
+        // 檢查是否已存在
+        const existing = await prisma.missionUser.findUnique({
+          where: {
+            userId_missionId_periodStart: {
+              userId: dbUserId,
+              missionId: missionDef.id,
+              periodStart: periodStart,
+            },
+          },
+        })
+
+        if (!existing) {
+          await prisma.missionUser.create({
+            data: {
+              userId: dbUserId,
+              missionId: missionDef.id,
+              periodStart: periodStart,
+              progress: 0,
+              completed: false,
+              claimed: false,
+            },
+          })
+        }
+      }
+      console.log('用戶任務記錄建立成功')
+    } catch (error) {
+      console.error('建立用戶任務記錄失敗:', error)
+      // 不拋出錯誤，避免影響主要功能
     }
 
     return NextResponse.json({ success: true })

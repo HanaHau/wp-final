@@ -12,16 +12,16 @@ export default function PetStatusHUD({ mood, fullness }: PetStatusHUDProps) {
   const fullnessValue = Math.min(fullness || 0, 100)
 
   return (
-    <div className="flex items-center gap-3 px-3 py-2 bg-white/80 backdrop-blur-sm rounded-full border border-gray-300 shadow-sm">
+    <div className="flex items-center gap-3 px-3 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20 shadow-lg">
       {/* Mood */}
       <div className="flex flex-col items-center gap-1">
         <div className="flex items-center gap-1.5">
-          <Heart className="h-3.5 w-3.5 text-gray-700 fill-gray-700" />
-          <span className="text-xs font-semibold text-gray-700">MOOD: {moodValue}</span>
+          <Heart className="h-3.5 w-3.5 text-white/90 fill-white/90" />
+          <span className="text-xs font-semibold text-white/90">MOOD: {moodValue}</span>
         </div>
-        <div className="w-20 h-1.5 bg-gray-200/80 border border-gray-300 rounded-full overflow-hidden">
+        <div className="w-20 h-1.5 bg-white/20 border border-white/30 rounded-full overflow-hidden">
           <div
-            className="h-full bg-gray-600 transition-all duration-300"
+            className="h-full bg-white/60 transition-all duration-300"
             style={{ width: `${moodValue}%` }}
           />
         </div>
@@ -30,12 +30,12 @@ export default function PetStatusHUD({ mood, fullness }: PetStatusHUDProps) {
       {/* Fullness */}
       <div className="flex flex-col items-center gap-1">
         <div className="flex items-center gap-1.5">
-          <UtensilsCrossed className="h-3.5 w-3.5 text-gray-700" />
-          <span className="text-xs font-semibold text-gray-700">FULL: {fullnessValue}</span>
+          <UtensilsCrossed className="h-3.5 w-3.5 text-white/90" />
+          <span className="text-xs font-semibold text-white/90">FULL: {fullnessValue}</span>
         </div>
-        <div className="w-20 h-1.5 bg-gray-200/80 border border-gray-300 rounded-full overflow-hidden">
+        <div className="w-20 h-1.5 bg-white/20 border border-white/30 rounded-full overflow-hidden">
           <div
-            className="h-full bg-gray-600 transition-all duration-300"
+            className="h-full bg-white/60 transition-all duration-300"
             style={{ width: `${fullnessValue}%` }}
           />
         </div>

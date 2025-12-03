@@ -152,8 +152,8 @@ export default function CalculatorInput({ value, onChange, onEnter }: Calculator
       {/* Display - Clickable to focus */}
       <div 
         ref={containerRef}
-        className={`border-2 border-black p-4 text-right cursor-text relative transition-all ${
-          isFocused ? 'ring-2 ring-black ring-offset-2' : ''
+        className={`rounded-xl border border-black/20 bg-white/90 backdrop-blur-sm p-4 text-right cursor-text relative transition-all ${
+          isFocused ? 'ring-2 ring-black/30 ring-offset-2' : ''
         }`}
         onClick={handleDisplayClick}
       >
@@ -175,7 +175,7 @@ export default function CalculatorInput({ value, onChange, onEnter }: Calculator
       {isKeyboardVisible && (
         <div 
           ref={keyboardRef}
-          className={`space-y-2 p-4 bg-white border-2 border-black rounded-md duration-200 ${
+          className={`space-y-2 p-4 bg-white/95 backdrop-blur-md border border-black/20 rounded-xl duration-200 ${
             isFocused 
               ? 'animate-in fade-in slide-in-from-top-2' 
               : 'animate-out fade-out slide-out-to-top-2'
@@ -194,7 +194,7 @@ export default function CalculatorInput({ value, onChange, onEnter }: Calculator
             type="button"
             variant="outline"
             onClick={handleClear}
-            className="border-2 border-black col-span-2"
+            className="rounded-xl border border-black/20 col-span-2"
           >
             Clear
           </Button>
@@ -202,7 +202,7 @@ export default function CalculatorInput({ value, onChange, onEnter }: Calculator
             type="button"
             variant="outline"
             onClick={handleBackspace}
-            className="border-2 border-black"
+            className="rounded-xl border border-black/20"
           >
             ⌫
           </Button>
@@ -216,7 +216,7 @@ export default function CalculatorInput({ value, onChange, onEnter }: Calculator
               type="button"
               variant="outline"
               onClick={() => handleNumber(num.toString())}
-              className="border-2 border-black"
+              className="rounded-xl border border-black/20"
             >
               {num}
             </Button>
@@ -229,7 +229,7 @@ export default function CalculatorInput({ value, onChange, onEnter }: Calculator
             type="button"
             variant="outline"
             onClick={() => handleNumber('0')}
-            className="border-2 border-black"
+            className="rounded-xl border border-black/20"
           >
             0
           </Button>
@@ -237,7 +237,7 @@ export default function CalculatorInput({ value, onChange, onEnter }: Calculator
             type="button"
             variant="outline"
             onClick={handleDecimal}
-            className="border-2 border-black"
+            className="rounded-xl border border-black/20"
           >
             .
           </Button>

@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -17,6 +18,26 @@ const navItems = [
 
 export default function Navigation() {
   const pathname = usePathname()
+  const [invitationCount, setInvitationCount] = useState(0)
+
+  useEffect(() => {
+    const fetchInvitationCount = async () => {
+      try {
+        const res = await fetch('/api/friends/invitations/count')
+        if (res.ok) {
+          const data = await res.json()
+          setInvitationCount(data.count || 0)
+        }
+      } catch (error) {
+        console.error('取得邀請數量失敗:', error)
+      }
+    }
+
+    fetchInvitationCount()
+    // 每30秒刷新一次邀請數量
+    const interval = setInterval(fetchInvitationCount, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
   return (
     <>
@@ -26,18 +47,26 @@ export default function Navigation() {
             {navItems.map((item) => {
               const Icon = item.icon
               const isActive = pathname === item.href
+              const showBadge = item.href === '/friends' && invitationCount > 0
               return (
                 <Link key={item.href} href={item.href}>
                   <Button
                     variant="ghost"
                     className={cn(
-                      'flex flex-col items-center gap-1 h-auto py-2 px-4 transition-all',
+                      'flex flex-col items-center gap-1 h-auto py-2 px-4 transition-all relative',
                       isActive 
                         ? 'bg-black text-white' 
                         : 'text-black hover:bg-black/5'
                     )}
                   >
-                    <Icon className={cn('h-5 w-5')} />
+                    <div className="relative">
+                      <Icon className={cn('h-5 w-5')} />
+                      {showBadge && (
+                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center text-[10px]">
+                          {invitationCount > 9 ? '9+' : invitationCount}
+                        </span>
+                      )}
+                    </div>
                     <span className="text-xs font-medium uppercase tracking-wide">{item.label}</span>
                   </Button>
                 </Link>

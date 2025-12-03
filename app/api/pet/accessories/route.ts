@@ -93,11 +93,21 @@ async function hasAccessoryInventory(petId: string, accessoryId: string, userId:
 export async function GET() {
   try {
     const user = await getCurrentUser()
-    if (!user) {
+    if (!user || !user.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const pet = await getOrCreatePet(user.id)
+    // 從資料庫獲取用戶 ID，因為 session 的 ID 可能不一致
+    const userRecord = await prisma.user.findUnique({
+      where: { email: user.email },
+      select: { id: true },
+    })
+
+    if (!userRecord) {
+      return NextResponse.json({ error: '用戶不存在' }, { status: 404 })
+    }
+
+    const pet = await getOrCreatePet(userRecord.id)
 
     const accessories = await prisma.petAccessory.findMany({
       where: { petId: pet.id },
@@ -138,19 +148,29 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser()
-    if (!user) {
+    if (!user || !user.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // 從資料庫獲取用戶 ID，因為 session 的 ID 可能不一致
+    const userRecord = await prisma.user.findUnique({
+      where: { email: user.email },
+      select: { id: true },
+    })
+
+    if (!userRecord) {
+      return NextResponse.json({ error: '用戶不存在' }, { status: 404 })
     }
 
     const body = await request.json()
     const payload = accessoryCreateSchema.parse(body)
 
-    const pet = await getOrCreatePet(user.id)
+    const pet = await getOrCreatePet(userRecord.id)
 
     // Use a transaction to atomically check inventory and create accessory
     const result = await prisma.$transaction(async (tx) => {
       // Check inventory within transaction
-      const canUseAccessory = await hasAccessoryInventoryInTx(tx, pet.id, payload.accessoryId, user.id)
+      const canUseAccessory = await hasAccessoryInventoryInTx(tx, pet.id, payload.accessoryId, userRecord.id)
       if (!canUseAccessory) {
         throw new Error('No available accessories. Please purchase this item first or check your inventory.')
       }

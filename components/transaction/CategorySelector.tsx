@@ -107,12 +107,12 @@ function SortableCategoryItem({
       style={style}
       {...attributes}
       {...listeners}   // ← 重要！要放在 item 本體上
-      className={`relative border-2 p-3 rounded-md bg-white ${
+      className={`relative rounded-xl border border-black/20 p-3 backdrop-blur-sm ${
         editMode && isUserCategory ? 'cursor-grab active:cursor-grabbing' : ''
       } ${
         selectedCategoryId === category.id
-          ? 'border-black bg-black text-white'
-          : 'border-black hover:bg-black/5'
+          ? 'bg-black/20 hover:bg-black/25'
+          : 'bg-white/90 hover:bg-black/5'
       }`}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest('button')) return
@@ -130,7 +130,7 @@ function SortableCategoryItem({
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6 bg-white border border-black hover:bg-black/10"
+            className="h-6 w-6 rounded-lg bg-white/90 backdrop-blur-sm border border-black/20 hover:bg-black/10"
             onClick={(e) => {
               e.stopPropagation()
               onEditClick(category)
@@ -141,7 +141,7 @@ function SortableCategoryItem({
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6 bg-white border border-black hover:bg-black/10"
+            className="h-6 w-6 rounded-lg bg-white/90 backdrop-blur-sm border border-black/20 hover:bg-black/10"
             onClick={(e) => {
               e.stopPropagation()
               onDeleteClick(category)
@@ -599,14 +599,14 @@ export default function CategorySelector({
           <div className="flex items-center justify-between pr-8">
             <div className="flex items-center gap-2">
               {viewMode === 'add' && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleBack}
-                  className="h-8 w-8 border-2 border-black"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleBack}
+                    className="h-8 w-8 rounded-lg border border-black/20"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
               )}
               <DialogTitle className="text-lg uppercase tracking-wide">
                 {viewMode === 'add' ? 'Add New Category' : 'Select Category'}
@@ -619,7 +619,7 @@ export default function CategorySelector({
                     variant="outline"
                     size="sm"
                     onClick={() => setEditMode(true)}
-                    className="border-2 border-black"
+                    className="rounded-xl"
                   >
                     <Edit className="h-4 w-4 mr-2" />
                     Edit
@@ -629,7 +629,7 @@ export default function CategorySelector({
                     variant="default"
                     size="sm"
                     onClick={() => setEditMode(false)}
-                    className="border-2 border-black"
+                    className="rounded-xl"
                   >
                     Done
                   </Button>
@@ -660,12 +660,12 @@ export default function CategorySelector({
                         return (
                           <div
                             key={category.id}
-                            className={`relative border-2 p-3 rounded-md transition-all ${
+                            className={`relative rounded-xl border border-black/20 p-3 backdrop-blur-sm transition-all ${
                               editMode ? 'cursor-default' : 'cursor-pointer'
                             } ${
                               selectedCategoryId === category.id
-                                ? 'border-black bg-black text-white'
-                                : 'border-black hover:bg-black/5'
+                                ? 'bg-black/10 hover:bg-black/15'
+                                : 'bg-white/90 hover:bg-black/5'
                             }`}
                             onClick={(e) => {
                               handleCategoryClick(category)
@@ -725,7 +725,7 @@ export default function CategorySelector({
                             // 考慮 scale(1.05) 的影響，需要稍微調整
                             return (
                               <div 
-                                className="border-2 border-black bg-white p-3 rounded-md shadow-2xl text-black"
+                                className="rounded-xl border border-black/20 bg-white/95 backdrop-blur-sm p-3 shadow-2xl text-black"
                                 style={{
                                   transform: `translate(-${cursorOffset.x}px, -${cursorOffset.y}px) scale(1.05) rotate(2deg)`,
                                   transformOrigin: `${cursorOffset.x}px ${cursorOffset.y}px`,
@@ -754,7 +754,7 @@ export default function CategorySelector({
                     <Button
                       variant="outline"
                       onClick={() => setViewMode('add')}
-                      className="w-full border-2 border-black border-dashed py-6"
+                      className="w-full rounded-xl border border-black/20 border-dashed py-6"
                     >
                       <Plus className="h-4 w-4 mr-2" />
                       Add New Category
@@ -765,9 +765,9 @@ export default function CategorySelector({
             </>
           ) : (
             /* Add New Category Form */
-            <div className="border-2 border-black p-4 space-y-4">
+            <div className="rounded-xl border border-black/20 bg-white/90 backdrop-blur-sm p-4 space-y-4">
               {editingCategory && (
-                <div className="mb-4 pb-4 border-b-2 border-black">
+                <div className="mb-4 pb-4 border-b border-black/20">
                   <h3 className="text-sm font-bold uppercase">Edit Category</h3>
                 </div>
               )}
@@ -780,7 +780,6 @@ export default function CategorySelector({
                     value={newCategoryName}
                     onChange={(e) => setNewCategoryName(e.target.value)}
                     placeholder="Category name"
-                    className="border-2 border-black"
                   />
                 </div>
 
@@ -793,13 +792,13 @@ export default function CategorySelector({
                       type="button"
                       variant="outline"
                       onClick={() => setShowIconPicker(!showIconPicker)}
-                      className="w-full border-2 border-black justify-start"
+                      className="w-full rounded-xl justify-start"
                     >
                       <span className="text-xl mr-2">{newCategoryIcon}</span>
                       Select Icon
                     </Button>
                     {showIconPicker && (
-                      <div className="absolute z-10 mt-2 p-3 bg-white border-2 border-black rounded-md grid grid-cols-10 gap-2 max-h-48 overflow-y-auto">
+                      <div className="absolute z-10 mt-2 p-3 bg-white/95 backdrop-blur-md border border-black/20 rounded-xl grid grid-cols-10 gap-2 max-h-48 overflow-y-auto">
                         {EMOJI_ICONS.map((emoji) => (
                           <button
                             key={emoji}
@@ -847,7 +846,7 @@ export default function CategorySelector({
                 <div className="flex gap-2">
                   <Button
                     onClick={handleSave}
-                    className="flex-1 border-2 border-black"
+                    className="flex-1 rounded-xl"
                     disabled={!newCategoryName.trim()}
                   >
                     {editingCategory ? 'Update' : 'Create'}
@@ -855,7 +854,7 @@ export default function CategorySelector({
                   <Button
                     variant="outline"
                     onClick={handleBack}
-                    className="border-2 border-black"
+                    className="rounded-xl"
                   >
                     Cancel
                   </Button>
@@ -887,14 +886,14 @@ export default function CategorySelector({
                 setShowDeleteDialog(false)
                 setCategoryToDelete(null)
               }}
-              className="border-2 border-black"
+              className="rounded-xl"
             >
               Cancel
             </Button>
             <Button
               variant="default"
               onClick={handleDeleteConfirm}
-              className="border-2 border-black bg-black text-white"
+              className="rounded-xl"
             >
               Delete
             </Button>

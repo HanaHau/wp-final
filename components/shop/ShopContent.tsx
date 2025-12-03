@@ -8,6 +8,7 @@ import { ShoppingBag, Plus } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { SHOP_ITEMS, ShopItem, ShopItemCategory } from '@/data/shop-items'
 import CustomStickerDialog from './CustomStickerDialog'
+import { useToast } from '@/components/ui/use-toast'
 
 interface Pet {
   id: string
@@ -25,6 +26,7 @@ export default function ShopContent() {
   const [customStickers, setCustomStickers] = useState<Array<{ id: string; name: string; imageUrl: string; category: ShopItemCategory; price: number; userId?: string }>>([])
   const [publicStickers, setPublicStickers] = useState<Array<{ id: string; name: string; imageUrl: string; category: ShopItemCategory; price: number; userId: string; user: { name: string | null; email: string } }>>([])
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set())
+  const { toast } = useToast()
 
   useEffect(() => {
     fetchPet()
@@ -85,13 +87,21 @@ export default function ShopContent() {
   const handlePurchase = async (item: ShopItem) => {
     const quantity = getQuantity(item.id)
     if (quantity <= 0) {
-      alert('Please select a quantity.')
+      toast({
+        title: '請選擇數量',
+        description: 'Please select a quantity.',
+        variant: 'destructive',
+      })
       return
     }
 
     const totalCost = item.cost * quantity
     if (!pet || pet.points < totalCost) {
-      alert('Not enough points!')
+      toast({
+        title: '點數不足',
+        description: 'Not enough points!',
+        variant: 'destructive',
+      })
       return
     }
 
@@ -116,9 +126,16 @@ export default function ShopContent() {
         ...prev,
         [item.id]: 0,
       }))
-      alert(`Purchased ${item.name}!`)
+      toast({
+        title: '購買成功',
+        description: `Purchased ${item.name}!`,
+      })
     } catch (error: any) {
-      alert(error.message || 'Purchase failed')
+      toast({
+        title: '購買失敗',
+        description: error.message || 'Purchase failed',
+        variant: 'destructive',
+      })
     } finally {
       setPurchasing(null)
     }

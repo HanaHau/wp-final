@@ -74,11 +74,22 @@ export async function GET(
     })
 
     // 更新任務：拜訪好友
-    await updateMissionProgress(userRecord.id, 'daily', 'visit_friend', 1)
+    const missionCompleted = await updateMissionProgress(userRecord.id, 'daily', 'visit_friend', 1)
+
+    // Add warning flags for pet status
+    const petWithStatus = {
+      ...friendPet,
+      imageUrl: friendPet.imageUrl || '/cat.png',
+      isUnhappy: friendPet.mood < 30,
+      isHungry: friendPet.fullness < 30,
+      needsAttention: friendPet.mood < 50 || friendPet.fullness < 50,
+      isSick: friendPet.mood <= 0 || friendPet.fullness <= 0,
+    }
 
     return NextResponse.json({
-      pet: friendPet,
+      pet: petWithStatus,
       user: friendUser,
+      missionCompleted: missionCompleted || undefined,
     })
   } catch (error) {
     console.error('Get friend pet error:', error)

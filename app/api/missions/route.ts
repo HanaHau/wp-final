@@ -11,124 +11,192 @@ const getWeekStart = (date: Date = new Date()): Date => {
   return weekStart
 }
 
+const getDayStart = (date: Date = new Date()): Date => {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
 export async function GET() {
   try {
     console.log('=== GET /api/missions 開始 ===')
-    const user = await getCurrentUser()
-    console.log('User from getCurrentUser:', user ? { email: user.email, id: user.id } : 'null')
+    
+    // 獲取當前用戶
+    let user
+    try {
+      user = await getCurrentUser()
+      console.log('User from getCurrentUser:', user ? { email: user.email, id: user.id } : 'null')
+    } catch (authError) {
+      console.error('❌ 獲取用戶失敗:', authError)
+      return NextResponse.json({ error: '認證失敗' }, { status: 401 })
+    }
     
     if (!user || !user.email) {
       console.log('未授權：沒有用戶或 email')
       return NextResponse.json({ error: '未授權' }, { status: 401 })
     }
 
-    const userRecord = await prisma.user.findUnique({
-      where: { email: user.email },
-      select: { id: true },
-    })
-    console.log('User record from DB:', userRecord)
+    // 查找用戶記錄
+    let userRecord
+    try {
+      userRecord = await prisma.user.findUnique({
+        where: { email: user.email },
+        select: { id: true },
+      })
+      console.log('User record from DB:', userRecord)
+    } catch (dbError) {
+      console.error('❌ 查詢用戶失敗:', dbError)
+      return NextResponse.json({ error: '資料庫查詢失敗' }, { status: 500 })
+    }
 
     if (!userRecord) {
       console.log('使用者不存在')
       return NextResponse.json({ error: '使用者不存在' }, { status: 404 })
     }
 
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    // 計算日期（確保時區正確）
+    const dayStart = getDayStart()
     const weekStart = getWeekStart()
-    console.log('Week start:', weekStart.toISOString())
+    console.log('Day start:', dayStart.toISOString(), dayStart.getTime())
+    console.log('Week start:', weekStart.toISOString(), weekStart.getTime())
 
-    const dailyMissions = [
-      { id: 'record_transaction', name: '今日記帳1筆', points: 10, target: 1 },
-      { id: 'check_pet', name: '查看寵物狀態', points: 5, target: 1 },
-      { id: 'edit_transaction', name: '整理帳目(任一編輯)', points: 5, target: 1 },
-      { id: 'visit_friend', name: '拜訪1位好友', points: 5, target: 1 },
-      { id: 'pet_friend', name: '摸摸好友寵物', points: 5, target: 1 },
-    ]
-
-    const weeklyMissions = [
-      { id: 'record_5_days', name: '本週記帳達5天', points: 40, target: 5 },
-      { id: 'interact_3_friends', name: '與3位好友互動', points: 30, target: 3 },
-    ]
-
-    console.log('查詢資料庫中的任務...')
-    console.log('prisma 對象:', typeof prisma, 'mission 存在:', 'mission' in prisma)
-    
-    if (!('mission' in prisma)) {
-      console.error('❌ prisma.mission 不存在！')
-      throw new Error('Prisma Client 未正確初始化 mission 模型')
+    // 獲取所有活躍的任務定義
+    let missionDefinitions
+    try {
+      missionDefinitions = await prisma.mission.findMany({
+        where: { active: true },
+        orderBy: [
+          { type: 'asc' },
+          { code: 'asc' },
+        ],
+      })
+      console.log('任務定義數量:', missionDefinitions.length)
+    } catch (dbError) {
+      console.error('❌ 查詢任務定義失敗:', dbError)
+      return NextResponse.json({ error: '查詢任務定義失敗' }, { status: 500 })
     }
-    
-    const allMissions = await prisma.mission.findMany({
-      where: {
-        userId: userRecord.id,
-      },
-    })
-    console.log('從資料庫取得的任務數量:', allMissions.length)
-    
-    const existingMissions = allMissions.filter((m) => {
-      if (m.type === 'daily') return true
-      if (m.type === 'weekly' && m.weekStart) {
-        const existingWeekStart = new Date(m.weekStart)
-        existingWeekStart.setHours(0, 0, 0, 0)
-        const currentWeekStart = new Date(weekStart)
-        currentWeekStart.setHours(0, 0, 0, 0)
-        return existingWeekStart.getTime() === currentWeekStart.getTime()
-      }
-      return false
-    })
+
+    if (!missionDefinitions || missionDefinitions.length === 0) {
+      console.warn('⚠️ 沒有找到任何任務定義')
+      return NextResponse.json([]) // 返回空數組而不是錯誤
+    }
 
     const missions: any[] = []
 
-    for (const mission of dailyMissions) {
-      const existing = existingMissions.find(
-        (m) => m.type === 'daily' && m.missionId === mission.id
-      )
+    for (const missionDef of missionDefinitions) {
+      const periodStart = missionDef.type === 'weekly' ? weekStart : dayStart
+      
+      // 先嘗試查找當前週期的任務記錄
+      let userMission = await prisma.missionUser.findUnique({
+        where: {
+          userId_missionId_periodStart: {
+            userId: userRecord.id,
+            missionId: missionDef.id,
+            periodStart: periodStart,
+          },
+        },
+      })
+
+      // 如果不存在，創建新的任務記錄
+      if (!userMission) {
+        try {
+          // 直接創建新的任務記錄（使用 upsert 避免並發問題）
+          userMission = await prisma.missionUser.upsert({
+            where: {
+              userId_missionId_periodStart: {
+                userId: userRecord.id,
+                missionId: missionDef.id,
+                periodStart: periodStart,
+              },
+            },
+            update: {}, // 如果已存在，不更新
+            create: {
+              userId: userRecord.id,
+              missionId: missionDef.id,
+              periodStart: periodStart,
+              progress: 0,
+              completed: false,
+              claimed: false,
+            },
+          })
+          console.log(`✅ 為用戶創建/獲取任務記錄: ${missionDef.code} (${missionDef.type}, 日期: ${periodStart.toISOString()})`)
+        } catch (createError: any) {
+          console.error(`❌ 創建任務記錄失敗: ${missionDef.code}`, createError)
+          console.error('錯誤詳情:', createError?.message, createError?.code)
+          // 如果創建失敗，嘗試再次查找
+          try {
+            userMission = await prisma.missionUser.findUnique({
+              where: {
+                userId_missionId_periodStart: {
+                  userId: userRecord.id,
+                  missionId: missionDef.id,
+                  periodStart: periodStart,
+                },
+              },
+            })
+          } catch (findError) {
+            console.error(`❌ 查找任務記錄也失敗: ${missionDef.code}`, findError)
+          }
+        }
+      } else {
+        console.log(`✓ 找到現有任務記錄: ${missionDef.code} (進度: ${userMission.progress}/${missionDef.target})`)
+      }
+
+      // 如果仍然沒有找到，使用默認值（不應該發生，但以防萬一）
+      if (!userMission) {
+        console.warn(`⚠️ 無法獲取或創建任務記錄: ${missionDef.code}，使用默認值`)
+        userMission = {
+          progress: 0,
+          completed: false,
+          claimed: false,
+        } as any
+      }
+
       missions.push({
-        type: 'daily',
-        missionId: mission.id,
-        name: mission.name,
-        points: mission.points,
-        progress: existing?.progress || 0,
-        target: mission.target,
-        completed: existing?.completed || false,
-        claimed: existing?.claimed || false,
-        claimed: existing?.claimed || false,
+        type: missionDef.type,
+        missionId: missionDef.code, // 保持向後兼容
+        missionCode: missionDef.code,
+        name: missionDef.title,
+        points: missionDef.reward,
+        progress: userMission.progress,
+        target: missionDef.target,
+        completed: userMission.completed,
+        claimed: userMission.claimed,
+        weekStart: missionDef.type === 'weekly' ? weekStart.toISOString() : undefined,
       })
     }
 
-    for (const mission of weeklyMissions) {
-      const existing = existingMissions.find(
-        (m) => {
-          if (m.type !== 'weekly' || m.missionId !== mission.id) return false
-          if (!m.weekStart) return false
-          const existingWeekStart = new Date(m.weekStart)
-          existingWeekStart.setHours(0, 0, 0, 0)
-          const currentWeekStart = new Date(weekStart)
-          currentWeekStart.setHours(0, 0, 0, 0)
-          return existingWeekStart.getTime() === currentWeekStart.getTime()
-        }
-      )
-      missions.push({
-        type: 'weekly',
-        missionId: mission.id,
-        name: mission.name,
-        points: mission.points,
-        progress: existing?.progress || 0,
-        target: mission.target,
-        completed: existing?.completed || false,
-        claimed: existing?.claimed || false,
-        weekStart: weekStart.toISOString(),
-      })
+    console.log('用戶任務進度數量:', missions.length)
+    console.log('每日任務數量:', missions.filter(m => m.type === 'daily').length)
+    console.log('每週任務數量:', missions.filter(m => m.type === 'weekly').length)
+
+    if (missions.length === 0) {
+      console.warn('⚠️ 警告：沒有返回任何任務！')
+      console.warn('任務定義數量:', missionDefinitions.length)
+      console.warn('用戶 ID:', userRecord.id)
     }
 
     console.log('返回任務數據:', { missionsCount: missions.length, missions })
-    return NextResponse.json(missions) // 直接返回數組，不是對象
+    return NextResponse.json(missions, { 
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }) // 直接返回數組，不是對象
   } catch (error) {
-    console.error('Get missions error:', error)
+    console.error('❌ Get missions error:', error)
     console.error('Error details:', error instanceof Error ? error.message : String(error))
     console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
-    return NextResponse.json({ error: '取得任務失敗' }, { status: 500 })
+    
+    // 返回更詳細的錯誤信息（僅在開發環境）
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorStack = error instanceof Error ? error.stack : undefined
+    
+    return NextResponse.json({ 
+      error: '取得任務失敗',
+      message: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+      stack: process.env.NODE_ENV === 'development' ? errorStack : undefined,
+    }, { status: 500 })
   }
 }
 
@@ -149,13 +217,55 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { type, missionId, progress = 1 } = body
+    const { type, missionCode, missionId, progress = 1 } = body
 
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const weekStart = getWeekStart()
+    // 支持 missionId 和 missionCode（向後兼容）
+    const code = missionCode || missionId
 
-    if (type === 'weekly' && missionId === 'record_5_days') {
+    if (!code || !type) {
+      return NextResponse.json({ error: '缺少必要參數' }, { status: 400 })
+    }
+
+    const periodStart = type === 'weekly' ? getWeekStart() : getDayStart()
+
+    // 確保 Mission 定義存在
+    let missionDef = await prisma.mission.findUnique({
+      where: { code },
+    })
+
+    if (!missionDef) {
+      // 如果不存在，創建任務定義（這裡應該有任務配置）
+      const missionConfig: Record<string, { title: string; description: string; target: number; reward: number }> = {
+        record_transaction: { title: '今日記帳1筆', description: '記錄一筆交易', target: 1, reward: 10 },
+        check_pet: { title: '查看寵物狀態', description: '查看你的寵物', target: 1, reward: 5 },
+        edit_transaction: { title: '整理帳目(任一編輯)', description: '編輯任何一筆交易', target: 1, reward: 5 },
+        visit_friend: { title: '拜訪1位好友', description: '拜訪一位好友', target: 1, reward: 5 },
+        pet_friend: { title: '摸摸好友寵物', description: '與好友的寵物互動', target: 1, reward: 5 },
+        record_5_days: { title: '本週記帳達5天', description: '本週記帳達到5天', target: 5, reward: 40 },
+        interact_3_friends: { title: '與3位好友互動', description: '與3位不同的好友互動', target: 3, reward: 30 },
+      }
+
+      const config = missionConfig[code]
+      if (!config) {
+        return NextResponse.json({ error: '未知的任務代碼' }, { status: 400 })
+      }
+
+      missionDef = await prisma.mission.create({
+        data: {
+          code,
+          title: config.title,
+          description: config.description,
+          type,
+          target: config.target,
+          reward: config.reward,
+          active: true,
+        },
+      })
+    }
+
+    // 特殊處理：record_5_days 需要計算實際記帳天數
+    if (type === 'weekly' && code === 'record_5_days') {
+      const weekStart = getWeekStart()
       const transactions = await prisma.transaction.findMany({
         where: {
           userId: userRecord.id,
@@ -173,125 +283,107 @@ export async function POST(request: Request) {
         })
       ).size
 
-      const whereClause: any = {
-        userId: userRecord.id,
-        type: 'weekly',
-        missionId: 'record_5_days',
-        weekStart: weekStart,
-      }
-
-      const existing = await prisma.mission.findFirst({
-        where: whereClause,
+      const existing = await prisma.missionUser.findUnique({
+        where: {
+          userId_missionId_periodStart: {
+            userId: userRecord.id,
+            missionId: missionDef.id,
+            periodStart: weekStart,
+          },
+        },
       })
 
-      let mission
+      let userMission
       if (existing) {
-        mission = await prisma.mission.update({
+        userMission = await prisma.missionUser.update({
           where: { id: existing.id },
           data: {
             progress: uniqueDays,
-            updatedAt: new Date(),
+            completed: uniqueDays >= missionDef.target,
+            completedAt: uniqueDays >= missionDef.target && !existing.completed ? new Date() : existing.completedAt,
           },
         })
       } else {
-        mission = await prisma.mission.create({
+        userMission = await prisma.missionUser.create({
           data: {
             userId: userRecord.id,
-            type: 'weekly',
-            missionId: 'record_5_days',
+            missionId: missionDef.id,
+            periodStart: weekStart,
             progress: uniqueDays,
-            target: 5,
-            weekStart: weekStart,
+            completed: uniqueDays >= missionDef.target,
+            completedAt: uniqueDays >= missionDef.target ? new Date() : null,
           },
         })
       }
 
-      const isCompleted = mission.progress >= mission.target && !mission.completed
+      const isCompleted = userMission.completed && !userMission.claimed
 
-      if (isCompleted) {
-        await prisma.mission.update({
-          where: { id: mission.id },
-          data: {
-            completed: true,
-            completedAt: new Date(),
-          },
-        })
-
-        const pet = await prisma.pet.findUnique({
-          where: { userId: userRecord.id },
-          select: { points: true },
-        })
-
-        if (pet) {
-          await prisma.pet.update({
-            where: { userId: userRecord.id },
-            data: {
-              points: {
-                increment: 40,
-              },
-            },
-          })
-        }
-      }
-
-      return NextResponse.json({ mission, completed: isCompleted })
+      return NextResponse.json({ 
+        mission: {
+          ...userMission,
+          missionCode: missionDef.code,
+          missionId: missionDef.code, // 向後兼容
+          name: missionDef.title,
+          points: missionDef.reward,
+          target: missionDef.target,
+        },
+        completed: isCompleted,
+      })
     }
 
-    const whereClause: any = {
-      userId: userRecord.id,
-      type,
-      missionId,
-    }
-    
-    if (type === 'weekly') {
-      whereClause.weekStart = weekStart
-    } else {
-      whereClause.weekStart = null
-    }
-
-    const existing = await prisma.mission.findFirst({
-      where: whereClause,
+    // 一般任務處理
+    const existing = await prisma.missionUser.findUnique({
+      where: {
+        userId_missionId_periodStart: {
+          userId: userRecord.id,
+          missionId: missionDef.id,
+          periodStart: periodStart,
+        },
+      },
     })
 
-    let mission
+    let userMission
     if (existing) {
       const newProgress = existing.progress + progress
-      const isCompleted = newProgress >= existing.target
+      const isCompleted = newProgress >= missionDef.target
       
-      mission = await prisma.mission.update({
+      userMission = await prisma.missionUser.update({
         where: { id: existing.id },
         data: {
           progress: newProgress,
           completed: isCompleted || existing.completed,
           completedAt: isCompleted && !existing.completed ? new Date() : existing.completedAt,
-          updatedAt: new Date(),
         },
       })
     } else {
-      const target = type === 'daily' ? 1 : (missionId === 'record_5_days' ? 5 : 3)
-      const isCompleted = progress >= target
+      const isCompleted = progress >= missionDef.target
       
-      mission = await prisma.mission.create({
+      userMission = await prisma.missionUser.create({
         data: {
           userId: userRecord.id,
-          type,
-          missionId,
+          missionId: missionDef.id,
+          periodStart: periodStart,
           progress,
-          target,
           completed: isCompleted,
           completedAt: isCompleted ? new Date() : null,
-          weekStart: type === 'weekly' ? weekStart : null,
         },
       })
     }
 
-    const isCompleted = mission.progress >= mission.target && mission.completed
+    const isCompleted = userMission.completed && !userMission.claimed
 
     return NextResponse.json({ 
-      mission, 
+      mission: {
+        ...userMission,
+        missionCode: missionDef.code,
+        missionId: missionDef.code, // 向後兼容
+        name: missionDef.title,
+        points: missionDef.reward,
+        target: missionDef.target,
+      },
       completed: isCompleted,
-      progress: mission.progress,
-      target: mission.target,
+      progress: userMission.progress,
+      target: missionDef.target,
     })
   } catch (error) {
     console.error('Update mission error:', error)

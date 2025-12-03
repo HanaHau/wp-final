@@ -243,9 +243,12 @@ export async function PUT(
     }
 
     // 更新任務：整理帳目(任一編輯)
-    await updateMissionProgress(user.id, 'daily', 'edit_transaction', 1)
+    const missionCompleted = await updateMissionProgress(user.id, 'daily', 'edit_transaction', 1)
 
-    return NextResponse.json(updatedTransaction)
+    return NextResponse.json({
+      ...updatedTransaction,
+      missionCompleted: missionCompleted || undefined,
+    })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

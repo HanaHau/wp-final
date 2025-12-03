@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button'
 import Room from '@/components/pet/Room'
 import TransactionDialog from '@/components/transaction/TransactionDialog'
 import MissionsPanel from '@/components/missions/MissionsPanel'
-import MissionNotification from '@/components/missions/MissionNotification'
 import Navigation from './Navigation'
 import { Plus, Package, ListChecks } from 'lucide-react'
+import { useToast } from '@/components/ui/use-toast'
+import { ToastAction } from '@/components/ui/toast'
 
 interface Pet {
   id: string
@@ -22,6 +23,17 @@ interface Pet {
   isUnhappy?: boolean
   isHungry?: boolean
   daysSinceInteraction?: number
+}
+
+interface Mission {
+  type: 'daily' | 'weekly'
+  missionId: string
+  name: string
+  points: number
+  progress: number
+  target: number
+  completed: boolean
+  claimed?: boolean
 }
 
 interface RoomSticker {
@@ -69,6 +81,7 @@ interface AvailableAccessory {
 
 export default function DashboardContent() {
   const { data: session } = useSession()
+  const { toast } = useToast()
   const [pet, setPet] = useState<Pet | null>(null)
   const [userBalance, setUserBalance] = useState<number>(0)
   const [stickers, setStickers] = useState<RoomSticker[]>([])
@@ -90,9 +103,8 @@ export default function DashboardContent() {
     fetchFoodInventory()
     fetchAccessories()
     fetchAccessoryInventory()
+    // 只在初始載入時檢查一次未領取任務
     checkUnclaimedMissions()
-    const interval = setInterval(checkUnclaimedMissions, 3000)
-    return () => clearInterval(interval)
   }, [])
 
   const checkUnclaimedMissions = async () => {
@@ -100,12 +112,14 @@ export default function DashboardContent() {
       const res = await fetch('/api/missions/completed')
       if (res.ok) {
         const data = await res.json()
-        setHasUnclaimedMissions(data.missions && data.missions.length > 0)
+        const missions = data.missions || []
+        setHasUnclaimedMissions(missions.length > 0)
       }
     } catch (error) {
       console.error('檢查未領取任務失敗:', error)
     }
   }
+
 
   // 當打開倉庫時，自動進入編輯模式（通過 Room 組件內部處理）
 
@@ -131,6 +145,12 @@ export default function DashboardContent() {
       const res = await fetch('/api/pet')
       const data = await res.json()
       setPet(data)
+      
+      // 檢查 API 響應中是否有任務完成信息
+      if (data.missionCompleted) {
+        // Dispatch 全局事件，讓 MissionToastManager 處理顯示
+        window.dispatchEvent(new CustomEvent('missionCompleted', { detail: data.missionCompleted }))
+      }
     } catch (error) {
       console.error('取得寵物資訊失敗:', error)
     } finally {
@@ -207,8 +227,6 @@ export default function DashboardContent() {
     fetchStickers()
     fetchStickerInventory()
     fetchFoodInventory()
-    
-    // 任務更新現在由 API 端處理，不需要在這裡更新
   }
 
   const handleStickerPlaced = () => {
@@ -261,16 +279,15 @@ export default function DashboardContent() {
 
   return (
     <div className="min-h-screen bg-white relative overflow-hidden">
-      {/* 任務完成通知 */}
-      <MissionNotification />
-      
       {/* 頂部資訊欄 - 極簡設計 */}
       <div className="absolute top-0 left-0 right-0 z-20 flex justify-between items-start p-4 pointer-events-none">
         {/* 左側：資源顯示 */}
         <div className="flex gap-3 pointer-events-auto">
           {/* 任務按鈕 */}
           <button
-            onClick={() => setShowMissionsDialog(true)}
+            onClick={() => {
+              setShowMissionsDialog(true)
+            }}
             className="bg-white/90 backdrop-blur-sm rounded-lg border border-black/20 w-16 h-18 flex items-center justify-center shadow-sm hover:bg-black/5 transition-colors relative"
             aria-label="查看任務"
             title="任務"
@@ -334,7 +351,9 @@ export default function DashboardContent() {
           <div className="p-4 border-b border-black/20 flex items-center justify-between">
             <h2 className="text-lg font-bold text-black uppercase tracking-wide">任務</h2>
             <button
-              onClick={() => setShowMissionsDialog(false)}
+              onClick={() => {
+                setShowMissionsDialog(false)
+              }}
               className="w-6 h-6 flex items-center justify-center hover:bg-black/5 rounded transition-colors"
             >
               <span className="text-black/60 text-xl leading-none">×</span>

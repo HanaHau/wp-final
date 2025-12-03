@@ -262,19 +262,21 @@ export default function TransactionDialog({
         }),
       })
 
+      // 解析響應數據
+      const data = await res.json()
+
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}))
-        let errorMessage = errorData.error || errorData.message || (editingTransaction ? 'Failed to update transaction' : 'Failed to create transaction')
+        let errorMessage = data.error || data.message || (editingTransaction ? 'Failed to update transaction' : 'Failed to create transaction')
         
         // If there are validation details, include them
-        if (errorData.details && Array.isArray(errorData.details)) {
-          const details = errorData.details.map((d: any) => d.message || d.path?.join('.')).join(', ')
+        if (data.details && Array.isArray(data.details)) {
+          const details = data.details.map((d: any) => d.message || d.path?.join('.')).join(', ')
           if (details) {
             errorMessage += `: ${details}`
           }
         }
         
-        console.error('Transaction error:', errorData)
+        console.error('Transaction error:', data)
         
         toast({
           title: 'Transaction Failed',
@@ -306,6 +308,12 @@ export default function TransactionDialog({
             </ToastAction>
           ),
         })
+      }
+      
+      // 檢查 API 響應中是否有任務完成信息
+      if (data.missionCompleted) {
+        // Dispatch 全局事件，讓 MissionToastManager 處理顯示
+        window.dispatchEvent(new CustomEvent('missionCompleted', { detail: data.missionCompleted }))
       }
       
       onSuccess()
@@ -397,7 +405,7 @@ export default function TransactionDialog({
                 type="button"
                 variant="outline"
                 onClick={() => setShowCategorySelector(true)}
-                className="w-full border-2 border-black justify-start h-auto py-3 bg-white hover:bg-black/5"
+                className="w-full rounded-xl border border-black/20 justify-start h-auto py-3 bg-white/90 backdrop-blur-sm hover:bg-black/5"
               >
                 {categoryName ? (
                   <div className="flex items-center gap-2">

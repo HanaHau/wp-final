@@ -60,7 +60,35 @@ export async function GET(request: NextRequest) {
       return emailMatch || userIDMatch
     })
 
-    return NextResponse.json(filteredUsers)
+    // Check friendship status for each user
+    const usersWithStatus = await Promise.all(
+      filteredUsers.map(async (user) => {
+        const friendship = await prisma.friend.findFirst({
+          where: {
+            OR: [
+              { userId: userRecord.id, friendId: user.id },
+              { userId: user.id, friendId: userRecord.id },
+            ],
+          },
+        })
+
+        let status: 'none' | 'friend' | 'pending_sent' | 'pending_received' = 'none'
+        if (friendship) {
+          if (friendship.status === 'accepted') {
+            status = 'friend'
+          } else if (friendship.status === 'PENDING') {
+            status = friendship.userId === userRecord.id ? 'pending_sent' : 'pending_received'
+          }
+        }
+
+        return {
+          ...user,
+          friendshipStatus: status,
+        }
+      })
+    )
+
+    return NextResponse.json(usersWithStatus)
   } catch (error) {
     console.error('Search users error:', error)
     return NextResponse.json(

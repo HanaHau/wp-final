@@ -28,32 +28,41 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { missionId, type } = body
+    const { missionCode, missionId, type } = body
 
-    if (!missionId || !type) {
+    // 支持 missionId 和 missionCode（向後兼容）
+    const code = missionCode || missionId
+
+    if (!code || !type) {
       return NextResponse.json({ error: '缺少必要參數' }, { status: 400 })
     }
 
-    const weekStart = type === 'weekly' ? getWeekStart() : null
+    const periodStart = type === 'weekly' ? getWeekStart() : getDayStart()
 
-    // 查找任務記錄
-    const whereClause: any = {
-      userId: userRecord.id,
-      type,
-      missionId,
-    }
-
-    if (type === 'weekly') {
-      whereClause.weekStart = weekStart
-    } else {
-      whereClause.weekStart = null
-    }
-
-    const mission = await prisma.mission.findFirst({
-      where: whereClause,
+    // 查找任務定義
+    const missionDef = await prisma.mission.findUnique({
+      where: { code },
     })
 
-    if (!mission) {
+    if (!missionDef) {
+      return NextResponse.json({ 
+        completed: false, 
+        message: '任務定義不存在' 
+      }, { status: 404 })
+    }
+
+    // 查找用戶任務記錄
+    const userMission = await prisma.missionUser.findUnique({
+      where: {
+        userId_missionId_periodStart: {
+          userId: userRecord.id,
+          missionId: missionDef.id,
+          periodStart: periodStart,
+        },
+      },
+    })
+
+    if (!userMission) {
       return NextResponse.json({ 
         completed: false, 
         message: '任務尚未開始或未找到記錄' 
@@ -61,12 +70,12 @@ export async function POST(request: Request) {
     }
 
     // 檢查是否完成
-    const isCompleted = mission.progress >= mission.target
+    const isCompleted = userMission.progress >= missionDef.target
 
-    if (isCompleted && !mission.completed) {
+    if (isCompleted && !userMission.completed) {
       // 更新為已完成
-      await prisma.mission.update({
-        where: { id: mission.id },
+      await prisma.missionUser.update({
+        where: { id: userMission.id },
         data: {
           completed: true,
           completedAt: new Date(),
@@ -76,11 +85,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       completed: isCompleted,
-      progress: mission.progress,
-      target: mission.target,
+      progress: userMission.progress,
+      target: missionDef.target,
       message: isCompleted 
         ? '任務已完成！可以領取獎勵了' 
-        : `進度：${mission.progress}/${mission.target}`,
+        : `進度：${userMission.progress}/${missionDef.target}`,
     })
   } catch (error) {
     console.error('Check mission error:', error)

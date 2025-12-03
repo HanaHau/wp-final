@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
@@ -27,6 +27,11 @@ export default function MissionCard({ mission, onClaimed }: MissionCardProps) {
   const { toast } = useToast()
   const progressPercent = Math.min((mission.progress / mission.target) * 100, 100)
   const isDaily = mission.type === 'daily'
+
+  // 當 mission prop 更新時，同步狀態
+  useEffect(() => {
+    setClaimed(mission.claimed || false)
+  }, [mission.claimed])
 
   const handleClaim = async () => {
     if (isClaiming || claimed || !mission.completed) return
@@ -84,7 +89,8 @@ export default function MissionCard({ mission, onClaimed }: MissionCardProps) {
             )}
           </div>
           <p className="text-xs text-black/60 mt-1">+{mission.points} points</p>
-          {!isDaily && (
+          {/* 顯示進度條（每週任務或目標大於1的每日任務） */}
+          {mission.target > 1 && (
             <div className="mt-2">
               <div className="h-1.5 bg-black/10 rounded-full overflow-hidden">
                 <div
@@ -97,6 +103,12 @@ export default function MissionCard({ mission, onClaimed }: MissionCardProps) {
               <div className="text-xs text-black/40 mt-1">
                 {mission.progress}/{mission.target}
               </div>
+            </div>
+          )}
+          {/* 目標為1的任務，顯示簡單的完成狀態 */}
+          {mission.target === 1 && (
+            <div className="text-xs text-black/40 mt-1">
+              {mission.completed ? '✓ 已完成' : '進行中'}
             </div>
           )}
         </div>

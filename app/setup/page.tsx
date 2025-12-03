@@ -6,13 +6,13 @@ import InitialSetupContent from '@/components/setup/InitialSetupContent'
 export default async function SetupPage() {
   const session = await getSession()
 
-  if (!session) {
+  if (!session || !session.user?.email) {
     redirect('/auth/signin')
   }
 
-  // 檢查是否已完成首次設定
+  // 檢查是否已完成首次設定（使用 email 查找，因為 ID 可能不一致）
   const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
+    where: { email: session.user.email },
     select: { isInitialized: true },
   })
 

@@ -5,8 +5,10 @@ import { useToast } from '@/components/ui/use-toast'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import Navigation from '@/components/dashboard/Navigation'
-import { Search, UserPlus, Users, Heart } from 'lucide-react'
+import { Search, UserPlus, Users, Heart, Check, Clock, Mail } from 'lucide-react'
 import Link from 'next/link'
+import AddFriendDialog from './AddFriendDialog'
+import InvitationDialog from './InvitationDialog'
 
 interface Friend {
   id: string
@@ -23,6 +25,7 @@ interface SearchResult {
   userID: string | null
   name: string | null
   image: string | null
+  friendshipStatus?: 'none' | 'friend' | 'pending_sent' | 'pending_received'
 }
 
 export default function FriendsContent() {
@@ -32,9 +35,28 @@ export default function FriendsContent() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [showAddDialog, setShowAddDialog] = useState(false)
+  const [showInvitationDialog, setShowInvitationDialog] = useState(false)
+  const [invitationCount, setInvitationCount] = useState(0)
+
+  const fetchInvitationCount = async () => {
+    try {
+      const res = await fetch('/api/friends/invitations/count')
+      if (res.ok) {
+        const data = await res.json()
+        setInvitationCount(data.count || 0)
+      }
+    } catch (error) {
+      console.error('取得邀請數量失敗:', error)
+    }
+  }
 
   useEffect(() => {
     fetchFriends()
+    fetchInvitationCount()
+    // 每30秒刷新一次邀請數量
+    const interval = setInterval(fetchInvitationCount, 30000)
+    return () => clearInterval(interval)
   }, [])
 
   const fetchFriends = async () => {
@@ -97,10 +119,21 @@ export default function FriendsContent() {
           description: data.message || '好友已加入',
         })
         fetchFriends()
-        setSearchQuery('')
-        setSearchResults([])
+        // Refresh search results to update status
+        if (searchQuery.trim()) {
+          handleSearch()
+        } else {
+          setSearchQuery('')
+          setSearchResults([])
+        }
       } else {
         const error = await res.json()
+        // If already friends or pending, refresh search to update status
+        if (error.error === '已經是好友了' || error.error === '已送出邀請，等待對方回應') {
+          if (searchQuery.trim()) {
+            handleSearch()
+          }
+        }
         toast({
           title: '加入失敗',
           description: error.error || '請稍後再試',
@@ -116,14 +149,34 @@ export default function FriendsContent() {
     }
   }
 
-  const isAlreadyFriend = (userId: string) => {
-    return friends.some(f => f.id === userId)
-  }
-
   return (
     <div className="min-h-screen bg-white pb-20">
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-6 uppercase tracking-wide">好友</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold uppercase tracking-wide">好友</h1>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => setShowInvitationDialog(true)}
+              variant="outline"
+              className="gap-2 relative"
+            >
+              <Mail className="h-4 w-4" />
+              邀請
+              {invitationCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  {invitationCount > 9 ? '9+' : invitationCount}
+                </span>
+              )}
+            </Button>
+            <Button
+              onClick={() => setShowAddDialog(true)}
+              className="gap-2"
+            >
+              <UserPlus className="h-4 w-4" />
+              加入好友
+            </Button>
+          </div>
+        </div>
 
         {/* Search Section */}
         <div className="mb-8">
@@ -151,34 +204,58 @@ export default function FriendsContent() {
               <h3 className="text-sm font-semibold uppercase tracking-wide text-black/60 mb-2">
                 搜尋結果
               </h3>
-              {searchResults.map((user) => (
-                <div
-                  key={user.id}
-                  className="flex items-center justify-between p-4 rounded-xl border border-black/20 bg-white/90 backdrop-blur-sm"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-black text-white flex items-center justify-center rounded-full text-sm font-bold">
-                      {user.name?.charAt(0) || user.email?.charAt(0) || 'U'}
+              {searchResults.map((user) => {
+                const status = user.friendshipStatus || 'none'
+                const isFriend = status === 'friend'
+                const isPendingSent = status === 'pending_sent'
+                
+                return (
+                  <div
+                    key={user.id}
+                    className="flex items-center justify-between p-4 rounded-xl border border-black/20 bg-white/90 backdrop-blur-sm"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-black text-white flex items-center justify-center rounded-full text-sm font-bold">
+                        {user.name?.charAt(0) || user.email?.charAt(0) || 'U'}
+                      </div>
+                      <div>
+                        <div className="font-semibold">{user.userID || user.email}</div>
+                        <div className="text-sm text-black/60">{user.email}</div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="font-semibold">{user.userID || user.email}</div>
-                      <div className="text-sm text-black/60">{user.email}</div>
-                    </div>
+                    {isFriend ? (
+                      <Button
+                        size="sm"
+                        disabled
+                        variant="ghost"
+                        className="gap-2 cursor-not-allowed"
+                      >
+                        <Check className="h-4 w-4" />
+                        好友
+                      </Button>
+                    ) : isPendingSent ? (
+                      <Button
+                        size="sm"
+                        disabled
+                        variant="ghost"
+                        className="gap-2 cursor-not-allowed"
+                      >
+                        <Clock className="h-4 w-4" />
+                        等待回應
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        onClick={() => handleAddFriend(user.id)}
+                        className="gap-2"
+                      >
+                        <UserPlus className="h-4 w-4" />
+                        加入
+                      </Button>
+                    )}
                   </div>
-                  {isAlreadyFriend(user.id) ? (
-                    <span className="text-sm text-black/40">已是好友</span>
-                  ) : (
-                    <Button
-                      size="sm"
-                      onClick={() => handleAddFriend(user.id)}
-                      className="gap-2"
-                    >
-                      <UserPlus className="h-4 w-4" />
-                      加入
-                    </Button>
-                  )}
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
@@ -224,6 +301,31 @@ export default function FriendsContent() {
           )}
         </div>
       </div>
+
+      <AddFriendDialog
+        open={showAddDialog}
+        onOpenChange={setShowAddDialog}
+        onFriendAdded={() => {
+          fetchFriends()
+          if (searchQuery.trim()) {
+            handleSearch()
+          }
+        }}
+      />
+
+      <InvitationDialog
+        open={showInvitationDialog}
+        onOpenChange={(open) => {
+          setShowInvitationDialog(open)
+          if (!open) {
+            fetchInvitationCount()
+          }
+        }}
+        onInvitationAccepted={() => {
+          fetchInvitationCount()
+          fetchFriends()
+        }}
+      />
 
       <Navigation />
     </div>

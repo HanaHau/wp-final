@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import MissionCard from './MissionCard'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Target, Calendar } from 'lucide-react'
+import { Target, Calendar, RefreshCw } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 interface Mission {
   type: 'daily' | 'weekly'
@@ -13,54 +14,109 @@ interface Mission {
   progress: number
   target: number
   completed: boolean
+  claimed?: boolean
 }
 
-export default function MissionsPanel() {
+interface MissionsPanelProps {
+  onMissionCompleted?: (missions: Mission[]) => void
+}
+
+export default function MissionsPanel({ onMissionCompleted }: MissionsPanelProps = {}) {
   const [missions, setMissions] = useState<Mission[]>([])
   const [loading, setLoading] = useState(true)
+  const previousMissionsRef = useRef<Mission[]>([])
 
   useEffect(() => {
+    // 只在組件掛載時獲取一次任務
     fetchMissions()
-    // 更頻繁地檢查任務狀態（每2秒）
-    const interval = setInterval(fetchMissions, 2000)
-    return () => clearInterval(interval)
+  }, [])
+
+  // 監聽自定義事件來刷新任務列表（用於在關鍵操作後檢測任務完成）
+  useEffect(() => {
+    const handleRefresh = () => {
+      fetchMissions()
+    }
+    
+    window.addEventListener('refreshMissions', handleRefresh)
+    return () => {
+      window.removeEventListener('refreshMissions', handleRefresh)
+    }
   }, [])
 
   const handleMissionClaimed = () => {
-    // 重新獲取任務列表
+    // 領取獎勵後立即刷新任務列表
     fetchMissions()
   }
 
   const fetchMissions = async () => {
     try {
       setLoading(true)
+      console.log('開始獲取任務...')
       const res = await fetch('/api/missions', {
         cache: 'no-store',
         credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       })
       
-      const data = await res.json()
-      console.log('任務 API 回應:', { status: res.status, data, isArray: Array.isArray(data) })
+      console.log('API 響應狀態:', res.status, res.statusText)
       
       if (!res.ok) {
-        console.error('取得任務失敗:', res.status, res.statusText, data)
+        const errorData = await res.json().catch(() => ({ error: '無法解析錯誤響應' }))
+        console.error('取得任務失敗:', res.status, res.statusText, errorData)
         setMissions([])
         return
       }
       
+      const data = await res.json()
+      console.log('任務 API 回應:', { 
+        status: res.status, 
+        data, 
+        isArray: Array.isArray(data),
+        dataType: typeof data,
+        dataKeys: data && typeof data === 'object' ? Object.keys(data) : 'N/A'
+      })
+      
       // API 直接返回 missions 數組
-      const missionsList = Array.isArray(data) ? data : (data.missions || [])
-      console.log('任務列表:', missionsList, '數量:', missionsList.length)
+      let missionsList: Mission[] = []
+      if (Array.isArray(data)) {
+        missionsList = data
+      } else if (data && typeof data === 'object') {
+        missionsList = data.missions || data.data || []
+      }
+      
+      console.log('解析後的任務列表:', missionsList, '數量:', missionsList.length)
       console.log('每日任務:', missionsList.filter((m: Mission) => m.type === 'daily'))
       console.log('每週任務:', missionsList.filter((m: Mission) => m.type === 'weekly'))
       
       if (missionsList.length === 0) {
-        console.warn('⚠️ 任務列表為空！API 返回:', data)
+        console.warn('⚠️ 任務列表為空！原始 API 返回:', JSON.stringify(data, null, 2))
       }
       
+      // 檢查是否有新完成的任務（任務狀態從未完成變為完成）
+      const previousMissions = previousMissionsRef.current
+      const newlyCompleted = missionsList.filter((m: Mission) => {
+        const prev = previousMissions.find((pm: Mission) => pm.missionId === m.missionId)
+        // 任務剛完成（之前未完成，現在完成了）且未領取
+        // 這確保只在任務完成當下觸發
+        return m.completed && !m.claimed && (!prev || !prev.completed)
+      })
+
+      // 更新任務列表
       setMissions(missionsList)
+      
+      // 如果有新完成的任務，通知父組件（只在任務完成當下）
+      if (newlyCompleted.length > 0 && onMissionCompleted) {
+        // 立即通知，不延遲
+        onMissionCompleted(newlyCompleted)
+      }
+      
+      // 更新之前的任務狀態（在通知之後）
+      previousMissionsRef.current = missionsList
     } catch (error) {
       console.error('取得任務失敗:', error)
+      console.error('錯誤詳情:', error instanceof Error ? error.message : String(error))
       setMissions([])
     } finally {
       setLoading(false)
@@ -86,18 +142,45 @@ export default function MissionsPanel() {
     weeklyMissions 
   })
 
+  // 調試：如果沒有任務，顯示調試信息
+  if (missions.length === 0 && !loading) {
+    return (
+      <div className="text-center py-8">
+        <div className="text-black/40 text-sm mb-4">沒有任務</div>
+        <button
+          onClick={fetchMissions}
+          className="text-xs text-black/60 underline hover:text-black"
+        >
+          點擊重新載入
+        </button>
+      </div>
+    )
+  }
+
   return (
     <Tabs defaultValue="daily" className="w-full">
-      <TabsList className="grid w-full grid-cols-2 mb-4">
-        <TabsTrigger value="daily" className="gap-2">
-          <Calendar className="h-4 w-4" />
-          每日任務
-        </TabsTrigger>
-        <TabsTrigger value="weekly" className="gap-2">
-          <Target className="h-4 w-4" />
-          每週任務
-        </TabsTrigger>
-      </TabsList>
+      <div className="flex items-center justify-between mb-4">
+        <TabsList className="grid grid-cols-2 flex-1">
+          <TabsTrigger value="daily" className="gap-2">
+            <Calendar className="h-4 w-4" />
+            每日任務
+          </TabsTrigger>
+          <TabsTrigger value="weekly" className="gap-2">
+            <Target className="h-4 w-4" />
+            每週任務
+          </TabsTrigger>
+        </TabsList>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={fetchMissions}
+          disabled={loading}
+          className="ml-2 h-8 w-8 p-0"
+          title="刷新任務"
+        >
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+        </Button>
+      </div>
       <TabsContent value="daily" className="mt-0">
         {dailyMissions.length > 0 ? (
           <div className="space-y-3">

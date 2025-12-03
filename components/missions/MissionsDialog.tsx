@@ -31,10 +31,9 @@ export default function MissionsDialog({ open, onOpenChange }: MissionsDialogPro
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // 只在對話框打開時獲取一次任務
     if (open) {
       fetchMissions()
-      const interval = setInterval(fetchMissions, 3000)
-      return () => clearInterval(interval)
     }
   }, [open])
 

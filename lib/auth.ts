@@ -20,13 +20,23 @@ async function ensureUserRecord(sessionUser: {
 
   if (existingUser) {
     // Update existing user if needed
-    await prisma.user.update({
-      where: { email: sessionUser.email },
-      data: {
-        name: sessionUser.name ?? existingUser.name,
-        image: sessionUser.image ?? existingUser.image,
-      },
-    })
+    // 不要用 session 的 name 覆蓋資料庫中的 name（用戶可能在個人資料頁面修改過）
+    // 只更新 image，name 保持資料庫中的值
+    const updateData: any = {}
+    if (sessionUser.image) {
+      updateData.image = sessionUser.image
+    }
+    // 只有在資料庫中沒有 name 時，才從 session 更新 name
+    if (!existingUser.name && sessionUser.name) {
+      updateData.name = sessionUser.name
+    }
+    
+    if (Object.keys(updateData).length > 0) {
+      await prisma.user.update({
+        where: { email: sessionUser.email },
+        data: updateData,
+      })
+    }
   } else {
     // Create new user - let Prisma generate the ID to avoid conflicts
     await prisma.user.create({
