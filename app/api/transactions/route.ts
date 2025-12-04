@@ -232,8 +232,11 @@ export async function POST(request: NextRequest) {
     // 更新寵物狀態（根據記帳行為）
     await updatePetStatus(user.id, typeId, validatedData.amount)
 
-    // 更新任務：今日記帳1筆
-    const missionCompleted = await updateMissionProgress(user.id, 'daily', 'record_transaction', 1)
+    // 更新任務：今日記帳1筆 (每日任務)
+    const dailyMissionCompleted = await updateMissionProgress(user.id, 'daily', 'record_transaction', 1)
+    
+    // 更新任務：本週記帳達5天 (週任務)
+    const weeklyMissionCompleted = await updateMissionProgress(user.id, 'weekly', 'record_5_days', 1)
 
     // 記一筆帳 +10 points
     const pet = await prisma.pet.findUnique({
@@ -256,7 +259,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       ...transaction,
-      missionCompleted: missionCompleted || undefined,
+      missionCompleted: dailyMissionCompleted || weeklyMissionCompleted || undefined,
     }, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {

@@ -102,6 +102,18 @@ export async function POST(
       },
     })
 
+    // 創建好友活動記錄
+    await prisma.friendActivity.create({
+      data: {
+        actorId: userRecord.id,
+        targetId: friendId,
+        petId: friendPet.id,
+        petName: friendPet.name,
+        actionType: 'pet',
+        isRead: false,
+      },
+    })
+
     // 更新任務進度
     const dailyMissionCompleted = await updateMissionProgress(userRecord.id, 'daily', 'pet_friend', 1)
     

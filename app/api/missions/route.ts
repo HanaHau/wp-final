@@ -142,6 +142,46 @@ export async function GET() {
         console.log(`✓ 找到現有任務記錄: ${missionDef.code} (進度: ${userMission.progress}/${missionDef.target})`)
       }
 
+      // 特殊處理：record_5_days 需要實時計算記帳天數
+      if (missionDef.type === 'weekly' && missionDef.code === 'record_5_days') {
+        const transactions = await prisma.transaction.findMany({
+          where: {
+            userId: userRecord.id,
+            date: {
+              gte: weekStart,
+            },
+          },
+          select: { date: true },
+        })
+
+        // Count unique days
+        const uniqueDays = new Set(
+          transactions.map((t) => {
+            const d = new Date(t.date)
+            return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+          })
+        ).size
+
+        console.log(`[record_5_days] 重新計算進度: ${uniqueDays}/${missionDef.target} 天`)
+
+        // Update the userMission with actual progress
+        if (userMission && userMission.id) {
+          const isCompleted = uniqueDays >= missionDef.target
+          await prisma.missionUser.update({
+            where: { id: userMission.id },
+            data: {
+              progress: uniqueDays,
+              completed: isCompleted,
+              completedAt: isCompleted && !userMission.completed ? new Date() : userMission.completedAt,
+            },
+          })
+          
+          // Update the local variable
+          userMission.progress = uniqueDays
+          userMission.completed = isCompleted
+        }
+      }
+
       // 如果仍然沒有找到，使用默認值（不應該發生，但以防萬一）
       if (!userMission) {
         console.warn(`⚠️ 無法獲取或創建任務記錄: ${missionDef.code}，使用默認值`)

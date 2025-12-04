@@ -46,6 +46,8 @@ export default function MissionsPanel({ onMissionCompleted }: MissionsPanelProps
   const handleMissionClaimed = () => {
     // 領取獎勵後立即刷新任務列表
     fetchMissions()
+    // 通知其他組件更新未領取任務狀態
+    window.dispatchEvent(new Event('missionClaimed'))
   }
 
   const fetchMissions = async () => {

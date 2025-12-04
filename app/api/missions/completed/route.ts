@@ -21,12 +21,13 @@ export async function GET() {
       return NextResponse.json({ error: '使用者不存在' }, { status: 404 })
     }
 
-    console.log('查詢已完成任務...')
+    console.log('查詢已完成但未領取的任務...')
     
     const completedMissions = await prisma.missionUser.findMany({
       where: {
         userId: userRecord.id,
         completed: true,
+        claimed: false, // Only return unclaimed missions
         completedAt: {
           gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
         },
@@ -36,7 +37,7 @@ export async function GET() {
       },
       orderBy: { completedAt: 'desc' },
     })
-    console.log('已完成任務數量:', completedMissions.length)
+    console.log('已完成但未領取的任務數量:', completedMissions.length)
 
     const missions = completedMissions.map((m) => ({
       missionId: m.mission.code, // 保持向後兼容

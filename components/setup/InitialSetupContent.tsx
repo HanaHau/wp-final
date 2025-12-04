@@ -6,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
-import { Upload, X } from 'lucide-react'
+import { Upload, X, Edit } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
 import { useRouter } from 'next/navigation'
+import ImageEditor from './ImageEditor'
 
 type FacingDirection = 'left' | 'right'
 
@@ -19,6 +20,9 @@ export default function InitialSetupContent() {
   const [petName, setPetName] = useState<string>('我的寵物')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [editedImageUrl, setEditedImageUrl] = useState<string | null>(null)
+  const [showImageEditor, setShowImageEditor] = useState(false)
+  const [rawImageForEditing, setRawImageForEditing] = useState<string | null>(null)
   const [facingDirection, setFacingDirection] = useState<FacingDirection>('right')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
@@ -58,10 +62,17 @@ export default function InitialSetupContent() {
       })
       setImageFile(null)
       setImagePreview(null)
+      setEditedImageUrl(null)
+      setRawImageForEditing(null)
     }
     reader.onloadend = () => {
       if (reader.result) {
-        setImagePreview(reader.result as string)
+        const dataUrl = reader.result as string
+        setRawImageForEditing(dataUrl)
+        setImagePreview(dataUrl)
+        setEditedImageUrl(null)
+        // Automatically open editor
+        setShowImageEditor(true)
       }
     }
     reader.readAsDataURL(file)
@@ -70,6 +81,28 @@ export default function InitialSetupContent() {
   const handleRemoveImage = () => {
     setImageFile(null)
     setImagePreview(null)
+    setEditedImageUrl(null)
+    setRawImageForEditing(null)
+  }
+
+  const handleImageEditorSave = (editedUrl: string) => {
+    setEditedImageUrl(editedUrl)
+    setImagePreview(editedUrl)
+    setShowImageEditor(false)
+    toast({
+      title: '編輯完成',
+      description: '已儲存您選擇的區域',
+    })
+  }
+
+  const handleImageEditorCancel = () => {
+    setShowImageEditor(false)
+  }
+
+  const handleEditImage = () => {
+    if (rawImageForEditing) {
+      setShowImageEditor(true)
+    }
   }
 
   const handleSubmit = async () => {
@@ -110,20 +143,24 @@ export default function InitialSetupContent() {
     try {
       let petImageUrl: string | null = null
 
-      // 如果有上傳圖片，轉換為 base64
+      // 如果有上傳圖片，使用編輯後的版本或原始版本
       if (imageFile) {
-        const reader = new FileReader()
-        petImageUrl = await new Promise<string>((resolve, reject) => {
-          reader.onloadend = () => {
-            if (reader.result) {
-              resolve(reader.result as string)
-            } else {
-              reject(new Error('無法讀取圖片'))
+        if (editedImageUrl) {
+          petImageUrl = editedImageUrl
+        } else {
+          const reader = new FileReader()
+          petImageUrl = await new Promise<string>((resolve, reject) => {
+            reader.onloadend = () => {
+              if (reader.result) {
+                resolve(reader.result as string)
+              } else {
+                reject(new Error('無法讀取圖片'))
+              }
             }
-          }
-          reader.onerror = reject
-          reader.readAsDataURL(imageFile)
-        })
+            reader.onerror = reject
+            reader.readAsDataURL(imageFile)
+          })
+        }
       }
 
       const requestBody = {
@@ -237,10 +274,10 @@ export default function InitialSetupContent() {
               寵物照片（選填）
             </Label>
             <p className="text-xs text-black/40 mt-1 mb-2">
-              上傳您的寵物照片。若不上傳，將使用預設圖片。選擇後無法更改，若要更改需要重新飼養。
+              上傳您的寵物照片。若不上傳，將使用預設圖片。上傳後可以使用畫筆工具選擇要保留的區域。選擇後無法更改，若要更改需要重新飼養。
             </p>
             
-            <div className="flex items-center gap-4 mt-2">
+            <div className="flex items-center gap-2 mt-2">
               <div className="flex-1">
                 <Input
                   id="petImage"
@@ -250,16 +287,27 @@ export default function InitialSetupContent() {
                   className="cursor-pointer"
                 />
               </div>
-              {imageFile && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRemoveImage}
-                  className="border-2 border-black"
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  移除
-                </Button>
+              {imageFile && rawImageForEditing && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleEditImage}
+                    className="border-2 border-black"
+                  >
+                    <Edit className="h-4 w-4 mr-1" />
+                    編輯
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRemoveImage}
+                    className="border-2 border-black"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    移除
+                  </Button>
+                </>
               )}
             </div>
           </div>
@@ -374,6 +422,15 @@ export default function InitialSetupContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Image Editor */}
+      {showImageEditor && rawImageForEditing && (
+        <ImageEditor
+          imageUrl={rawImageForEditing}
+          onSave={handleImageEditorSave}
+          onCancel={handleImageEditorCancel}
+        />
+      )}
     </div>
   )
 }

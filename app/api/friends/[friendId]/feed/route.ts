@@ -106,6 +106,19 @@ export async function POST(
       },
     })
 
+    // 創建好友活動記錄（包含餵食細節）
+    await prisma.friendActivity.create({
+      data: {
+        actorId: userRecord.id,
+        targetId: friendId,
+        petId: friendPet.id,
+        petName: friendPet.name,
+        actionType: 'feed',
+        details: `+${fullnessGain}% fullness`,
+        isRead: false,
+      },
+    })
+
     // 如果是新的好友互動，更新任務進度
     let weeklyMissionCompleted = null
     if (isNewFriendInteraction) {

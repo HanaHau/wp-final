@@ -1,7 +1,7 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import { Heart, Utensils, Home, AlertCircle, Droplet, Smile, Frown, Zap } from 'lucide-react'
+import { Heart, Utensils, Home, AlertCircle, Droplet, Smile, Frown, Zap, User } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import useSWR from 'swr'
@@ -182,8 +182,20 @@ export default function FriendCard({ friend, onUpdate, onVisitRoom }: FriendCard
       {/* Header - Friend Info */}
       <div className="p-4 border-b border-black/20 bg-gradient-to-r from-white to-gray-50/50 mb-2">
         <div className="flex items-center gap-3">
-          <div className="relative w-12 h-12 bg-black text-white flex items-center justify-center rounded-full text-sm font-bold flex-shrink-0 ring-2 ring-white shadow-md">
-            {friend.name?.charAt(0) || friend.email?.charAt(0) || 'U'}
+          <div className="relative w-12 h-12 rounded-full flex-shrink-0 ring-2 ring-white shadow-md overflow-hidden bg-black/5">
+            {friend.image ? (
+              <Image
+                src={friend.image}
+                alt={friend.name || friend.userID || 'Friend'}
+                width={48}
+                height={48}
+                className="object-cover w-full h-full"
+              />
+            ) : (
+              <div className="w-full h-full bg-black text-white flex items-center justify-center text-sm font-bold">
+                {friend.name?.charAt(0) || friend.email?.charAt(0) || 'U'}
+              </div>
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <div className="font-bold text-black truncate text-base">

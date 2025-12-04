@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if it's a custom sticker or regular shop item
-    let itemCost: number
+    let fullnessRecovery: number
     let itemCategory: string
     
     if (validatedData.itemId.startsWith('custom-')) {
@@ -42,7 +42,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid food item' }, { status: 400 })
       }
       
-      itemCost = customSticker.price
+      // For custom stickers, fullness recovery = price
+      fullnessRecovery = customSticker.price
       itemCategory = customSticker.category
     } else {
       // Regular shop item
@@ -50,7 +51,8 @@ export async function POST(request: NextRequest) {
       if (!item || item.category !== 'food') {
         return NextResponse.json({ error: 'Invalid food item' }, { status: 400 })
       }
-      itemCost = item.cost
+      // Use fullnessRecovery if available, otherwise fall back to cost
+      fullnessRecovery = item.fullnessRecovery ?? item.cost
       itemCategory = item.category
     }
 
@@ -89,16 +91,15 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      // Update pet stats: fullness 增加量為食物的 cost/price 數
-      const fullnessIncrease = itemCost
+      // Update pet stats: fullness recovery based on food item
       const updatedPet = await tx.pet.update({
         where: { id: pet.id },
         data: {
-          fullness: Math.min(100, pet.fullness + fullnessIncrease),
+          fullness: Math.min(100, pet.fullness + fullnessRecovery),
         },
       })
 
-      return { pet: updatedPet, fullnessGain: fullnessIncrease }
+      return { pet: updatedPet, fullnessGain: fullnessRecovery }
     })
 
     // Generate pet message based on mood

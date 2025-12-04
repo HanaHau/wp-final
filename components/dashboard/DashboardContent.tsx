@@ -103,8 +103,24 @@ export default function DashboardContent() {
     fetchFoodInventory()
     fetchAccessories()
     fetchAccessoryInventory()
-    // 只在初始載入時檢查一次未領取任務
     checkUnclaimedMissions()
+  }, [])
+
+  // Listen for mission updates to refresh unclaimed missions indicator
+  useEffect(() => {
+    const handleMissionUpdate = () => {
+      checkUnclaimedMissions()
+    }
+    
+    window.addEventListener('missionClaimed', handleMissionUpdate)
+    window.addEventListener('missionCompleted', handleMissionUpdate)
+    window.addEventListener('refreshMissions', handleMissionUpdate)
+    
+    return () => {
+      window.removeEventListener('missionClaimed', handleMissionUpdate)
+      window.removeEventListener('missionCompleted', handleMissionUpdate)
+      window.removeEventListener('refreshMissions', handleMissionUpdate)
+    }
   }, [])
 
   const checkUnclaimedMissions = async () => {
@@ -242,19 +258,23 @@ export default function DashboardContent() {
   const renderStatCard = (label: string, value: number | undefined) => {
     const percentage = value ?? 0
     const normalized = Math.min(Math.max(percentage, 0), 100)
-    const color =
-      normalized < 30 ? '#c0392b' : normalized < 50 ? '#f39c12' : '#0f172a'
+    const isWarning = normalized < 20
+    const color = isWarning ? '#dc2626' : normalized < 30 ? '#c0392b' : normalized < 50 ? '#f39c12' : '#0f172a'
+    
     return (
-      <div className="bg-white/90 backdrop-blur-sm rounded-xl border border-black/20 px-4 py-2 min-w-[220px] shadow-sm">
+      <div className={`bg-white/90 backdrop-blur-sm rounded-xl border ${isWarning ? 'border-red-500' : 'border-black/20'} px-4 py-2 min-w-[220px] shadow-sm`}>
         <div className="flex justify-between items-center mb-2">
-          <span className="text-xs text-black/60 uppercase tracking-wide">{label}</span>
-          <span className="text-lg font-bold text-black">{normalized}%</span>
+          <span className={`text-xs uppercase tracking-wide ${isWarning ? 'text-red-600 font-bold' : 'text-black/60'}`}>
+            {label} {isWarning && '⚠️ Warning'}
+          </span>
+          <span className={`text-lg font-bold ${isWarning ? 'text-red-600' : 'text-black'}`}>{normalized}%</span>
         </div>
         <div
-          className="relative w-full h-4 rounded-lg border border-black/20 overflow-hidden"
+          className={`relative w-full h-4 rounded-lg border ${isWarning ? 'border-red-500' : 'border-black/20'} overflow-hidden`}
           style={{
-            backgroundImage:
-              'repeating-linear-gradient(135deg, rgba(0,0,0,0.08) 0 6px, transparent 6px 12px)',
+            backgroundImage: isWarning 
+              ? 'repeating-linear-gradient(135deg, rgba(220,38,38,0.15) 0 6px, transparent 6px 12px)'
+              : 'repeating-linear-gradient(135deg, rgba(0,0,0,0.08) 0 6px, transparent 6px 12px)',
           }}
         >
           <div
@@ -272,7 +292,7 @@ export default function DashboardContent() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-lg text-black">Loading...</div>
+        <div className="text-sm text-black/60 uppercase tracking-wide">Loading...</div>
       </div>
     )
   }
@@ -294,7 +314,7 @@ export default function DashboardContent() {
           >
             <ListChecks className="h-5 w-5 text-black" />
             {hasUnclaimedMissions && (
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-black rounded-full" />
             )}
           </button>
           {/* 餘額 */}

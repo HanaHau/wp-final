@@ -9,7 +9,9 @@ import Navigation from '@/components/dashboard/Navigation'
 import FriendCard from './FriendCard'
 import AddFriendDialog from './AddFriendDialog'
 import InvitationDialog from './InvitationDialog'
-import { UserPlus, Search, Mail } from 'lucide-react'
+import FriendActivityLog from './FriendActivityLog'
+import FriendActivityToast from './FriendActivityToast'
+import { UserPlus, Search, Mail, BookOpen } from 'lucide-react'
 
 interface Friend {
   id: string
@@ -31,7 +33,9 @@ export default function FriendsBoard({ initialFriends }: FriendsBoardProps) {
   const [searchFilter, setSearchFilter] = useState('')
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showInvitationDialog, setShowInvitationDialog] = useState(false)
+  const [showActivityLog, setShowActivityLog] = useState(false)
   const [invitationCount, setInvitationCount] = useState(0)
+  const [unreadActivityCount, setUnreadActivityCount] = useState(0)
 
   const fetchInvitationCount = async () => {
     try {
@@ -45,10 +49,26 @@ export default function FriendsBoard({ initialFriends }: FriendsBoardProps) {
     }
   }
 
+  const fetchActivityCount = async () => {
+    try {
+      const res = await fetch('/api/friend-activities')
+      if (res.ok) {
+        const data = await res.json()
+        setUnreadActivityCount(data.unreadCount || 0)
+      }
+    } catch (error) {
+      console.error('取得活動數量失敗:', error)
+    }
+  }
+
   useEffect(() => {
     fetchInvitationCount()
-    // 每30秒刷新一次邀請數量
-    const interval = setInterval(fetchInvitationCount, 30000)
+    fetchActivityCount()
+    // 每30秒刷新一次邀請和活動數量
+    const interval = setInterval(() => {
+      fetchInvitationCount()
+      fetchActivityCount()
+    }, 30000)
     return () => clearInterval(interval)
   }, [])
 
@@ -175,6 +195,32 @@ export default function FriendsBoard({ initialFriends }: FriendsBoardProps) {
         }}
         onInvitationAccepted={handleInvitationAccepted}
       />
+
+      {/* 好友日誌浮動按鈕 */}
+      <div className="fixed bottom-24 right-4 z-30">
+        <Button
+          size="icon"
+          onClick={() => setShowActivityLog(true)}
+          className="w-14 h-14 rounded-full bg-black text-white hover:bg-black/80 shadow-lg relative"
+        >
+          <BookOpen className="h-6 w-6" />
+          {unreadActivityCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+              {unreadActivityCount > 9 ? '9+' : unreadActivityCount}
+            </span>
+          )}
+        </Button>
+      </div>
+
+      {showActivityLog && (
+        <FriendActivityLog
+          onClose={() => setShowActivityLog(false)}
+          onUnreadCountUpdate={(count) => setUnreadActivityCount(count)}
+        />
+      )}
+
+      {/* Toast notification for unread activities */}
+      <FriendActivityToast />
 
       <Navigation />
     </div>

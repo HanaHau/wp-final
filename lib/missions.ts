@@ -69,7 +69,88 @@ export async function updateMissionProgress(
       })
     }
 
-    // 查找或創建 MissionUser 記錄
+    // 特殊處理：record_5_days 需要計算實際記帳天數
+    if (type === 'weekly' && missionCode === 'record_5_days') {
+      const weekStart = getWeekStart()
+      console.log('[record_5_days] Week start:', weekStart.toISOString(), weekStart.toLocaleDateString())
+      
+      const transactions = await prisma.transaction.findMany({
+        where: {
+          userId: userId,
+          date: {
+            gte: weekStart,
+          },
+        },
+        select: { date: true },
+      })
+      console.log('[record_5_days] Total transactions this week:', transactions.length)
+
+      // Count unique days
+      const uniqueDays = new Set(
+        transactions.map((t) => {
+          const d = new Date(t.date)
+          return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+        })
+      ).size
+      console.log('[record_5_days] Unique days:', uniqueDays, 'Target:', mission.target)
+
+      const existing = await prisma.missionUser.findUnique({
+        where: {
+          userId_missionId_periodStart: {
+            userId: userId,
+            missionId: mission.id,
+            periodStart: weekStart,
+          },
+        },
+      })
+
+      let wasCompletedBefore = false
+      let isNewlyCompleted = false
+
+      if (existing) {
+        wasCompletedBefore = existing.completed
+        const isCompleted = uniqueDays >= mission.target
+        isNewlyCompleted = isCompleted && !wasCompletedBefore
+
+        await prisma.missionUser.update({
+          where: { id: existing.id },
+          data: {
+            progress: uniqueDays,
+            completed: isCompleted,
+            completedAt: isCompleted && !existing.completed ? new Date() : existing.completedAt,
+          },
+        })
+      } else {
+        const isCompleted = uniqueDays >= mission.target
+        isNewlyCompleted = isCompleted
+
+        await prisma.missionUser.create({
+          data: {
+            userId: userId,
+            missionId: mission.id,
+            periodStart: weekStart,
+            progress: uniqueDays,
+            completed: isCompleted,
+            completedAt: isCompleted ? new Date() : null,
+          },
+        })
+      }
+
+      // 如果任務剛完成，返回任務完成信息
+      if (isNewlyCompleted) {
+        return {
+          missionId: mission.id,
+          missionCode: mission.code,
+          name: mission.title,
+          points: mission.reward,
+          type: mission.type as 'daily' | 'weekly',
+        }
+      }
+
+      return null
+    }
+
+    // 一般任務處理
     const existing = await prisma.missionUser.findUnique({
       where: {
         userId_missionId_periodStart: {

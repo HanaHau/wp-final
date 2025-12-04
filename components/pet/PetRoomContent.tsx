@@ -400,40 +400,10 @@ export default function PetRoomContent() {
     requestAnimationFrame(animate)
   }
 
-  // Handle pet click
+  // Handle pet click - DISABLED: Users cannot pet their own pet
   const handlePetClick = async () => {
-    if (isPetDead) return // 寵物死亡時不執行操作
-    
-    setPetState('happy')
-    showParticleEffect('❤️', 3)
-    
-    try {
-      const res = await fetch('/api/pet/pet', {
-        method: 'POST',
-      })
-      if (!res.ok) throw new Error('Failed to pet')
-      const data = await res.json()
-      
-      toast({
-        title: data.message || 'Pet petted!',
-        description: `心情 +${data.moodGain ?? 2}`,
-      })
-      
-      // Update pet data
-      setTimeout(async () => {
-        try {
-          const petRes = await fetch('/api/pet')
-          const petData = await petRes.json()
-          setPet(petData)
-        } catch (error) {
-          console.error('Failed to update pet data:', error)
-        }
-      }, 500)
-    } catch (error: any) {
-      console.error('Pet pet error:', error)
-    }
-    
-    setTimeout(() => setPetState('idle'), 600)
+    // Disabled - users should not be able to pet their own pet
+    return
   }
 
   // Handle feed pet
@@ -633,10 +603,7 @@ export default function PetRoomContent() {
   if (loading || !pet) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-white">
-        <div className="text-center">
-          <div className="text-4xl mb-4 animate-bounce">🐱</div>
-          <p className="text-sm uppercase tracking-wide">載入中...</p>
-        </div>
+        <div className="text-sm text-black/60 uppercase tracking-wide">Loading...</div>
       </div>
     )
   }

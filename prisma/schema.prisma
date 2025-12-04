@@ -25,9 +25,11 @@ model User {
   sessions         Session[]
   transactions     Transaction[]
   friendsAsUser    Friend[]        @relation("UserFriends")
-  friendsAsFriend  Friend[]        @relation("FriendUsers")
-  sentMessages     FriendMessage[] @relation("SenderMessages")
-  receivedMessages FriendMessage[] @relation("ReceiverMessages")
+  friendsAsFriend  Friend[]         @relation("FriendUsers")
+  sentMessages     FriendMessage[]  @relation("SenderMessages")
+  receivedMessages FriendMessage[]  @relation("ReceiverMessages")
+  actorActivities  FriendActivity[] @relation("ActorActivities")
+  targetActivities FriendActivity[] @relation("TargetActivities")
   missionUsers     MissionUser[]
 
   @@map("users")
@@ -237,6 +239,24 @@ model FriendMessage {
   @@index([receiverId, petId])
   @@index([senderId])
   @@map("friend_messages")
+}
+
+model FriendActivity {
+  id         String   @id @default(cuid())
+  actorId    String   // 執行動作的用戶 ID
+  targetId   String   // 被影響的用戶 ID（寵物主人）
+  petId      String   // 相關的寵物 ID
+  petName    String   // 寵物名稱（冗餘，方便顯示）
+  actionType String   // "pet", "feed", "visit"
+  details    String?  // 額外細節，如餵食的食物名稱
+  isRead     Boolean  @default(false) // 是否已讀
+  createdAt  DateTime @default(now())
+  actor      User     @relation("ActorActivities", fields: [actorId], references: [id], onDelete: Cascade)
+  target     User     @relation("TargetActivities", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@index([targetId, isRead, createdAt])
+  @@index([actorId])
+  @@map("friend_activities")
 }
 
 model Mission {

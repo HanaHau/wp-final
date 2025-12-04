@@ -269,10 +269,15 @@ export default function ShopContent() {
                     <div className="text-5xl mb-2" style={{ height: '3rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{item.emoji}</div>
                   )}
                   <h3 className="font-bold text-sm uppercase tracking-wide">{item.name}</h3>
-                  <div className="mt-1">
+                  <div className="mt-1 flex flex-wrap gap-1 justify-center">
                     <span className="inline-block text-[10px] uppercase tracking-wide px-2 py-0.5 bg-black/10 border border-black/20 rounded">
                       {item.category}
                     </span>
+                    {item.category === 'food' && item.fullnessRecovery && (
+                      <span className="inline-block text-[10px] uppercase tracking-wide px-2 py-0.5 bg-green-100 border border-green-300 rounded">
+                        Fullness +{item.fullnessRecovery}%
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center justify-between mb-3">

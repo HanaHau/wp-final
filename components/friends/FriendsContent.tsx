@@ -5,10 +5,12 @@ import { useToast } from '@/components/ui/use-toast'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import Navigation from '@/components/dashboard/Navigation'
-import { Search, UserPlus, Users, Heart, Check, Clock, Mail } from 'lucide-react'
+import { Search, UserPlus, Users, Heart, Check, Clock, Mail, BookOpen } from 'lucide-react'
 import Link from 'next/link'
 import AddFriendDialog from './AddFriendDialog'
 import InvitationDialog from './InvitationDialog'
+import FriendActivityLog from './FriendActivityLog'
+import FriendActivityToast from './FriendActivityToast'
 
 interface Friend {
   id: string
@@ -37,7 +39,9 @@ export default function FriendsContent() {
   const [loading, setLoading] = useState(true)
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showInvitationDialog, setShowInvitationDialog] = useState(false)
+  const [showActivityLog, setShowActivityLog] = useState(false)
   const [invitationCount, setInvitationCount] = useState(0)
+  const [unreadActivityCount, setUnreadActivityCount] = useState(0)
 
   const fetchInvitationCount = async () => {
     try {
@@ -51,11 +55,27 @@ export default function FriendsContent() {
     }
   }
 
+  const fetchActivityCount = async () => {
+    try {
+      const res = await fetch('/api/friend-activities')
+      if (res.ok) {
+        const data = await res.json()
+        setUnreadActivityCount(data.unreadCount || 0)
+      }
+    } catch (error) {
+      console.error('取得活動數量失敗:', error)
+    }
+  }
+
   useEffect(() => {
     fetchFriends()
     fetchInvitationCount()
-    // 每30秒刷新一次邀請數量
-    const interval = setInterval(fetchInvitationCount, 30000)
+    fetchActivityCount()
+    // 每30秒刷新一次邀請和活動數量
+    const interval = setInterval(() => {
+      fetchInvitationCount()
+      fetchActivityCount()
+    }, 30000)
     return () => clearInterval(interval)
   }, [])
 
@@ -151,10 +171,26 @@ export default function FriendsContent() {
 
   return (
     <div className="min-h-screen bg-white pb-20">
+      {/* Toast notification for unread activities */}
+      <FriendActivityToast />
+      
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold uppercase tracking-wide">好友</h1>
           <div className="flex gap-2">
+            <Button
+              onClick={() => setShowActivityLog(true)}
+              variant="outline"
+              className="gap-2 relative"
+            >
+              <BookOpen className="h-4 w-4" />
+              好友日誌
+              {unreadActivityCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-black text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  {unreadActivityCount > 9 ? '9+' : unreadActivityCount}
+                </span>
+              )}
+            </Button>
             <Button
               onClick={() => setShowInvitationDialog(true)}
               variant="outline"
@@ -326,6 +362,13 @@ export default function FriendsContent() {
           fetchFriends()
         }}
       />
+
+      {showActivityLog && (
+        <FriendActivityLog
+          onClose={() => setShowActivityLog(false)}
+          onUnreadCountUpdate={(count) => setUnreadActivityCount(count)}
+        />
+      )}
 
       <Navigation />
     </div>

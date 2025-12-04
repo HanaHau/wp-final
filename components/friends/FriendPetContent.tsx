@@ -76,10 +76,7 @@ export default function FriendPetContent({ friendId }: { friendId: string }) {
   if (loading) {
     return (
       <div className="fixed inset-0 z-50 bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-4xl mb-4 animate-bounce">🐱</div>
-          <p className="text-sm uppercase tracking-wide">載入中...</p>
-        </div>
+        <div className="text-sm text-black/60 uppercase tracking-wide">Loading...</div>
       </div>
     )
   }

@@ -72,6 +72,7 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
   const [feeding, setFeeding] = useState(false)
   const [dailyMoodGain, setDailyMoodGain] = useState(0)
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set())
+  const [isHovering, setIsHovering] = useState(false)
   const petImageRef = useRef<HTMLDivElement>(null)
   const roomRef = useRef<HTMLDivElement>(null)
   const moveIntervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -383,6 +384,10 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
     try {
       const res = await fetch(`/api/friends/${friendId}/pet`, {
         method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       })
 
       if (res.ok) {
@@ -397,7 +402,7 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
         setDailyMoodGain(newGain)
 
         toast({
-          title: '成功',
+          title: '成功 ❤️',
           description: data.message || '已撫摸好友的寵物',
         })
 
@@ -498,14 +503,20 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
             {/* Pet Status */}
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5">
-                <Heart className="h-3.5 w-3.5 text-black" />
+                <Heart className={`h-3.5 w-3.5 ${pet.mood < 20 ? 'text-red-600' : 'text-black'}`} />
                 <span className="text-xs font-semibold text-black/70 uppercase tracking-wide">心情</span>
-                <span className="text-xs font-bold text-black">{pet.mood}/100</span>
+                <span className={`text-xs font-bold ${pet.mood < 20 ? 'text-red-600' : 'text-black'}`}>
+                  {pet.mood}/100
+                  {pet.mood < 20 && <span className="ml-1 text-[10px] uppercase">⚠️ Warning</span>}
+                </span>
               </div>
               <div className="flex items-center gap-1.5">
-                <Droplet className="h-3.5 w-3.5 text-black" />
+                <Droplet className={`h-3.5 w-3.5 ${pet.fullness < 20 ? 'text-red-600' : 'text-black'}`} />
                 <span className="text-xs font-semibold text-black/70 uppercase tracking-wide">飽足感</span>
-                <span className="text-xs font-bold text-black">{pet.fullness}/100</span>
+                <span className={`text-xs font-bold ${pet.fullness < 20 ? 'text-red-600' : 'text-black'}`}>
+                  {pet.fullness}/100
+                  {pet.fullness < 20 && <span className="ml-1 text-[10px] uppercase">⚠️ Warning</span>}
+                </span>
               </div>
             </div>
           </div>
@@ -514,14 +525,28 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
             <Button
               variant="ghost"
               size="icon"
-              className="gap-2"
+              className="gap-2 opacity-50"
+              onClick={() => {
+                toast({
+                  title: '即將推出 📸',
+                  description: '拍照功能正在開發中，敬請期待！',
+                  duration: 3000,
+                })
+              }}
             >
               <Camera className="h-5 w-5" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              className="gap-2"
+              className="gap-2 opacity-50"
+              onClick={() => {
+                toast({
+                  title: '即將推出 🎁',
+                  description: '送禮功能正在開發中，敬請期待！',
+                  duration: 3000,
+                })
+              }}
             >
               <Gift className="h-5 w-5" />
             </Button>
@@ -589,20 +614,29 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
             {/* Pet */}
             <div
               ref={petImageRef}
-              className={`absolute transition-all ease-in-out cursor-pointer ${isMoving ? 'scale-105' : 'scale-100'}`}
+              className={`absolute transition-all ease-in-out cursor-pointer ${isMoving ? 'scale-105' : 'scale-100'} ${isHovering ? 'scale-110' : ''}`}
               style={{
                 left: `${petPosition.x * 100}%`,
                 top: `${petPosition.y * 100}%`,
                 transform: `translate(-50%, -50%)`,
                 zIndex: 50,
-                transitionProperty: 'left, top',
+                transitionProperty: 'left, top, transform',
                 transitionDuration: pet?.mood && pet.mood > 70 ? '1.8s' : '2.5s',
                 transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
                 animation: isMoving ? 'walk-bounce 0.4s ease-in-out infinite' : 'none',
               }}
               onClick={handlePetClick}
+              onMouseEnter={() => setIsHovering(true)}
+              onMouseLeave={() => setIsHovering(false)}
             >
               <div className="relative w-24 h-24 lg:w-32 lg:h-32">
+                {/* Hover hint */}
+                {isHovering && !isPetting && dailyMoodGain < 5 && (
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap bg-black text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg animate-bounce z-10">
+                    摸摸我
+                  </div>
+                )}
+                
                 <Image
                   src={pet.imageUrl || '/cat.png'}
                   alt={pet.name}
@@ -787,7 +821,7 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
         )}
       </AnimatePresence>
 
-      {/* Daily limit warning */}
+      {/* Daily limit notification */}
       {dailyMoodGain >= 5 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -795,7 +829,7 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
           className="fixed top-20 left-0 right-0 z-50 flex justify-center items-center"
         >
           <div className="bg-black/80 text-white px-4 py-2 rounded-full text-sm whitespace-nowrap">
-            好友今天已達到互動上限（5%）
+            今日撫摸獎勵已領滿（+5% 心情）✓
           </div>
         </motion.div>
       )}
