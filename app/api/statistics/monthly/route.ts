@@ -46,12 +46,8 @@ export async function GET(request: NextRequest) {
       .filter((t) => t.typeId === 2) // 2 = 收入
       .reduce((sum, t) => sum + t.amount, 0)
 
-    const totalDeposit = transactions
-      .filter((t) => t.typeId === 3) // 3 = 存錢
-      .reduce((sum, t) => sum + t.amount, 0)
-
     // 每日統計 - 轉換為台灣時區 (GMT+8)
-    const dailyStats: Record<string, { expense: number; income: number; deposit: number }> = {}
+    const dailyStats: Record<string, { expense: number; income: number }> = {}
     transactions.forEach((t) => {
       // 將 UTC 時間轉換為台灣時區 (GMT+8)
       // t.date 是 UTC 時間，需要加上 8 小時得到台灣時間
@@ -60,12 +56,11 @@ export async function GET(request: NextRequest) {
       const taiwanDate = new Date(taiwanTime)
       const dateKey = taiwanDate.toISOString().split('T')[0]
       if (!dailyStats[dateKey]) {
-        dailyStats[dateKey] = { expense: 0, income: 0, deposit: 0 }
+        dailyStats[dateKey] = { expense: 0, income: 0 }
       }
-      // 使用 typeId 判斷：1=支出, 2=收入, 3=存錢
+      // 使用 typeId 判斷：1=支出, 2=收入
       if (t.typeId === 1) dailyStats[dateKey].expense += t.amount
       if (t.typeId === 2) dailyStats[dateKey].income += t.amount
-      if (t.typeId === 3) dailyStats[dateKey].deposit += t.amount
     })
 
     return NextResponse.json({
@@ -73,7 +68,6 @@ export async function GET(request: NextRequest) {
       month,
       totalExpense,
       totalIncome,
-      totalDeposit,
       dailyStats,
       transactionCount: transactions.length,
     })

@@ -129,7 +129,6 @@ export default function TransactionsContent() {
               <SelectItem value="ALL">All Types</SelectItem>
               <SelectItem value="EXPENSE">Expense</SelectItem>
               <SelectItem value="INCOME">Income</SelectItem>
-              <SelectItem value="DEPOSIT">Deposit</SelectItem>
             </SelectContent>
           </Select>
           <div className="flex-1" />
@@ -163,8 +162,6 @@ export default function TransactionsContent() {
                           transaction.type === 'EXPENSE'
                             ? 'text-red-700'
                             : transaction.type === 'INCOME'
-                            ? 'text-green-700'
-                            : transaction.type === 'DEPOSIT'
                             ? 'text-green-700'
                             : 'text-black/60'
                         }`}>

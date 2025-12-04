@@ -95,8 +95,6 @@ export default function DailyTransactionsDialog({
         return 'text-green-700'
       case 'EXPENSE':
         return 'text-red-700'
-      case 'DEPOSIT':
-        return 'text-black/60'
       default:
         return 'text-black'
     }

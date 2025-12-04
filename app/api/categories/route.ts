@@ -23,8 +23,12 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const typeId = searchParams.get('typeId')
 
+    // 同時查詢預設類別（userId === null）和使用者自己的類別
     const where: any = {
-      userId: user.id, // 只查詢使用者自己的類別
+      OR: [
+        { userId: null }, // 預設類別
+        { userId: user.id }, // 使用者自己的類別
+      ],
     }
 
     if (typeId) {
@@ -38,6 +42,7 @@ export async function GET(request: NextRequest) {
       },
       orderBy: [
         { typeId: 'asc' },
+        { userId: 'asc' }, // null (預設) 在前，非 null (使用者自訂) 在後
         { sortOrder: 'asc' },
         { name: 'asc' },
       ],

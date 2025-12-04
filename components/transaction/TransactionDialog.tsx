@@ -48,7 +48,7 @@ export default function TransactionDialog({
   const [amount, setAmount] = useState('0')
   const [categoryId, setCategoryId] = useState<string | null>(null)
   const [categoryName, setCategoryName] = useState('')
-  const [type, setType] = useState<'EXPENSE' | 'INCOME' | 'DEPOSIT'>('EXPENSE')
+  const [type, setType] = useState<'EXPENSE' | 'INCOME'>('EXPENSE')
   const [note, setNote] = useState('')
   const [date, setDate] = useState('')
   const [loading, setLoading] = useState(false)
@@ -59,14 +59,12 @@ export default function TransactionDialog({
   const router = useRouter()
 
   // Map type to typeId
-  const getTypeId = (type: 'EXPENSE' | 'INCOME' | 'DEPOSIT'): number => {
+  const getTypeId = (type: 'EXPENSE' | 'INCOME'): number => {
     switch (type) {
       case 'EXPENSE':
         return 1
       case 'INCOME':
         return 2
-      case 'DEPOSIT':
-        return 3
       default:
         return 1
     }
@@ -191,7 +189,7 @@ export default function TransactionDialog({
         // Fallback: use category name to find categoryId after categories are loaded
         setCategoryName(transaction.category || '')
       }
-      setType(editingTransaction.type as 'EXPENSE' | 'INCOME' | 'DEPOSIT')
+      setType(editingTransaction.type as 'EXPENSE' | 'INCOME')
       setNote(editingTransaction.note || '')
       setDate(formatDateForInput(editingTransaction.date))
     } else {
@@ -352,7 +350,7 @@ export default function TransactionDialog({
             {/* Type Selection - Buttons */}
             <div>
               <Label className="text-black uppercase text-xs tracking-wide mb-2 block">Type</Label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <Button
                   type="button"
                   variant={type === 'EXPENSE' ? 'default' : 'outline'}
@@ -368,14 +366,6 @@ export default function TransactionDialog({
                   className="rounded-xl"
                 >
                   Income
-                </Button>
-                <Button
-                  type="button"
-                  variant={type === 'DEPOSIT' ? 'default' : 'outline'}
-                  onClick={() => setType('DEPOSIT')}
-                  className="rounded-xl"
-                >
-                  Deposit
                 </Button>
               </div>
             </div>

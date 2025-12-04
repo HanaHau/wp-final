@@ -22,8 +22,7 @@ interface MonthlyStats {
   month: number
   totalExpense: number
   totalIncome: number
-  totalDeposit: number
-  dailyStats: Record<string, { expense: number; income: number; deposit: number }>
+  dailyStats: Record<string, { expense: number; income: number }>
   transactionCount: number
 }
 
@@ -84,7 +83,6 @@ export default function StatisticsContent() {
         month: selectedMonth,
         totalExpense: 0,
         totalIncome: 0,
-        totalDeposit: 0,
         dailyStats: {},
         transactionCount: 0,
       })
@@ -160,9 +158,6 @@ export default function StatisticsContent() {
     : '0'
   const netChangeValue = netIncome - prevNetIncome
 
-  const savingsRate = monthlyStats?.totalIncome 
-    ? parseFloat(((monthlyStats.totalDeposit / monthlyStats.totalIncome) * 100).toFixed(1))
-    : 0
 
   // Calculate expense change
   const expenseChange = prevMonthStats?.totalExpense 
@@ -262,7 +257,7 @@ export default function StatisticsContent() {
         )}
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-xs uppercase tracking-wide text-black/60">Income</CardTitle>
@@ -298,45 +293,6 @@ export default function StatisticsContent() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs uppercase tracking-wide text-black/60">Savings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-700">
-                {monthlyStats ? formatCurrency(monthlyStats.totalDeposit) : '$0'}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs uppercase tracking-wide text-black/60">Savings Rate</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-1">
-                <div className={`text-2xl font-bold ${
-                  savingsRate >= 20 ? 'text-green-700' : 
-                  savingsRate >= 10 ? 'text-yellow-600' : 
-                  savingsRate > 0 ? 'text-orange-600' : 
-                  'text-red-700'
-                }`}>
-                  {savingsRate.toFixed(1)}%
-                </div>
-                <div className="w-full h-2 border border-black bg-white relative overflow-hidden">
-                  <div 
-                    className={`h-full ${
-                      savingsRate >= 20 ? 'bg-green-700' : 
-                      savingsRate >= 10 ? 'bg-yellow-600' : 
-                      savingsRate > 0 ? 'bg-orange-600' : 
-                      'bg-red-700'
-                    }`}
-                    style={{ width: `${Math.min(savingsRate, 100)}%` }}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Charts Grid */}
@@ -471,11 +427,6 @@ export default function StatisticsContent() {
                         {stats.expense > 0 && (
                           <span className="font-medium text-red-700">
                             -{formatCurrency(stats.expense)}
-                          </span>
-                        )}
-                        {stats.deposit > 0 && (
-                          <span className="font-medium text-black/60">
-                            Deposit: {formatCurrency(stats.deposit)}
                           </span>
                         )}
                       </div>

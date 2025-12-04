@@ -161,18 +161,27 @@ export default function DashboardContent() {
 
   const fetchUser = async () => {
     try {
-      const res = await fetch('/api/user', {
+      // 獲取當月的統計資料來計算 balance（總收入 - 總支出）
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = now.getMonth() + 1
+      
+      const res = await fetch(`/api/statistics/monthly?year=${year}&month=${month}`, {
         cache: 'no-store', // 確保不從緩存獲取
       })
       if (res.ok) {
         const data = await res.json()
-        console.log('更新餘額:', data.balance)
-        setUserBalance(data.balance || 0)
+        // 計算當月總收入減總支出
+        const monthlyBalance = (data.totalIncome || 0) - (data.totalExpense || 0)
+        console.log('更新餘額（當月）:', monthlyBalance, `(收入: ${data.totalIncome || 0}, 支出: ${data.totalExpense || 0})`)
+        setUserBalance(monthlyBalance)
       } else {
-        console.error('取得使用者資訊失敗:', res.status, res.statusText)
+        console.error('取得當月統計失敗:', res.status, res.statusText)
+        setUserBalance(0)
       }
     } catch (error) {
-      console.error('取得使用者資訊失敗:', error)
+      console.error('取得當月統計失敗:', error)
+      setUserBalance(0)
     }
   }
 

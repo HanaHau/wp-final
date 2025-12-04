@@ -6,8 +6,8 @@ import { z } from 'zod'
 const transactionSchema = z.object({
   amount: z.number().positive(),
   category: z.string().min(1).optional(), // Category name (will be resolved to categoryId)
-  type: z.enum(['EXPENSE', 'INCOME', 'DEPOSIT']).optional(), // For backward compatibility
-  typeId: z.number().int().min(1).max(3).optional(), // 1=支出, 2=收入, 3=存錢
+  type: z.enum(['EXPENSE', 'INCOME']).optional(), // For backward compatibility
+  typeId: z.number().int().min(1).max(2).optional(), // 1=支出, 2=收入
   categoryId: z.string().optional(), // Direct categoryId
   date: z.string().datetime().optional(),
   note: z.string().optional(),
@@ -20,8 +20,6 @@ function getTypeId(type: string): number {
       return 1
     case 'INCOME':
       return 2
-    case 'DEPOSIT':
-      return 3
     default:
       return 1
   }
@@ -122,8 +120,6 @@ export async function PUT(
       balanceDelta += currentTransaction.amount
     } else if (currentTransaction.typeId === 2) { // INCOME
       balanceDelta -= currentTransaction.amount
-    } else if (currentTransaction.typeId === 3) { // DEPOSIT
-      balanceDelta += currentTransaction.amount
     }
 
     // 應用新交易的影響
@@ -131,59 +127,6 @@ export async function PUT(
       balanceDelta -= validatedData.amount
     } else if (typeId === 2) { // INCOME
       balanceDelta += validatedData.amount
-    } else if (typeId === 3) { // DEPOSIT
-      balanceDelta -= validatedData.amount
-    }
-
-    // 處理寵物點數的變化（如果是存款）
-    if (currentTransaction.typeId === 3 && typeId !== 3) {
-      // 舊交易是存款，新交易不是，需要回退點數
-      const pet = await prisma.pet.findUnique({
-        where: { userId: user.id },
-      })
-      if (pet) {
-        await prisma.pet.update({
-          where: { id: pet.id },
-          data: {
-            points: {
-              decrement: Math.floor(currentTransaction.amount),
-            },
-          },
-        })
-      }
-    } else if (currentTransaction.typeId !== 3 && typeId === 3) {
-      // 舊交易不是存款，新交易是，需要增加點數
-      const pet = await prisma.pet.findUnique({
-        where: { userId: user.id },
-      })
-      if (pet) {
-        await prisma.pet.update({
-          where: { id: pet.id },
-          data: {
-            points: {
-              increment: Math.floor(validatedData.amount),
-            },
-          },
-        })
-      }
-    } else if (currentTransaction.typeId === 3 && typeId === 3) {
-      // 都是存款，需要調整點數差值
-      const pointDelta = Math.floor(validatedData.amount) - Math.floor(currentTransaction.amount)
-      if (pointDelta !== 0) {
-        const pet = await prisma.pet.findUnique({
-          where: { userId: user.id },
-        })
-        if (pet) {
-          await prisma.pet.update({
-            where: { id: pet.id },
-            data: {
-              points: {
-                increment: pointDelta,
-              },
-            },
-          })
-        }
-      }
     }
 
     // 更新餘額
@@ -266,8 +209,6 @@ export async function DELETE(
       balanceDelta = transaction.amount
     } else if (transaction.typeId === 2) { // INCOME - 回退（減少餘額）
       balanceDelta = -transaction.amount
-    } else if (transaction.typeId === 3) { // DEPOSIT - 回退（增加餘額）
-      balanceDelta = transaction.amount
     }
 
     if (balanceDelta !== 0) {
@@ -283,23 +224,6 @@ export async function DELETE(
         },
       })
       console.log(`刪除記帳餘額回退: typeId=${transaction.typeId}, amount=${transaction.amount}, delta=${balanceDelta}, 新餘額=${updatedUser.balance}`)
-    }
-
-    // 如果是存款，回退寵物點數
-    if (transaction.typeId === 3) {
-      const pet = await prisma.pet.findUnique({
-        where: { userId: user.id },
-      })
-      if (pet) {
-        await prisma.pet.update({
-          where: { id: pet.id },
-          data: {
-            points: {
-              decrement: Math.floor(transaction.amount),
-            },
-          },
-        })
-      }
     }
 
     await prisma.transaction.delete({

@@ -7,8 +7,8 @@ import { updateMissionProgress } from '@/lib/missions'
 const transactionSchema = z.object({
   amount: z.number().positive(),
   category: z.string().min(1).optional(), // Category name (will be resolved to categoryId)
-  type: z.enum(['EXPENSE', 'INCOME', 'DEPOSIT']), // For backward compatibility
-  typeId: z.number().int().min(1).max(3).optional(), // 1=支出, 2=收入, 3=存錢
+  type: z.enum(['EXPENSE', 'INCOME']), // For backward compatibility
+  typeId: z.number().int().min(1).max(2).optional(), // 1=支出, 2=收入
   categoryId: z.string().optional(), // Direct categoryId (optional, will resolve from category name if not provided)
   date: z.string().datetime().optional(),
   note: z.string().optional(),
@@ -27,8 +27,6 @@ function getTypeId(type: string): number {
       return 1
     case 'INCOME':
       return 2
-    case 'DEPOSIT':
-      return 3
     default:
       return 1
   }
@@ -97,7 +95,7 @@ export async function GET(request: NextRequest) {
       if (endDate) where.date.lte = new Date(endDate)
     }
 
-    if (type && ['EXPENSE', 'INCOME', 'DEPOSIT'].includes(type)) {
+    if (type && ['EXPENSE', 'INCOME'].includes(type)) {
       where.typeId = getTypeId(type)
     }
 
@@ -120,7 +118,7 @@ export async function GET(request: NextRequest) {
       userId: t.userId,
       amount: t.amount,
       category: t.category.name, // Keep category as string for backward compatibility
-      type: t.type.name === '支出' ? 'EXPENSE' : t.type.name === '收入' ? 'INCOME' : 'DEPOSIT', // Map back to string (Type model)
+      type: t.type.name === '支出' ? 'EXPENSE' : 'INCOME', // Map back to string (Type model)
       date: t.date.toISOString(),
       note: t.note,
       createdAt: t.createdAt.toISOString(),
@@ -192,8 +190,6 @@ export async function POST(request: NextRequest) {
       balanceDelta = -validatedData.amount
     } else if (typeId === 2) { // INCOME - 收入，餘額增加
       balanceDelta = validatedData.amount
-    } else if (typeId === 3) { // DEPOSIT - 存錢，餘額減少（等同於拿餘額的錢去買 points）
-      balanceDelta = -validatedData.amount
     }
 
     if (balanceDelta !== 0) {
@@ -209,24 +205,6 @@ export async function POST(request: NextRequest) {
         },
       })
       console.log(`餘額更新: typeId=${typeId}, amount=${validatedData.amount}, delta=${balanceDelta}, 新餘額=${updatedUser.balance}`)
-    }
-
-    // 如果是存款，更新寵物點數
-    if (typeId === 3) { // DEPOSIT
-      const pet = await prisma.pet.findUnique({
-        where: { userId: user.id },
-      })
-
-      if (pet) {
-        await prisma.pet.update({
-          where: { id: pet.id },
-          data: {
-            points: {
-              increment: Math.floor(validatedData.amount), // 1 元 = 1 點數
-            },
-          },
-        })
-      }
     }
 
     // 更新寵物狀態（根據記帳行為）
@@ -274,12 +252,8 @@ async function updatePetStatus(
   let moodDelta = 0
 
   // 根據記帳行為調整寵物狀態
-  // typeId: 1=支出, 2=收入, 3=存錢
-  if (typeId === 3) { // DEPOSIT
-    // 存款增加飽足感和心情
-    fullnessDelta = Math.min(5, Math.floor(amount / 100))
-    moodDelta = Math.min(5, Math.floor(amount / 100))
-  } else if (typeId === 1) { // EXPENSE
+  // typeId: 1=支出, 2=收入
+  if (typeId === 1) { // EXPENSE
     // 支出稍微降低心情（但不會太低）
     moodDelta = -Math.min(2, Math.floor(amount / 500))
   } else if (typeId === 2) { // INCOME
@@ -312,26 +286,11 @@ async function checkAndRewardStickers(userId: string) {
     where: { userId },
   })
 
-  const totalDeposits = await prisma.transaction.aggregate({
-    where: {
-      userId,
-      typeId: 3, // DEPOSIT
-    },
-    _sum: {
-      amount: true,
-    },
-  })
-
-  const totalDepositAmount = totalDeposits._sum.amount || 0
-
   // 定義獎勵條件
   const rewards = [
     { condition: transactionCount >= 1, stickerId: 'rug', layer: 'floor', positionX: 0.5, positionY: 0.7 },
     { condition: transactionCount >= 5, stickerId: 'desk', layer: 'floor', positionX: 0.3, positionY: 0.5 },
     { condition: transactionCount >= 10, stickerId: 'monitor', layer: 'floor', positionX: 0.3, positionY: 0.4 },
-    { condition: totalDepositAmount >= 1000, stickerId: 'poster', layer: 'wall-left', positionX: 0.5, positionY: 0.3 },
-    { condition: totalDepositAmount >= 5000, stickerId: 'cup', layer: 'floor', positionX: 0.7, positionY: 0.5 },
-    { condition: totalDepositAmount >= 10000, stickerId: 'speaker', layer: 'floor', positionX: 0.7, positionY: 0.6 },
   ]
 
   // 檢查並發放獎勵
