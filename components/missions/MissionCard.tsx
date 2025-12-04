@@ -52,10 +52,17 @@ export default function MissionCard({ mission, onClaimed }: MissionCardProps) {
 
       if (res.ok) {
         setClaimed(true)
+        const pointsEarned = data.points || mission.points
         toast({
           title: '領取成功！',
-          description: `獲得 ${data.points || mission.points} 點數`,
+          description: `獲得 ${pointsEarned} 點數`,
         })
+        
+        // 觸發事件通知主畫面更新points
+        window.dispatchEvent(new CustomEvent('missionRewardClaimed', { 
+          detail: { points: pointsEarned } 
+        }))
+        
         if (onClaimed) {
           onClaimed()
         }

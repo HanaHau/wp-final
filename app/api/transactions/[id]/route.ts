@@ -227,22 +227,8 @@ export async function PUT(
       },
     })
 
-    const pet = await prisma.pet.findUnique({
-      where: { userId: user.id },
-    })
-
-    if (pet) {
-      await prisma.pet.update({
-        where: { id: pet.id },
-        data: {
-          points: {
-            increment: 5,
-          },
-        },
-      })
-    }
-
     // 更新任務：整理帳目(任一編輯)
+    // 注意：不再自動+5pts，等使用者到任務區塊領取獎勵時再加
     const missionCompleted = await updateMissionProgress(user.id, 'daily', 'edit_transaction', 1)
 
     return NextResponse.json({

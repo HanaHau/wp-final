@@ -123,6 +123,26 @@ export default function DashboardContent() {
     }
   }, [])
 
+  // Listen for mission reward claimed event to update points immediately
+  useEffect(() => {
+    const handleMissionRewardClaimed = (event: CustomEvent<{ points: number }>) => {
+      const { points } = event.detail
+      // 立即更新主畫面的points顯示，不需要刷新頁面
+      if (pet) {
+        setPet({
+          ...pet,
+          points: pet.points + points,
+        })
+      }
+    }
+    
+    window.addEventListener('missionRewardClaimed', handleMissionRewardClaimed as EventListener)
+    
+    return () => {
+      window.removeEventListener('missionRewardClaimed', handleMissionRewardClaimed as EventListener)
+    }
+  }, [pet])
+
   const checkUnclaimedMissions = async () => {
     try {
       const res = await fetch('/api/missions/completed')

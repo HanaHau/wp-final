@@ -233,26 +233,11 @@ export async function POST(request: NextRequest) {
     await updatePetStatus(user.id, typeId, validatedData.amount)
 
     // 更新任務：今日記帳1筆 (每日任務)
+    // 注意：不再自動+10pts，等使用者到任務區塊領取獎勵時再加
     const dailyMissionCompleted = await updateMissionProgress(user.id, 'daily', 'record_transaction', 1)
     
     // 更新任務：本週記帳達5天 (週任務)
     const weeklyMissionCompleted = await updateMissionProgress(user.id, 'weekly', 'record_5_days', 1)
-
-    // 記一筆帳 +10 points
-    const pet = await prisma.pet.findUnique({
-      where: { userId: user.id },
-    })
-
-    if (pet) {
-      await prisma.pet.update({
-        where: { id: pet.id },
-        data: {
-          points: {
-            increment: 10,
-          },
-        },
-      })
-    }
 
     // 檢查並發放貼紙獎勵 - 已禁用自動創建 sticker
     // await checkAndRewardStickers(user.id)
