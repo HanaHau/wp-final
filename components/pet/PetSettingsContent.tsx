@@ -390,8 +390,6 @@ export default function PetSettingsContent() {
                   accessories={accessories}
                   onAccessoryDelete={handleDeleteAccessory}
                   showDeleteButtons={true}
-                  onDragOver={handleDragOver}
-                  onDrop={handleDrop}
                 />
                 {/* Shop button as circular icon */}
                 <Link href="/shop">
@@ -448,7 +446,7 @@ export default function PetSettingsContent() {
                   </div>
                   {imagePreview && !showImageEditor && (
                     <div className="mt-2 text-xs text-black/60">
-                      Image selected. Click "Edit Image" to customize.
+                      Image selected. Click &quot;Edit Image&quot; to customize.
                     </div>
                   )}
                 </div>

@@ -10,9 +10,12 @@ if (process.env.NODE_ENV !== 'production' && globalForPrisma.prisma) {
   if (!('mission' in globalForPrisma.prisma)) {
     console.log('🔄 清除舊的 Prisma Client 實例（缺少 mission 模型）')
     // 嘗試斷開連接（異步，但不等待）
-    globalForPrisma.prisma.$disconnect().catch(() => {
-      // 忽略錯誤
-    })
+    const oldPrisma = globalForPrisma.prisma as PrismaClient | undefined
+    if (oldPrisma) {
+      oldPrisma.$disconnect().catch(() => {
+        // 忽略錯誤
+      })
+    }
     globalForPrisma.prisma = undefined
   }
 }

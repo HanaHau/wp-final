@@ -110,7 +110,7 @@ export default function DecorPanel({
                   style={{
                     userSelect: 'none',
                     WebkitUserDrag: accessory.count > 0 ? 'element' : 'none',
-                  }}
+                  } as React.CSSProperties & { WebkitUserDrag?: string }}
                 >
                   {/* Accessory icon/emoji */}
                   <div className="flex-shrink-0 mb-2 pointer-events-none select-none">

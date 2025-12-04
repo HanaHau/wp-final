@@ -11,6 +11,12 @@ const getWeekStart = (date: Date = new Date()): Date => {
   return weekStart
 }
 
+const getDayStart = (date: Date = new Date()): Date => {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
 export async function POST(request: Request) {
   try {
     const user = await getCurrentUser()

@@ -189,11 +189,19 @@ export async function GET() {
       // 如果仍然沒有找到，使用默認值（不應該發生，但以防萬一）
       if (!userMission) {
         console.warn(`⚠️ 無法獲取或創建任務記錄: ${missionDef.code}，使用默認值`)
-        userMission = {
+        missions.push({
+          type: missionDef.type,
+          missionId: missionDef.code, // 保持向後兼容
+          missionCode: missionDef.code,
+          name: missionDef.title,
+          points: missionDef.reward,
           progress: 0,
+          target: missionDef.target,
           completed: false,
           claimed: false,
-        } as any
+          weekStart: missionDef.type === 'weekly' ? weekStart.toISOString() : undefined,
+        })
+        continue
       }
 
       missions.push({

@@ -54,7 +54,7 @@ export default function SignInPage() {
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-bold uppercase tracking-wide">Pet Accounting</CardTitle>
           <CardDescription className="text-black/60">
-            Track expenses, earn points, decorate your pet's room
+            Track expenses, earn points, decorate your pet&apos;s room
           </CardDescription>
         </CardHeader>
         <CardContent>
