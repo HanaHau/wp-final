@@ -9,7 +9,7 @@ export async function GET() {
   try {
     const user = await getCurrentUser()
     if (!user || !user.email) {
-      return NextResponse.json({ error: '未授權' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // 從資料庫獲取用戶 ID，因為 session 的 ID 可能不一致
@@ -27,7 +27,7 @@ export async function GET() {
     })
 
     if (!userRecord) {
-      return NextResponse.json({ error: '找不到使用者' }, { status: 404 })
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     console.log(`取得使用者餘額: userId=${userRecord.id}, balance=${userRecord.balance}`)
@@ -40,7 +40,7 @@ export async function GET() {
     return response
   } catch (error) {
     console.error('取得使用者資訊失敗:', error)
-    return NextResponse.json({ error: '取得使用者資訊失敗' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to get user information' }, { status: 500 })
   }
 }
 
@@ -52,7 +52,7 @@ export async function PUT(request: Request) {
     console.log('當前使用者:', user?.email)
     if (!user || !user.email) {
       console.log('未授權，返回 401')
-      return NextResponse.json({ error: '未授權' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // 從資料庫獲取用戶 ID，因為 session 的 ID 可能不一致
@@ -62,7 +62,7 @@ export async function PUT(request: Request) {
     })
 
     if (!userRecord) {
-      return NextResponse.json({ error: '用戶不存在' }, { status: 404 })
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     const body = await request.json()
@@ -92,7 +92,7 @@ export async function PUT(request: Request) {
           // 不更新 userID，跳過
         } else {
           // 如果嘗試修改 userID，則不允許
-          return NextResponse.json({ error: 'User ID 設定後無法更改' }, { status: 400 })
+          return NextResponse.json({ error: 'User ID cannot be changed after setting' }, { status: 400 })
         }
       } else {
         // 如果用戶還沒有 userID，則允許設定
@@ -101,7 +101,7 @@ export async function PUT(request: Request) {
             where: { userID: userID.trim() },
           })
           if (existingUser && existingUser.id !== userRecord.id) {
-            return NextResponse.json({ error: '此 User ID 已被使用' }, { status: 400 })
+            return NextResponse.json({ error: 'This User ID is already in use' }, { status: 400 })
           }
           updateData.userID = userID.trim()
         } else {
@@ -187,9 +187,9 @@ export async function PUT(request: Request) {
     console.error('錯誤詳情:', error)
     console.error('錯誤堆疊:', error.stack)
     if (error.code === 'P2002') {
-      return NextResponse.json({ error: '此 User ID 已被使用' }, { status: 400 })
+      return NextResponse.json({ error: 'This User ID is already in use' }, { status: 400 })
     }
-    return NextResponse.json({ error: '更新使用者資訊失敗' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update user information' }, { status: 500 })
   }
 }
 

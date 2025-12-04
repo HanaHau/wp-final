@@ -108,15 +108,15 @@ export default function FriendsContent() {
       } else {
         const error = await res.json()
         toast({
-          title: '搜尋失敗',
-          description: error.error || '請稍後再試',
+          title: 'Search Failed',
+          description: error.error || 'Please try again later',
           variant: 'destructive',
         })
       }
     } catch (error) {
       toast({
-        title: '搜尋失敗',
-        description: '請稍後再試',
+        title: 'Search Failed',
+        description: 'Please try again later',
         variant: 'destructive',
       })
     } finally {
@@ -135,8 +135,8 @@ export default function FriendsContent() {
       if (res.ok) {
         const data = await res.json()
         toast({
-          title: '成功',
-          description: data.message || '好友已加入',
+          title: 'Success',
+          description: data.message || 'Friend added',
         })
         fetchFriends()
         // Refresh search results to update status
@@ -149,21 +149,21 @@ export default function FriendsContent() {
       } else {
         const error = await res.json()
         // If already friends or pending, refresh search to update status
-        if (error.error === '已經是好友了' || error.error === '已送出邀請，等待對方回應') {
+        if (error.error === 'Already friends' || error.error === 'Invitation sent, waiting for response') {
           if (searchQuery.trim()) {
             handleSearch()
           }
         }
         toast({
-          title: '加入失敗',
-          description: error.error || '請稍後再試',
+          title: 'Add Failed',
+          description: error.error || 'Please try again later',
           variant: 'destructive',
         })
       }
     } catch (error) {
       toast({
-        title: '加入失敗',
-        description: '請稍後再試',
+        title: 'Add Failed',
+        description: 'Please try again later',
         variant: 'destructive',
       })
     }
@@ -176,7 +176,7 @@ export default function FriendsContent() {
       
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold uppercase tracking-wide">好友</h1>
+          <h1 className="text-2xl font-bold uppercase tracking-wide">Friends</h1>
           <div className="flex gap-2">
             <Button
               onClick={() => setShowActivityLog(!showActivityLog)}
@@ -184,7 +184,7 @@ export default function FriendsContent() {
               className="gap-2 relative"
             >
               <BookOpen className="h-4 w-4" />
-              好友日誌
+              Activity Log
               {unreadActivityCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-black text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
                   {unreadActivityCount > 9 ? '9+' : unreadActivityCount}
@@ -197,7 +197,7 @@ export default function FriendsContent() {
               className="gap-2 relative"
             >
               <Mail className="h-4 w-4" />
-              邀請
+              Invitations
               {invitationCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
                   {invitationCount > 9 ? '9+' : invitationCount}
@@ -209,7 +209,7 @@ export default function FriendsContent() {
               className="gap-2"
             >
               <UserPlus className="h-4 w-4" />
-              加入好友
+              Add Friend
             </Button>
           </div>
         </div>
@@ -218,7 +218,7 @@ export default function FriendsContent() {
         <div className="mb-8">
           <div className="flex gap-2">
             <Input
-              placeholder="搜尋 userID 或 email..."
+              placeholder="Search userID or email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => {
@@ -230,7 +230,7 @@ export default function FriendsContent() {
             />
             <Button onClick={handleSearch} disabled={isSearching}>
               <Search className="h-4 w-4 mr-2" />
-              搜尋
+              Search
             </Button>
           </div>
 
@@ -238,7 +238,7 @@ export default function FriendsContent() {
           {searchResults.length > 0 && (
             <div className="mt-4 space-y-2">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-black/60 mb-2">
-                搜尋結果
+                Search Results
               </h3>
               {searchResults.map((user) => {
                 const status = user.friendshipStatus || 'none'
@@ -267,7 +267,7 @@ export default function FriendsContent() {
                         className="gap-2 cursor-not-allowed"
                       >
                         <Check className="h-4 w-4" />
-                        好友
+                        Friend
                       </Button>
                     ) : isPendingSent ? (
                       <Button
@@ -277,7 +277,7 @@ export default function FriendsContent() {
                         className="gap-2 cursor-not-allowed"
                       >
                         <Clock className="h-4 w-4" />
-                        等待回應
+                        Pending
                       </Button>
                     ) : (
                       <Button
@@ -286,7 +286,7 @@ export default function FriendsContent() {
                         className="gap-2"
                       >
                         <UserPlus className="h-4 w-4" />
-                        加入
+                        Add
                       </Button>
                     )}
                   </div>
@@ -300,15 +300,15 @@ export default function FriendsContent() {
         <div>
           <h2 className="text-lg font-semibold mb-4 uppercase tracking-wide flex items-center gap-2">
             <Users className="h-5 w-5" />
-            我的好友 ({friends.length})
+            My Friends ({friends.length})
           </h2>
 
           {loading ? (
-            <div className="text-center py-8 text-black/60">載入中...</div>
+            <div className="text-center py-8 text-black/60">Loading...</div>
           ) : friends.length === 0 ? (
             <div className="text-center py-8 text-black/60">
-              <p className="mb-2">還沒有好友</p>
-              <p className="text-sm">使用上方搜尋欄來尋找並加入好友</p>
+              <p className="mb-2">No friends yet</p>
+              <p className="text-sm">Use the search bar above to find and add friends</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -329,7 +329,7 @@ export default function FriendsContent() {
                   </div>
                   <Button variant="ghost" size="sm" className="gap-2">
                     <Heart className="h-4 w-4" />
-                    查看
+                    View
                   </Button>
                 </Link>
               ))}

@@ -338,8 +338,8 @@ export default function DashboardContent() {
               setShowMissionsDialog(!showMissionsDialog)
             }}
             className="bg-white/90 backdrop-blur-sm rounded-lg border border-black/20 w-16 h-18 flex items-center justify-center shadow-sm hover:bg-black/5 transition-colors relative"
-            aria-label="查看任務"
-            title="任務"
+            aria-label="View Missions"
+            title="Missions"
           >
             <ListChecks className="h-5 w-5 text-black" />
             {hasUnclaimedMissions && (
@@ -386,8 +386,8 @@ export default function DashboardContent() {
                 ? 'bg-black text-white animate-pulse' 
                 : 'bg-white/90 backdrop-blur-sm text-black hover:bg-black/5'
             }`}
-            aria-label="開啟倉庫"
-            title={showEditPanel ? '倉庫 (點擊關閉)' : '開啟倉庫'}
+            aria-label="Open Inventory"
+            title={showEditPanel ? 'Inventory (Click to close)' : 'Open Inventory'}
           >
             <Package className="h-4 w-4 lg:h-5 lg:w-5" />
           </button>
@@ -398,7 +398,7 @@ export default function DashboardContent() {
       {showMissionsDialog && (
         <div className="fixed left-4 top-20 bottom-24 w-80 bg-white/95 backdrop-blur-md rounded-2xl border border-black/20 shadow-xl z-40 overflow-hidden flex flex-col">
           <div className="p-4 border-b border-black/20 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-black uppercase tracking-wide">任務</h2>
+            <h2 className="text-lg font-bold text-black uppercase tracking-wide">Missions</h2>
             <button
               onClick={() => {
                 setShowMissionsDialog(false)

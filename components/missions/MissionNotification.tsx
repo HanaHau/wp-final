@@ -54,18 +54,18 @@ export default function MissionNotification() {
           <Bell className="h-5 w-5 text-green-600" />
         </div>
         <div className="flex-1">
-          <h3 className="font-bold text-black mb-1">任務完成！</h3>
+          <h3 className="font-bold text-black mb-1">Mission Completed!</h3>
           <div className="text-sm text-black/60 mb-2">
             {completedMissions.map((m) => (
               <div key={m.missionId}>{m.name} +{m.points} points</div>
             ))}
           </div>
-          <p className="text-xs text-black/40">請前往任務面板領取獎勵</p>
+          <p className="text-xs text-black/40">Please go to the missions panel to claim rewards</p>
         </div>
         <button
           onClick={() => setShowNotification(false)}
           className="text-black/40 hover:text-black/60 transition-colors"
-          aria-label="關閉通知"
+          aria-label="Close notification"
         >
           <X className="h-4 w-4" />
         </button>

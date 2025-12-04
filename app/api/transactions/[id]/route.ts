@@ -7,7 +7,7 @@ const transactionSchema = z.object({
   amount: z.number().positive(),
   category: z.string().min(1).optional(), // Category name (will be resolved to categoryId)
   type: z.enum(['EXPENSE', 'INCOME']).optional(), // For backward compatibility
-  typeId: z.number().int().min(1).max(2).optional(), // 1=支出, 2=收入
+  typeId: z.number().int().min(1).max(2).optional(), // 1=Expense, 2=Income
   categoryId: z.string().optional(), // Direct categoryId
   date: z.string().datetime().optional(),
   note: z.string().optional(),
@@ -46,26 +46,26 @@ async function findOrCreateCategory(
     ],
   })
 
-  // If not found, use the fallback "其他" category
+  // If not found, use the fallback "Other" category
   if (!category) {
     category = await prisma.category.findFirst({
       where: {
         typeId: typeId,
         userId: null,
         isDefault: true,
-        name: '其他',
+        name: 'Other',
       },
     })
 
     if (!category) {
-      throw new Error(`找不到類別: ${categoryName}，且找不到 fallback 類別`)
+      throw new Error(`Category not found: ${categoryName}, and fallback category not found`)
     }
   }
 
   return category.id
 }
 
-// PUT /api/transactions/[id] - 更新記帳
+// PUT /api/transactions/[id] - Update transaction
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -73,7 +73,7 @@ export async function PUT(
   try {
     const user = await getCurrentUser()
     if (!user) {
-      return NextResponse.json({ error: '未授權' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const transaction = await prisma.transaction.findUnique({
@@ -81,7 +81,7 @@ export async function PUT(
     })
 
     if (!transaction || transaction.userId !== user.id) {
-      return NextResponse.json({ error: '找不到記錄' }, { status: 404 })
+      return NextResponse.json({ error: 'Record not found' }, { status: 404 })
     }
 
     const body = await request.json()
@@ -93,7 +93,7 @@ export async function PUT(
     })
 
     if (!currentTransaction) {
-      return NextResponse.json({ error: '找不到記錄' }, { status: 404 })
+      return NextResponse.json({ error: 'Record not found' }, { status: 404 })
     }
 
     // Determine typeId
@@ -112,24 +112,24 @@ export async function PUT(
       categoryId = currentTransaction.categoryId
     }
 
-    // 計算餘額變化：先回退舊交易，再應用新交易
+    // Calculate balance change: first revert old transaction, then apply new transaction
     let balanceDelta = 0
     
-    // 回退舊交易的影響
+    // Revert old transaction impact
     if (currentTransaction.typeId === 1) { // EXPENSE
       balanceDelta += currentTransaction.amount
     } else if (currentTransaction.typeId === 2) { // INCOME
       balanceDelta -= currentTransaction.amount
     }
 
-    // 應用新交易的影響
+    // Apply new transaction impact
     if (typeId === 1) { // EXPENSE
       balanceDelta -= validatedData.amount
     } else if (typeId === 2) { // INCOME
       balanceDelta += validatedData.amount
     }
 
-    // 更新餘額
+    // Update balance
     if (balanceDelta !== 0) {
       const updatedUser = await prisma.user.update({
         where: { id: user.id },
@@ -142,7 +142,7 @@ export async function PUT(
           balance: true,
         },
       })
-      console.log(`更新記帳餘額: 舊typeId=${currentTransaction.typeId}, 新typeId=${typeId}, 舊amount=${currentTransaction.amount}, 新amount=${validatedData.amount}, delta=${balanceDelta}, 新餘額=${updatedUser.balance}`)
+      console.log(`Update transaction balance: old typeId=${currentTransaction.typeId}, new typeId=${typeId}, old amount=${currentTransaction.amount}, new amount=${validatedData.amount}, delta=${balanceDelta}, new balance=${updatedUser.balance}`)
     }
 
     const updateData: any = {
@@ -175,16 +175,16 @@ export async function PUT(
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: '資料驗證失敗', details: error.errors },
+        { error: 'Data validation failed', details: error.errors },
         { status: 400 }
       )
     }
-    console.error('更新記帳錯誤:', error)
-    return NextResponse.json({ error: '更新記帳失敗' }, { status: 500 })
+    console.error('Update transaction error:', error)
+    return NextResponse.json({ error: 'Failed to update transaction' }, { status: 500 })
   }
 }
 
-// DELETE /api/transactions/[id] - 刪除記帳
+// DELETE /api/transactions/[id] - Delete transaction
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -192,7 +192,7 @@ export async function DELETE(
   try {
     const user = await getCurrentUser()
     if (!user) {
-      return NextResponse.json({ error: '未授權' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const transaction = await prisma.transaction.findUnique({
@@ -200,14 +200,14 @@ export async function DELETE(
     })
 
     if (!transaction || transaction.userId !== user.id) {
-      return NextResponse.json({ error: '找不到記錄' }, { status: 404 })
+      return NextResponse.json({ error: 'Record not found' }, { status: 404 })
     }
 
-    // 回退餘額變化
+    // Revert balance change
     let balanceDelta = 0
-    if (transaction.typeId === 1) { // EXPENSE - 回退（增加餘額）
+    if (transaction.typeId === 1) { // EXPENSE - revert (increase balance)
       balanceDelta = transaction.amount
-    } else if (transaction.typeId === 2) { // INCOME - 回退（減少餘額）
+    } else if (transaction.typeId === 2) { // INCOME - revert (decrease balance)
       balanceDelta = -transaction.amount
     }
 
@@ -223,17 +223,17 @@ export async function DELETE(
           balance: true,
         },
       })
-      console.log(`刪除記帳餘額回退: typeId=${transaction.typeId}, amount=${transaction.amount}, delta=${balanceDelta}, 新餘額=${updatedUser.balance}`)
+      console.log(`Delete transaction balance reverted: typeId=${transaction.typeId}, amount=${transaction.amount}, delta=${balanceDelta}, new balance=${updatedUser.balance}`)
     }
 
     await prisma.transaction.delete({
       where: { id: params.id },
     })
 
-    return NextResponse.json({ message: '刪除成功' })
+    return NextResponse.json({ message: 'Deleted successfully' })
   } catch (error) {
-    console.error('刪除記帳錯誤:', error)
-    return NextResponse.json({ error: '刪除記帳失敗' }, { status: 500 })
+    console.error('Delete transaction error:', error)
+    return NextResponse.json({ error: 'Failed to delete transaction' }, { status: 500 })
   }
 }
 

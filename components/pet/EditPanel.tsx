@@ -117,11 +117,11 @@ export default function EditPanel({
       }`}>
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-black/20 bg-white/90 backdrop-blur-sm">
-          <h2 className="text-xl lg:text-2xl font-bold uppercase tracking-wide">倉庫</h2>
+          <h2 className="text-xl lg:text-2xl font-bold uppercase tracking-wide">Warehouse</h2>
           <button
             onClick={onClose}
             className="p-2 rounded-lg border border-black/20 hover:bg-black/5 transition-colors"
-            aria-label="關閉倉庫"
+            aria-label="Close warehouse"
           >
             <X className="h-5 w-5 lg:h-6 lg:w-6" />
           </button>
@@ -179,12 +179,12 @@ export default function EditPanel({
           {/* Empty state */}
           {availableStickers.length === 0 && (
             <div className="text-center py-12 text-black/60">
-              <p className="text-sm uppercase tracking-wide">倉庫空空的</p>
-              <p className="text-xs mt-2 mb-4">前往商店購買貼紙吧！</p>
+              <p className="text-sm uppercase tracking-wide">Warehouse is empty</p>
+              <p className="text-xs mt-2 mb-4">Go to the shop to buy stickers!</p>
               <Link href="/shop">
                 <button className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-black/20 hover:bg-black/5 transition-colors text-xs font-semibold uppercase tracking-wide">
                   <ShoppingCart className="h-4 w-4" />
-                  前往商店
+                  Go to Shop
                 </button>
               </Link>
             </div>
@@ -194,7 +194,7 @@ export default function EditPanel({
         {/* Footer */}
         <div className="p-4 border-t border-black/20 bg-white/50 backdrop-blur-sm">
           <p className="text-xs text-center text-black/60 uppercase tracking-wide">
-            拖放物品到房間中
+            Drag and drop items into the room
           </p>
         </div>
       </div>

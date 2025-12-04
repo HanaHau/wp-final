@@ -9,7 +9,7 @@ export async function POST(
   try {
     const user = await getCurrentUser()
     if (!user) {
-      return NextResponse.json({ error: '未授權' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const userRecord = await prisma.user.findUnique({
@@ -18,7 +18,7 @@ export async function POST(
     })
 
     if (!userRecord) {
-      return NextResponse.json({ error: '使用者不存在' }, { status: 404 })
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     const invitationId = params.id
@@ -28,26 +28,26 @@ export async function POST(
     })
 
     if (!invitation) {
-      return NextResponse.json({ error: '邀請不存在' }, { status: 404 })
+      return NextResponse.json({ error: 'Invitation not found' }, { status: 404 })
     }
 
     if (invitation.friendId !== userRecord.id) {
-      return NextResponse.json({ error: '無權限' }, { status: 403 })
+      return NextResponse.json({ error: 'No permission' }, { status: 403 })
     }
 
     if (invitation.status !== 'PENDING') {
-      return NextResponse.json({ error: '邀請狀態不正確' }, { status: 400 })
+      return NextResponse.json({ error: 'Invitation status is incorrect' }, { status: 400 })
     }
 
     await prisma.friend.delete({
       where: { id: invitationId },
     })
 
-    return NextResponse.json({ message: '好友邀請已拒絕' })
+    return NextResponse.json({ message: 'Friend invitation rejected' })
   } catch (error) {
     console.error('Reject invitation error:', error)
     return NextResponse.json(
-      { error: '拒絕邀請失敗' },
+      { error: 'Failed to reject invitation' },
       { status: 500 }
     )
   }

@@ -10,7 +10,7 @@ const categoryUpdateSchema = z.object({
   icon: z.string().nullable().optional(),
 })
 
-// PUT /api/categories/[id] - 更新類別
+// PUT /api/categories/[id] - Update category
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> | { id: string } }
@@ -18,7 +18,7 @@ export async function PUT(
   try {
     const user = await getCurrentUser()
     if (!user) {
-      return NextResponse.json({ error: '未授權' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Handle params as Promise (Next.js 15+) or object (Next.js 14)
@@ -26,7 +26,7 @@ export async function PUT(
     const categoryId = resolvedParams.id
 
     if (!categoryId) {
-      return NextResponse.json({ error: '缺少類別 ID' }, { status: 400 })
+      return NextResponse.json({ error: 'Missing category ID' }, { status: 400 })
     }
 
     const category = await prisma.category.findUnique({
@@ -34,12 +34,12 @@ export async function PUT(
     })
 
     if (!category) {
-      return NextResponse.json({ error: '找不到類別' }, { status: 404 })
+      return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    // 確保只能修改自己的類別
+    // Ensure only own categories can be modified
     if (category.userId !== user.id) {
-      return NextResponse.json({ error: '無權限修改此類別' }, { status: 403 })
+      return NextResponse.json({ error: 'No permission to modify this category' }, { status: 403 })
     }
 
     const body = await request.json()
@@ -58,7 +58,7 @@ export async function PUT(
       })
 
       if (existing) {
-        return NextResponse.json({ error: '此類別名稱已存在' }, { status: 400 })
+        return NextResponse.json({ error: 'This category name already exists' }, { status: 400 })
       }
     }
 
@@ -74,16 +74,16 @@ export async function PUT(
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: '資料驗證失敗', details: error.errors },
+        { error: 'Data validation failed', details: error.errors },
         { status: 400 }
       )
     }
-    console.error('更新類別錯誤:', error)
-    return NextResponse.json({ error: '更新類別失敗' }, { status: 500 })
+    console.error('Update category error:', error)
+    return NextResponse.json({ error: 'Failed to update category' }, { status: 500 })
   }
 }
 
-// DELETE /api/categories/[id] - 刪除類別
+// DELETE /api/categories/[id] - Delete category
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> | { id: string } }
@@ -91,7 +91,7 @@ export async function DELETE(
   try {
     const user = await getCurrentUser()
     if (!user) {
-      return NextResponse.json({ error: '未授權' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Handle params as Promise (Next.js 15+) or object (Next.js 14)
@@ -99,7 +99,7 @@ export async function DELETE(
     const categoryId = resolvedParams.id
 
     if (!categoryId) {
-      return NextResponse.json({ error: '缺少類別 ID' }, { status: 400 })
+      return NextResponse.json({ error: 'Missing category ID' }, { status: 400 })
     }
 
     const category = await prisma.category.findUnique({
@@ -110,15 +110,15 @@ export async function DELETE(
     })
 
     if (!category) {
-      return NextResponse.json({ error: '找不到類別' }, { status: 404 })
+      return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    // 確保只能刪除自己的類別
+    // Ensure only own categories can be deleted
     if (category.userId !== user.id) {
-      return NextResponse.json({ error: '無權限刪除此類別' }, { status: 403 })
+      return NextResponse.json({ error: 'No permission to delete this category' }, { status: 403 })
     }
 
-    // 檢查是否有交易使用此類別
+    // Check if any transactions use this category
     const transactionsUsingCategory = await prisma.transaction.findFirst({
       where: {
         categoryId: categoryId,
@@ -127,19 +127,19 @@ export async function DELETE(
 
     if (transactionsUsingCategory) {
       return NextResponse.json({ 
-        error: '無法刪除此類別，因為仍有交易使用此類別。請先刪除或修改相關交易。' 
+        error: 'Cannot delete this category because there are still transactions using it. Please delete or modify related transactions first.' 
       }, { status: 400 })
     }
 
-    // 刪除類別
+    // Delete category
     await prisma.category.delete({
       where: { id: categoryId },
     })
 
-    return NextResponse.json({ message: '刪除成功' })
+    return NextResponse.json({ message: 'Deleted successfully' })
   } catch (error) {
-    console.error('刪除類別錯誤:', error)
-    return NextResponse.json({ error: '刪除類別失敗' }, { status: 500 })
+    console.error('Delete category error:', error)
+    return NextResponse.json({ error: 'Failed to delete category' }, { status: 500 })
   }
 }
 

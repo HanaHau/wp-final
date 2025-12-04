@@ -7,7 +7,7 @@ export async function GET() {
   try {
     const user = await getCurrentUser()
     if (!user) {
-      return NextResponse.json({ error: '未授權' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const userRecord = await prisma.user.findUnique({
@@ -16,7 +16,7 @@ export async function GET() {
     })
 
     if (!userRecord) {
-      return NextResponse.json({ error: '使用者不存在' }, { status: 404 })
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     // Get friends where current user is either userId or friendId
@@ -73,7 +73,7 @@ export async function GET() {
   } catch (error) {
     console.error('Get friends error:', error)
     return NextResponse.json(
-      { error: '取得好友列表失敗' },
+      { error: 'Failed to get friends list' },
       { status: 500 }
     )
   }
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser()
     if (!user) {
-      return NextResponse.json({ error: '未授權' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const userRecord = await prisma.user.findUnique({
@@ -93,18 +93,18 @@ export async function POST(request: NextRequest) {
     })
 
     if (!userRecord) {
-      return NextResponse.json({ error: '使用者不存在' }, { status: 404 })
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     const body = await request.json()
     const { friendId } = body
 
     if (!friendId) {
-      return NextResponse.json({ error: '請提供好友 ID' }, { status: 400 })
+      return NextResponse.json({ error: 'Please provide friend ID' }, { status: 400 })
     }
 
     if (friendId === userRecord.id) {
-      return NextResponse.json({ error: '不能加自己為好友' }, { status: 400 })
+      return NextResponse.json({ error: 'Cannot add yourself as a friend' }, { status: 400 })
     }
 
     // Check if friend exists
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (!friendUser) {
-      return NextResponse.json({ error: '使用者不存在' }, { status: 404 })
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     // Check if already friends
@@ -129,17 +129,17 @@ export async function POST(request: NextRequest) {
 
     if (existingFriendship) {
       if (existingFriendship.status === 'accepted') {
-        return NextResponse.json({ error: '已經是好友了' }, { status: 400 })
+        return NextResponse.json({ error: 'Already friends' }, { status: 400 })
       }
       if (existingFriendship.status === 'PENDING') {
         if (existingFriendship.userId === userRecord.id) {
-          return NextResponse.json({ error: '已送出邀請，等待對方回應' }, { status: 400 })
+          return NextResponse.json({ error: 'Invitation sent, waiting for response' }, { status: 400 })
         } else {
           const updated = await prisma.friend.update({
             where: { id: existingFriendship.id },
             data: { status: 'accepted' },
           })
-          return NextResponse.json({ message: '好友請求已接受', friendship: updated })
+          return NextResponse.json({ message: 'Friend request accepted', friendship: updated })
         }
       }
     }
@@ -153,11 +153,11 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    return NextResponse.json({ message: '好友邀請已送出', friendship })
+    return NextResponse.json({ message: 'Friend invitation sent', friendship })
   } catch (error) {
     console.error('Add friend error:', error)
     return NextResponse.json(
-      { error: '加入好友失敗' },
+      { error: 'Failed to add friend' },
       { status: 500 }
     )
   }

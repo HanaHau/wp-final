@@ -51,16 +51,16 @@ export default function FriendPetContent({ friendId }: { friendId: string }) {
       } else {
         const error = await res.json()
         toast({
-          title: '載入失敗',
-          description: error.error || '無法載入好友的寵物',
+          title: 'Load failed',
+          description: error.error || 'Failed to load friend\'s pet',
           variant: 'destructive',
         })
         router.push('/friends')
       }
     } catch (error) {
       toast({
-        title: '載入失敗',
-        description: '請稍後再試',
+        title: 'Load failed',
+        description: 'Please try again later',
         variant: 'destructive',
       })
       router.push('/friends')

@@ -131,7 +131,7 @@ export default function MissionsPanel({ onMissionCompleted }: MissionsPanelProps
   if (loading) {
     return (
       <div className="text-center py-8">
-        <div className="text-black/60 text-sm">載入中...</div>
+        <div className="text-black/60 text-sm">Loading...</div>
       </div>
     )
   }
@@ -148,12 +148,12 @@ export default function MissionsPanel({ onMissionCompleted }: MissionsPanelProps
   if (missions.length === 0 && !loading) {
     return (
       <div className="text-center py-8">
-        <div className="text-black/40 text-sm mb-4">沒有任務</div>
+        <div className="text-black/40 text-sm mb-4">No missions</div>
         <button
           onClick={fetchMissions}
           className="text-xs text-black/60 underline hover:text-black"
         >
-          點擊重新載入
+          Click to reload
         </button>
       </div>
     )
@@ -165,11 +165,11 @@ export default function MissionsPanel({ onMissionCompleted }: MissionsPanelProps
         <TabsList className="grid grid-cols-2 flex-1">
           <TabsTrigger value="daily" className="gap-2">
             <Calendar className="h-4 w-4" />
-            每日任務
+            Daily Missions
           </TabsTrigger>
           <TabsTrigger value="weekly" className="gap-2">
             <Target className="h-4 w-4" />
-            每週任務
+            Weekly Missions
           </TabsTrigger>
         </TabsList>
         <Button
@@ -178,7 +178,7 @@ export default function MissionsPanel({ onMissionCompleted }: MissionsPanelProps
           onClick={fetchMissions}
           disabled={loading}
           className="ml-2 h-8 w-8 p-0"
-          title="刷新任務"
+          title="Refresh Missions"
         >
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
         </Button>
@@ -196,7 +196,7 @@ export default function MissionsPanel({ onMissionCompleted }: MissionsPanelProps
           </div>
         ) : (
           <div className="text-center py-8 text-black/40 text-sm">
-            {loading ? '載入中...' : '沒有每日任務'}
+            {loading ? 'Loading...' : 'No daily missions'}
           </div>
         )}
       </TabsContent>
@@ -213,7 +213,7 @@ export default function MissionsPanel({ onMissionCompleted }: MissionsPanelProps
           </div>
         ) : (
           <div className="text-center py-8 text-black/40 text-sm">
-            {loading ? '載入中...' : '沒有每週任務'}
+            {loading ? 'Loading...' : 'No weekly missions'}
           </div>
         )}
       </TabsContent>

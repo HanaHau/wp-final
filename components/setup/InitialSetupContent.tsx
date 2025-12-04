@@ -17,7 +17,7 @@ export default function InitialSetupContent() {
   const router = useRouter()
   const { toast } = useToast()
   const [userID, setUserID] = useState<string>('')
-  const [petName, setPetName] = useState<string>('我的寵物')
+  const [petName, setPetName] = useState<string>('My Pet')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [editedImageUrl, setEditedImageUrl] = useState<string | null>(null)
@@ -35,8 +35,8 @@ export default function InitialSetupContent() {
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
     if (!allowedTypes.includes(file.type)) {
       toast({
-        title: '檔案類型錯誤',
-        description: '請選擇 JPEG、PNG、GIF 或 WebP 圖片檔案。',
+        title: 'Invalid File Type',
+        description: 'Please select a JPEG, PNG, GIF, or WebP image file.',
         variant: 'destructive',
       })
       return
@@ -45,8 +45,8 @@ export default function InitialSetupContent() {
     // 檢查檔案大小 - 限制 2MB
     if (file.size > 2 * 1024 * 1024) {
       toast({
-        title: '檔案過大',
-        description: '圖片必須小於 2MB，請壓縮您的圖片。',
+        title: 'File Too Large',
+        description: 'Image must be smaller than 2MB. Please compress your image.',
         variant: 'destructive',
       })
       return
@@ -56,8 +56,8 @@ export default function InitialSetupContent() {
     const reader = new FileReader()
     reader.onerror = () => {
       toast({
-        title: '讀取檔案錯誤',
-        description: '無法讀取圖片檔案，請重試。',
+        title: 'File Read Error',
+        description: 'Unable to read image file. Please try again.',
         variant: 'destructive',
       })
       setImageFile(null)
@@ -90,8 +90,8 @@ export default function InitialSetupContent() {
     setImagePreview(editedUrl)
     setShowImageEditor(false)
     toast({
-      title: '編輯完成',
-      description: '已儲存您選擇的區域',
+      title: 'Edit Complete',
+      description: 'Your selected area has been saved',
     })
   }
 
@@ -108,8 +108,8 @@ export default function InitialSetupContent() {
   const handleSubmit = async () => {
     if (!userID.trim()) {
       toast({
-        title: '驗證錯誤',
-        description: '請輸入 userID。',
+        title: 'Validation Error',
+        description: 'Please enter a userID.',
         variant: 'destructive',
       })
       return
@@ -117,8 +117,8 @@ export default function InitialSetupContent() {
 
     if (userID.length > 50) {
       toast({
-        title: '驗證錯誤',
-        description: 'userID 長度不能超過 50 個字元。',
+        title: 'Validation Error',
+        description: 'userID length cannot exceed 50 characters.',
         variant: 'destructive',
       })
       return
@@ -126,8 +126,8 @@ export default function InitialSetupContent() {
 
     if (!petName.trim()) {
       toast({
-        title: '驗證錯誤',
-        description: '請輸入寵物名稱。',
+        title: 'Validation Error',
+        description: 'Please enter a pet name.',
         variant: 'destructive',
       })
       return
@@ -154,7 +154,7 @@ export default function InitialSetupContent() {
               if (reader.result) {
                 resolve(reader.result as string)
               } else {
-                reject(new Error('無法讀取圖片'))
+                reject(new Error('Unable to read image'))
               }
             }
             reader.onerror = reject
@@ -179,13 +179,13 @@ export default function InitialSetupContent() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: '未知錯誤' }))
-        console.error('API 錯誤回應:', errorData)
-        const errorMessage = errorData.error || errorData.details || '設定失敗'
-        // 如果是 userID 重複錯誤，特別處理
-        if (errorMessage.includes('userID') || errorMessage.includes('已被使用')) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        console.error('API error response:', errorData)
+        const errorMessage = errorData.error || errorData.details || 'Setup failed'
+        // If userID duplicate error, handle specially
+        if (errorMessage.includes('userID') || errorMessage.includes('already') || errorMessage.includes('taken')) {
           toast({
-            title: 'userID 已被使用',
+            title: 'userID Already Taken',
             description: errorMessage,
             variant: 'destructive',
           })
@@ -196,8 +196,8 @@ export default function InitialSetupContent() {
       }
 
       toast({
-        title: '設定完成！',
-        description: '歡迎使用寵物記帳 APP！',
+        title: 'Setup Complete!',
+        description: 'Welcome to Pet Accounting App!',
       })
 
       // 重導向到 dashboard
@@ -206,8 +206,8 @@ export default function InitialSetupContent() {
     } catch (error: any) {
       console.error('設定錯誤:', error)
       toast({
-        title: '設定失敗',
-        description: error.message || '請重試',
+        title: 'Setup Failed',
+        description: error.message || 'Please try again',
         variant: 'destructive',
       })
     } finally {
@@ -222,10 +222,10 @@ export default function InitialSetupContent() {
       <Card className="w-full max-w-2xl border-2 border-black">
         <CardHeader>
           <CardTitle className="text-2xl font-bold uppercase tracking-wide text-center">
-            歡迎使用寵物記帳 APP
+            Welcome to Pet Accounting App
           </CardTitle>
           <p className="text-sm text-black/60 text-center mt-2">
-            請完成以下設定以開始使用
+            Please complete the following setup to get started
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -235,14 +235,14 @@ export default function InitialSetupContent() {
               UserID <span className="text-red-600">*</span>
             </Label>
             <p className="text-xs text-black/40 mt-1 mb-2">
-              請輸入您的 userID（最多 50 個字元）。此 ID 必須是唯一的，若已被使用，請選擇其他 ID。
+              Please enter your userID (max 50 characters). This ID must be unique. If it's already taken, please choose another ID.
             </p>
             <Input
               id="userID"
               type="text"
               value={userID}
               onChange={(e) => setUserID(e.target.value)}
-              placeholder="請輸入 userID"
+              placeholder="Enter your userID"
               className="mt-2"
               maxLength={50}
               required
@@ -252,17 +252,17 @@ export default function InitialSetupContent() {
           {/* 寵物名稱 */}
           <div>
             <Label htmlFor="petName" className="text-sm uppercase tracking-wide text-black/60">
-              寵物名稱
+              Pet Name
             </Label>
             <p className="text-xs text-black/40 mt-1 mb-2">
-              為您的寵物取一個名字吧！之後可以在設定頁面中更改。
+              Give your pet a name! You can change it later in the settings page.
             </p>
             <Input
               id="petName"
               type="text"
               value={petName}
               onChange={(e) => setPetName(e.target.value)}
-              placeholder="我的寵物"
+              placeholder="My Pet"
               className="mt-2"
               maxLength={20}
             />
@@ -271,10 +271,10 @@ export default function InitialSetupContent() {
           {/* 寵物照片上傳 */}
           <div>
             <Label htmlFor="petImage" className="text-sm uppercase tracking-wide text-black/60">
-              寵物照片（選填）
+              Pet Photo (Optional)
             </Label>
             <p className="text-xs text-black/40 mt-1 mb-2">
-              上傳您的寵物照片。若不上傳，將使用預設圖片。上傳後可以使用畫筆工具選擇要保留的區域。選擇後無法更改，若要更改需要重新飼養。
+              Upload your pet photo. If not uploaded, the default image will be used. After uploading, you can use the brush tool to select areas to keep. Once selected, it cannot be changed. To change, you need to restart.
             </p>
             
             <div className="flex items-center gap-2 mt-2">
@@ -296,7 +296,7 @@ export default function InitialSetupContent() {
                     className="border-2 border-black"
                   >
                     <Edit className="h-4 w-4 mr-1" />
-                    編輯
+                    Edit
                   </Button>
                   <Button
                     variant="outline"
@@ -305,7 +305,7 @@ export default function InitialSetupContent() {
                     className="border-2 border-black"
                   >
                     <X className="h-4 w-4 mr-1" />
-                    移除
+                    Remove
                   </Button>
                 </>
               )}
@@ -316,10 +316,10 @@ export default function InitialSetupContent() {
           {(imageFile || previewImage !== '/cat.png') && (
             <div>
               <Label className="text-sm uppercase tracking-wide text-black/60">
-                寵物朝向
+                Pet Facing Direction
               </Label>
               <p className="text-xs text-black/40 mt-1 mb-2">
-                請選擇您上傳的圖片中，寵物頭部朝向的方向。這將用於決定寵物在房間中移動時的顯示方式。（如果圖片是正面，或沒有特定朝向，就隨便選一個方向）
+                Please select the direction your pet's head is facing in the uploaded image. This will determine how your pet appears when moving in the room. (If the image is front-facing or has no specific direction, just pick any direction)
               </p>
               <div className="flex gap-4 mt-2">
                 <button
@@ -331,7 +331,7 @@ export default function InitialSetupContent() {
                       : 'bg-white text-black hover:bg-black/10'
                   }`}
                 >
-                  朝左
+                  Left
                 </button>
                 <button
                   type="button"
@@ -342,7 +342,7 @@ export default function InitialSetupContent() {
                       : 'bg-white text-black hover:bg-black/10'
                   }`}
                 >
-                  朝右
+                  Right
                 </button>
               </div>
             </div>
@@ -351,13 +351,13 @@ export default function InitialSetupContent() {
           {/* 預覽 */}
           <div>
             <Label className="text-sm uppercase tracking-wide text-black/60">
-              預覽
+              Preview
             </Label>
             <div className="mt-2 flex justify-center">
               <div className="relative w-48 h-48 border-2 border-black rounded-lg overflow-hidden bg-gray-50">
                 <img
                   src={previewImage}
-                  alt="寵物預覽"
+                  alt="Pet Preview"
                   className="w-full h-full object-contain"
                 />
               </div>
@@ -370,7 +370,7 @@ export default function InitialSetupContent() {
             disabled={isSubmitting}
             className="w-full border-2 border-black"
           >
-            {isSubmitting ? '設定中...' : '確認設定'}
+            {isSubmitting ? 'Setting up...' : 'Confirm Setup'}
           </Button>
         </CardContent>
       </Card>
@@ -379,28 +379,28 @@ export default function InitialSetupContent() {
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <DialogContent className="border-2 border-black">
           <DialogHeader>
-            <DialogTitle>確認設定</DialogTitle>
+            <DialogTitle>Confirm Setup</DialogTitle>
             <DialogDescription>
-              確定要完成設定嗎？一旦確認後，寵物照片將無法更改。若要更改寵物，需要重新飼養。
+              Are you sure you want to complete the setup? Once confirmed, the pet photo cannot be changed. To change the pet, you need to restart.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-4">
             <div className="text-sm">
               <span className="font-semibold">UserID：</span>
-              <span>{userID.trim() || '未設定'}</span>
+              <span>{userID.trim() || 'Not set'}</span>
             </div>
             <div className="text-sm">
-              <span className="font-semibold">寵物名稱：</span>
-              <span>{petName.trim() || '未設定'}</span>
+              <span className="font-semibold">Pet Name: </span>
+              <span>{petName.trim() || 'Not set'}</span>
             </div>
             <div className="text-sm">
-              <span className="font-semibold">寵物照片：</span>
-              <span>{imageFile ? '已上傳' : '使用預設圖片'}</span>
+              <span className="font-semibold">Pet Photo: </span>
+              <span>{imageFile ? 'Uploaded' : 'Using default image'}</span>
             </div>
             {(imageFile || previewImage !== '/cat.png') && (
               <div className="text-sm">
-                <span className="font-semibold">寵物朝向：</span>
-                <span>{facingDirection === 'left' ? '朝左' : '朝右'}</span>
+                <span className="font-semibold">Pet Facing: </span>
+                <span>{facingDirection === 'left' ? 'Left' : 'Right'}</span>
               </div>
             )}
           </div>
@@ -410,14 +410,14 @@ export default function InitialSetupContent() {
               onClick={() => setShowConfirmDialog(false)}
               className="border-2 border-black"
             >
-              取消
+              Cancel
             </Button>
             <Button
               onClick={handleConfirm}
               disabled={isSubmitting}
               className="border-2 border-black"
             >
-              {isSubmitting ? '設定中...' : '確認'}
+              {isSubmitting ? 'Setting up...' : 'Confirm'}
             </Button>
           </DialogFooter>
         </DialogContent>

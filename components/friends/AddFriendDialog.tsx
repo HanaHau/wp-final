@@ -57,15 +57,15 @@ export default function AddFriendDialog({
       } else {
         const error = await res.json()
         toast({
-          title: '搜尋失敗',
-          description: error.error || '請稍後再試',
+          title: 'Search Failed',
+          description: error.error || 'Please try again later',
           variant: 'destructive',
         })
       }
     } catch (error) {
       toast({
-        title: '搜尋失敗',
-        description: '請稍後再試',
+        title: 'Search Failed',
+        description: 'Please try again later',
         variant: 'destructive',
       })
     } finally {
@@ -85,8 +85,8 @@ export default function AddFriendDialog({
       if (res.ok) {
         const data = await res.json()
         toast({
-          title: '成功',
-          description: data.message || '好友已加入',
+          title: 'Success',
+          description: data.message || 'Friend added',
         })
         onFriendAdded()
         // Refresh search results to update status
@@ -100,21 +100,21 @@ export default function AddFriendDialog({
       } else {
         const error = await res.json()
         // If already friends or pending, refresh search to update status
-        if (error.error === '已經是好友了' || error.error === '已送出邀請，等待對方回應') {
+        if (error.error === 'Already friends' || error.error === 'Invitation sent, waiting for response') {
           if (searchQuery.trim()) {
             handleSearch()
           }
         }
         toast({
-          title: '加入失敗',
-          description: error.error || '請稍後再試',
+          title: 'Add Failed',
+          description: error.error || 'Please try again later',
           variant: 'destructive',
         })
       }
     } catch (error) {
       toast({
-        title: '加入失敗',
-        description: '請稍後再試',
+        title: 'Add Failed',
+        description: 'Please try again later',
         variant: 'destructive',
       })
     } finally {
@@ -134,15 +134,15 @@ export default function AddFriendDialog({
     }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>加入好友</DialogTitle>
+          <DialogTitle>Add Friend</DialogTitle>
           <DialogDescription>
-            搜尋 userID 或 email 來尋找並加入好友
+            Search by userID or email to find and add friends
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="flex gap-2">
             <Input
-              placeholder="搜尋 userID 或 email..."
+              placeholder="Search userID or email..."
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value)
@@ -193,7 +193,7 @@ export default function AddFriendDialog({
                         className="gap-2 cursor-not-allowed"
                       >
                         <Check className="h-4 w-4" />
-                        好友
+                        Friend
                       </Button>
                     ) : isPendingSent ? (
                       <Button
@@ -203,7 +203,7 @@ export default function AddFriendDialog({
                         className="gap-2 cursor-not-allowed"
                       >
                         <Clock className="h-4 w-4" />
-                        等待回應
+                        Pending
                       </Button>
                     ) : (
                       <Button
@@ -213,7 +213,7 @@ export default function AddFriendDialog({
                         className="gap-2"
                       >
                         <UserPlus className="h-4 w-4" />
-                        加入
+                        Add
                       </Button>
                     )}
                   </div>
@@ -224,7 +224,7 @@ export default function AddFriendDialog({
 
           {hasSearched && searchResults.length === 0 && !isSearching && (
             <div className="text-center py-4 text-black/60 text-sm">
-              沒有找到符合的使用者
+              No matching users found
             </div>
           )}
         </div>

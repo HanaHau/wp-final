@@ -88,7 +88,7 @@ export default function ShopContent() {
     const quantity = getQuantity(item.id)
     if (quantity <= 0) {
       toast({
-        title: '請選擇數量',
+        title: 'Please Select Quantity',
         description: 'Please select a quantity.',
         variant: 'destructive',
       })
@@ -98,7 +98,7 @@ export default function ShopContent() {
     const totalCost = item.cost * quantity
     if (!pet || pet.points < totalCost) {
       toast({
-        title: '點數不足',
+        title: 'Insufficient Points',
         description: 'Not enough points!',
         variant: 'destructive',
       })
@@ -127,12 +127,12 @@ export default function ShopContent() {
         [item.id]: 0,
       }))
       toast({
-        title: '購買成功',
+        title: 'Purchase Successful',
         description: `Purchased ${item.name}!`,
       })
     } catch (error: any) {
       toast({
-        title: '購買失敗',
+        title: 'Purchase Failed',
         description: error.message || 'Purchase failed',
         variant: 'destructive',
       })

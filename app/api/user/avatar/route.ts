@@ -8,18 +8,18 @@ export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser()
     if (!user) {
-      return NextResponse.json({ error: '未授權' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const formData = await request.formData()
     const file = formData.get('image') as File
 
     if (!file) {
-      return NextResponse.json({ error: '沒有上傳檔案' }, { status: 400 })
+      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 })
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      return NextResponse.json({ error: '檔案大小不能超過 5MB' }, { status: 400 })
+      return NextResponse.json({ error: 'File size cannot exceed 5MB' }, { status: 400 })
     }
 
     const bytes = await file.arrayBuffer()
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ imageUrl })
   } catch (error) {
     console.error('上傳頭像失敗:', error)
-    return NextResponse.json({ error: '上傳頭像失敗' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to upload avatar' }, { status: 500 })
   }
 }
 

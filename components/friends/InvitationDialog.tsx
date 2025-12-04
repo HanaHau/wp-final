@@ -69,23 +69,23 @@ export default function InvitationDialog({
       })
       if (res.ok) {
         toast({
-          title: '成功',
-          description: '好友邀請已接受',
+          title: 'Success',
+          description: 'Friend invitation accepted',
         })
         fetchInvitations()
         onInvitationAccepted()
       } else {
         const error = await res.json()
         toast({
-          title: '失敗',
-          description: error.error || '請稍後再試',
+          title: 'Failed',
+          description: error.error || 'Please try again later',
           variant: 'destructive',
         })
       }
     } catch (error) {
       toast({
-        title: '失敗',
-        description: '請稍後再試',
+        title: 'Failed',
+        description: 'Please try again later',
         variant: 'destructive',
       })
     } finally {
@@ -101,22 +101,22 @@ export default function InvitationDialog({
       })
       if (res.ok) {
         toast({
-          title: '成功',
-          description: '好友邀請已拒絕',
+          title: 'Success',
+          description: 'Friend invitation rejected',
         })
         fetchInvitations()
       } else {
         const error = await res.json()
         toast({
-          title: '失敗',
-          description: error.error || '請稍後再試',
+          title: 'Failed',
+          description: error.error || 'Please try again later',
           variant: 'destructive',
         })
       }
     } catch (error) {
       toast({
-        title: '失敗',
-        description: '請稍後再試',
+        title: 'Failed',
+        description: 'Please try again later',
         variant: 'destructive',
       })
     } finally {
@@ -130,7 +130,7 @@ export default function InvitationDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5" />
-            好友邀請
+            Friend Invitations
             {invitations.length > 0 && (
               <span className="ml-auto text-sm text-black/60 bg-black/10 px-2 py-1 rounded-full">
                 {invitations.length}
@@ -141,11 +141,11 @@ export default function InvitationDialog({
         <div className="max-h-[400px] overflow-y-auto">
           {loading ? (
             <div className="text-center py-8 text-black/60 text-sm">
-              載入中...
+              Loading...
             </div>
           ) : invitations.length === 0 ? (
             <div className="text-center py-8 text-black/60 text-sm">
-              目前沒有待處理的邀請
+              No pending invitations
             </div>
           ) : (
             <div className="space-y-3">
@@ -183,7 +183,7 @@ export default function InvitationDialog({
                       className="gap-1"
                     >
                       <Check className="h-3 w-3" />
-                      接受
+                      Accept
                     </Button>
                     <Button
                       size="sm"
@@ -193,7 +193,7 @@ export default function InvitationDialog({
                       className="gap-1"
                     >
                       <X className="h-3 w-3" />
-                      拒絕
+                      Reject
                     </Button>
                   </div>
                 </div>

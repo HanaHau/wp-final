@@ -8,7 +8,7 @@ const transactionSchema = z.object({
   amount: z.number().positive(),
   category: z.string().min(1).optional(), // Category name (will be resolved to categoryId)
   type: z.enum(['EXPENSE', 'INCOME']), // For backward compatibility
-  typeId: z.number().int().min(1).max(2).optional(), // 1=支出, 2=收入
+  typeId: z.number().int().min(1).max(2).optional(), // 1=Expense, 2=Income
   categoryId: z.string().optional(), // Direct categoryId (optional, will resolve from category name if not provided)
   date: z.string().datetime().optional(),
   note: z.string().optional(),
@@ -53,31 +53,31 @@ async function findOrCreateCategory(
     ],
   })
 
-  // If not found, use the fallback "其他" category
+  // If not found, use the fallback "Other" category
   if (!category) {
     category = await prisma.category.findFirst({
       where: {
         typeId: typeId,
         userId: null,
         isDefault: true,
-        name: '其他',
+        name: 'Other',
       },
     })
 
     if (!category) {
-      throw new Error(`找不到類別: ${categoryName}，且找不到 fallback 類別`)
+      throw new Error(`Category not found: ${categoryName}, and fallback category not found`)
     }
   }
 
   return category.id
 }
 
-// GET /api/transactions - 取得記帳列表
+// GET /api/transactions - Get transaction list
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser()
     if (!user) {
-      return NextResponse.json({ error: '未授權' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const searchParams = request.nextUrl.searchParams
@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
       userId: t.userId,
       amount: t.amount,
       category: t.category.name, // Keep category as string for backward compatibility
-      type: t.type.name === '支出' ? 'EXPENSE' : 'INCOME', // Map back to string (Type model)
+      type: t.type.name === 'Expense' ? 'EXPENSE' : 'INCOME', // Map back to string (Type model)
       date: t.date.toISOString(),
       note: t.note,
       createdAt: t.createdAt.toISOString(),
@@ -132,20 +132,20 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(transformedTransactions)
   } catch (error) {
-    console.error('取得記帳列表錯誤:', error)
+    console.error('Get transaction list error:', error)
     return NextResponse.json(
-      { error: '取得記帳列表失敗' },
+      { error: 'Failed to get transaction list' },
       { status: 500 }
     )
   }
 }
 
-// POST /api/transactions - 新增記帳
+// POST /api/transactions - Create transaction
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser()
     if (!user) {
-      return NextResponse.json({ error: '未授權' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const body = await request.json()
@@ -161,10 +161,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (!categoryId) {
-      return NextResponse.json({ error: '找不到類別' }, { status: 400 })
+      return NextResponse.json({ error: 'Category not found' }, { status: 400 })
     }
 
-    // 建立記帳記錄
+    // Create transaction record
     const transaction = await prisma.transaction.create({
       data: {
         userId: user.id,
@@ -184,11 +184,11 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // 更新用戶餘額
+    // Update user balance
     let balanceDelta = 0
-    if (typeId === 1) { // EXPENSE - 支出，餘額減少
+    if (typeId === 1) { // EXPENSE - Expense, balance decreases
       balanceDelta = -validatedData.amount
-    } else if (typeId === 2) { // INCOME - 收入，餘額增加
+    } else if (typeId === 2) { // INCOME - Income, balance increases
       balanceDelta = validatedData.amount
     }
 
@@ -204,20 +204,20 @@ export async function POST(request: NextRequest) {
           balance: true,
         },
       })
-      console.log(`餘額更新: typeId=${typeId}, amount=${validatedData.amount}, delta=${balanceDelta}, 新餘額=${updatedUser.balance}`)
+      console.log(`Balance updated: typeId=${typeId}, amount=${validatedData.amount}, delta=${balanceDelta}, new balance=${updatedUser.balance}`)
     }
 
-    // 更新寵物狀態（根據記帳行為）
+    // Update pet status (based on transaction behavior)
     await updatePetStatus(user.id, typeId, validatedData.amount)
 
-    // 更新任務：今日記帳1筆 (每日任務)
-    // 注意：不再自動+10pts，等使用者到任務區塊領取獎勵時再加
+    // Update mission: Record 1 transaction today (daily mission)
+    // Note: No longer auto +10pts, wait for user to claim reward in mission block
     const dailyMissionCompleted = await updateMissionProgress(user.id, 'daily', 'record_transaction', 1)
     
-    // 更新任務：本週記帳達5天 (週任務)
+    // Update mission: Record transactions for 5 days this week (weekly mission)
     const weeklyMissionCompleted = await updateMissionProgress(user.id, 'weekly', 'record_5_days', 1)
 
-    // 檢查並發放貼紙獎勵 - 已禁用自動創建 sticker
+    // Check and reward stickers - auto sticker creation disabled
     // await checkAndRewardStickers(user.id)
 
     return NextResponse.json({
@@ -227,16 +227,16 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: '資料驗證失敗', details: error.errors },
+        { error: 'Data validation failed', details: error.errors },
         { status: 400 }
       )
     }
-    console.error('新增記帳錯誤:', error)
-    return NextResponse.json({ error: '新增記帳失敗' }, { status: 500 })
+    console.error('Create transaction error:', error)
+    return NextResponse.json({ error: 'Failed to create transaction' }, { status: 500 })
   }
 }
 
-// 更新寵物狀態的輔助函數
+// Helper function to update pet status
 async function updatePetStatus(
   userId: string,
   typeId: number,
@@ -251,13 +251,13 @@ async function updatePetStatus(
   let fullnessDelta = 0
   let moodDelta = 0
 
-  // 根據記帳行為調整寵物狀態
-  // typeId: 1=支出, 2=收入
+  // Adjust pet status based on transaction behavior
+  // typeId: 1=Expense, 2=Income
   if (typeId === 1) { // EXPENSE
-    // 支出稍微降低心情（但不會太低）
+    // Expense slightly decreases mood (but not too low)
     moodDelta = -Math.min(2, Math.floor(amount / 500))
   } else if (typeId === 2) { // INCOME
-    // 收入增加心情
+    // Income increases mood
     moodDelta = Math.min(3, Math.floor(amount / 1000))
   }
 
@@ -270,7 +270,7 @@ async function updatePetStatus(
   })
 }
 
-// 檢查並發放貼紙獎勵
+// Check and reward stickers
 async function checkAndRewardStickers(userId: string) {
   const pet = await prisma.pet.findUnique({
     where: { userId },
@@ -281,19 +281,19 @@ async function checkAndRewardStickers(userId: string) {
 
   if (!pet) return
 
-  // 取得所有交易記錄
+  // Get all transaction records
   const transactionCount = await prisma.transaction.count({
     where: { userId },
   })
 
-  // 定義獎勵條件
+  // Define reward conditions
   const rewards = [
     { condition: transactionCount >= 1, stickerId: 'rug', layer: 'floor', positionX: 0.5, positionY: 0.7 },
     { condition: transactionCount >= 5, stickerId: 'desk', layer: 'floor', positionX: 0.3, positionY: 0.5 },
     { condition: transactionCount >= 10, stickerId: 'monitor', layer: 'floor', positionX: 0.3, positionY: 0.4 },
   ]
 
-  // 檢查並發放獎勵
+  // Check and distribute rewards
   for (const reward of rewards) {
     const hasSticker = pet.stickers.some((s) => s.stickerId === reward.stickerId)
     if (reward.condition && !hasSticker) {

@@ -131,16 +131,16 @@ export default function FriendActivityLog({ onClose, onUnreadCountUpdate }: Frie
   }
 
   const getActionText = (activity: FriendActivity) => {
-    const actorName = activity.actor.name || activity.actor.userID || '好友'
+    const actorName = activity.actor.name || activity.actor.userID || 'Friend'
     switch (activity.actionType) {
       case 'pet':
-        return `${actorName} 撫摸了你的 ${activity.petName}`
+        return `${actorName} petted your ${activity.petName}`
       case 'feed':
-        return `${actorName} 餵食了你的 ${activity.petName}`
+        return `${actorName} fed your ${activity.petName}`
       case 'visit':
-        return `${actorName} 訪問了你的房間`
+        return `${actorName} visited your room`
       default:
-        return `${actorName} 與你的寵物互動`
+        return `${actorName} interacted with your pet`
     }
   }
 
@@ -152,10 +152,10 @@ export default function FriendActivityLog({ onClose, onUnreadCountUpdate }: Frie
     const diffHours = Math.floor(diffMins / 60)
     const diffDays = Math.floor(diffHours / 24)
 
-    if (diffDays > 0) return `${diffDays}天前`
-    if (diffHours > 0) return `${diffHours}小時前`
-    if (diffMins > 0) return `${diffMins}分鐘前`
-    return '剛剛'
+    if (diffDays > 0) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
+    if (diffHours > 0) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
+    if (diffMins > 0) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`
+    return 'Just now'
   }
 
   const unreadCount = activities.filter(a => !a.isRead).length
@@ -164,7 +164,7 @@ export default function FriendActivityLog({ onClose, onUnreadCountUpdate }: Frie
     <div className="fixed right-4 bottom-40 w-80 h-[32rem] bg-white/95 backdrop-blur-md rounded-2xl border border-black/20 shadow-xl z-40 overflow-hidden flex flex-col">
       {/* Header */}
       <div className="p-4 border-b border-black/20 flex items-center justify-between">
-        <h2 className="text-lg font-bold text-black uppercase tracking-wide">好友日誌</h2>
+        <h2 className="text-lg font-bold text-black uppercase tracking-wide">Friend Activity Log</h2>
         <button
           onClick={onClose}
           className="w-6 h-6 flex items-center justify-center hover:bg-black/5 rounded transition-colors"
@@ -176,8 +176,8 @@ export default function FriendActivityLog({ onClose, onUnreadCountUpdate }: Frie
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4">{unreadCount > 0 && (
           <div className="mb-3">
-            <span className="text-xs text-black/60 uppercase tracking-wide">{unreadCount} 條未讀</span>
-            <p className="text-xs text-black/40 mt-1">點擊卡片或等待 2 秒自動標記已讀</p>
+            <span className="text-xs text-black/60 uppercase tracking-wide">{unreadCount} unread</span>
+            <p className="text-xs text-black/40 mt-1">Click card or wait 2 seconds to mark as read</p>
           </div>
         )}
         {loading ? (
@@ -187,9 +187,9 @@ export default function FriendActivityLog({ onClose, onUnreadCountUpdate }: Frie
             <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-black/5 flex items-center justify-center">
               <BookOpen className="h-6 w-6 text-black/30" />
             </div>
-            <p className="text-black/60 text-sm mb-1">還沒有活動記錄</p>
+            <p className="text-black/60 text-sm mb-1">No activity records yet</p>
             <p className="text-black/40 text-xs">
-              好友互動會顯示在這裡
+              Friend interactions will appear here
             </p>
           </div>
         ) : (

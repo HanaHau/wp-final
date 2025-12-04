@@ -136,7 +136,7 @@ export default function DailyTransactionsDialog({
     } catch (error) {
       console.error('Delete error:', error)
       toast({
-        title: '刪除失敗',
+        title: 'Delete Failed',
         description: 'Failed to delete transaction',
         variant: 'destructive',
       })

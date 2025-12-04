@@ -145,17 +145,17 @@ export default function FriendCard({ friend, onUpdate, onVisitRoom }: FriendCard
     const badges = []
     
     if (petData.pet.isSick) {
-      badges.push({ icon: AlertCircle, label: '生病中', variant: 'danger' as const })
+      badges.push({ icon: AlertCircle, label: 'Sick', variant: 'danger' as const })
     } else if (petData.pet.isHungry) {
-      badges.push({ icon: Utensils, label: '肚子餓了', variant: 'warning' as const })
+      badges.push({ icon: Utensils, label: 'Hungry', variant: 'warning' as const })
     } else if (petData.pet.isUnhappy) {
-      badges.push({ icon: Frown, label: '心情不好', variant: 'warning' as const })
+      badges.push({ icon: Frown, label: 'Unhappy', variant: 'warning' as const })
     } else if (petData.pet.mood > 70 && petData.pet.fullness > 70) {
-      badges.push({ icon: Smile, label: '心情很好', variant: 'success' as const })
+      badges.push({ icon: Smile, label: 'Happy', variant: 'success' as const })
     }
     
     if (petData.pet.needsAttention && !petData.pet.isSick) {
-      badges.push({ icon: Zap, label: '需要關心', variant: 'warning' as const })
+      badges.push({ icon: Zap, label: 'Needs attention', variant: 'warning' as const })
     }
 
     return badges
@@ -169,7 +169,7 @@ export default function FriendCard({ friend, onUpdate, onVisitRoom }: FriendCard
   if (error || !petData) {
     return (
       <div className="bg-white rounded-2xl shadow-lg border border-black/20 overflow-hidden p-6 text-center">
-        <p className="text-black/60 text-sm">載入失敗</p>
+        <p className="text-black/60 text-sm">Failed to load</p>
       </div>
     )
   }
@@ -297,7 +297,7 @@ export default function FriendCard({ friend, onUpdate, onVisitRoom }: FriendCard
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Heart className="h-3.5 w-3.5 text-black" />
-              <span className="text-xs font-semibold text-black/70 uppercase tracking-wide">心情</span>
+              <span className="text-xs font-semibold text-black/70 uppercase tracking-wide">Mood</span>
             </div>
             <span className="text-xs font-bold text-black">{petData.pet.mood}/100</span>
           </div>
@@ -322,7 +322,7 @@ export default function FriendCard({ friend, onUpdate, onVisitRoom }: FriendCard
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Droplet className="h-3.5 w-3.5 text-black" />
-              <span className="text-xs font-semibold text-black/70 uppercase tracking-wide">飽足感</span>
+              <span className="text-xs font-semibold text-black/70 uppercase tracking-wide">Fullness</span>
             </div>
             <span className="text-xs font-bold text-black">{petData.pet.fullness}/100</span>
           </div>
@@ -360,7 +360,7 @@ export default function FriendCard({ friend, onUpdate, onVisitRoom }: FriendCard
             className="w-full bg-black text-white hover:bg-black/80 transition-colors"
           >
             <Home className="h-4 w-4 mr-2" />
-            去拜訪 {petData.pet.name}
+            Visit {petData.pet.name}
           </Button>
         </Link>
       </div>

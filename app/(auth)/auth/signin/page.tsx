@@ -24,7 +24,7 @@ export default function SignInPage() {
       })
 
       if (result?.error) {
-        alert('登入失敗，請稍後再試')
+        alert('Sign in failed, please try again later')
       }
     } catch (error) {
       console.error('登入錯誤:', error)

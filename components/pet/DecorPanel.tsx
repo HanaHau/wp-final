@@ -40,11 +40,11 @@ export default function DecorPanel({
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-white/20 bg-white/5">
-          <h2 className="text-xl font-bold uppercase tracking-wide text-white/90">裝飾</h2>
+          <h2 className="text-xl font-bold uppercase tracking-wide text-white/90">Decorations</h2>
           <button
             onClick={onClose}
             className="p-2 border border-white/20 hover:bg-white/20 hover:border-white/30 transition-colors rounded"
-            aria-label="關閉"
+            aria-label="Close"
           >
             <X className="h-5 w-5 text-white/90" />
           </button>
@@ -55,12 +55,12 @@ export default function DecorPanel({
           <div className="grid grid-cols-3 gap-3">
             {availableAccessories.length === 0 ? (
               <div className="col-span-full text-center py-12 text-white/60">
-                <p className="text-sm uppercase tracking-wide">沒有配件</p>
-                <p className="text-xs mt-2 mb-4">前往商店購買！</p>
+                <p className="text-sm uppercase tracking-wide">No accessories</p>
+                <p className="text-xs mt-2 mb-4">Go to the shop to buy!</p>
                 <Link href="/shop">
                   <button className="inline-flex items-center gap-2 px-4 py-2 border border-white/20 hover:bg-white/20 hover:border-white/30 transition-colors text-xs font-semibold uppercase tracking-wide rounded">
                     <ShoppingCart className="h-4 w-4" />
-                    前往商店
+                    Go to Shop
                   </button>
                 </Link>
               </div>
@@ -142,7 +142,7 @@ export default function DecorPanel({
         {/* Footer */}
         <div className="p-4 border-t border-white/20 bg-white/5">
           <p className="text-xs text-center text-white/60 uppercase tracking-wide">
-            拖曳配件到寵物身上來裝備
+            Drag accessories onto your pet to equip them
           </p>
         </div>
       </div>

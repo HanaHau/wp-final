@@ -7,11 +7,11 @@ export const dynamic = 'force-dynamic'
 
 const categorySchema = z.object({
   name: z.string().min(1),
-  typeId: z.number().int().min(1).max(2), // 1=支出, 2=收入
+  typeId: z.number().int().min(1).max(2), // 1=Expense, 2=Income
   icon: z.string().nullable().optional(),
 })
 
-// GET /api/categories - 取得類別列表
+// GET /api/categories - Get category list
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser()
@@ -22,11 +22,11 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const typeId = searchParams.get('typeId')
 
-    // 同時查詢預設類別（userId === null）和使用者自己的類別
+    // Query both default categories (userId === null) and user's own categories
     const where: any = {
       OR: [
-        { userId: null }, // 預設類別
-        { userId: user.id }, // 使用者自己的類別
+        { userId: null }, // Default categories
+        { userId: user.id }, // User's own categories
       ],
     }
 
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
       },
       orderBy: [
         { typeId: 'asc' },
-        { userId: 'asc' }, // null (預設) 在前，非 null (使用者自訂) 在後
+        { userId: 'asc' }, // null (default) first, non-null (user custom) after
         { sortOrder: 'asc' },
         { name: 'asc' },
       ],
@@ -49,11 +49,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(categories)
   } catch (error) {
-    console.error('取得類別列表錯誤:', error)
+    console.error('Get category list error:', error)
     console.error('Error details:', error instanceof Error ? error.message : error)
     return NextResponse.json(
       { 
-        error: '取得類別列表失敗',
+        error: 'Failed to get category list',
         details: error instanceof Error ? error.message : String(error)
       },
       { status: 500 }
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/categories - 新增類別
+// POST /api/categories - Create category
 export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser()
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (existing) {
-      return NextResponse.json({ error: '此類別已存在' }, { status: 400 })
+      return NextResponse.json({ error: 'This category already exists' }, { status: 400 })
     }
 
     // Get the highest sortOrder for user's custom categories of this type
@@ -123,14 +123,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(category, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('資料驗證錯誤:', error.errors)
+      console.error('Data validation error:', error.errors)
       return NextResponse.json(
-        { error: '資料驗證失敗', details: error.errors },
+        { error: 'Data validation failed', details: error.errors },
         { status: 400 }
       )
     }
-    console.error('新增類別錯誤:', error)
-    const errorMessage = error instanceof Error ? error.message : '新增類別失敗'
+    console.error('Create category error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Failed to create category'
     return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }

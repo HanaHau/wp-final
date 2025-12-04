@@ -408,8 +408,8 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
         setDailyMoodGain(newGain)
 
         toast({
-          title: '成功 ❤️',
-          description: data.message || '已撫摸好友的寵物',
+          title: 'Success ❤️',
+          description: data.message || 'Petted friend\'s pet',
         })
 
         if (data.missionCompleted) {
@@ -418,15 +418,15 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
       } else {
         const error = await res.json()
         toast({
-          title: '失敗',
-          description: error.error || '請稍後再試',
+          title: 'Failed',
+          description: error.error || 'Please try again later',
           variant: 'destructive',
         })
       }
     } catch (error) {
       toast({
-        title: '失敗',
-        description: '請稍後再試',
+        title: 'Failed',
+        description: 'Please try again later',
         variant: 'destructive',
       })
     } finally {
@@ -457,22 +457,22 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
         const fullnessGain = data.fullnessGain || 5
         setCurrentPetFullness(prev => Math.min(100, prev + fullnessGain))
         toast({
-          title: '成功',
-          description: data.message || '已餵食好友的寵物',
+          title: 'Success',
+          description: data.message || 'Fed friend\'s pet',
         })
         setShowFoodPanel(false)
       } else {
         const error = await res.json()
         toast({
-          title: '失敗',
-          description: error.error || '請稍後再試',
+          title: 'Failed',
+          description: error.error || 'Please try again later',
           variant: 'destructive',
         })
       }
     } catch (error) {
       toast({
-        title: '失敗',
-        description: '請稍後再試',
+        title: 'Failed',
+        description: 'Please try again later',
         variant: 'destructive',
       })
     } finally {
@@ -502,18 +502,18 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
             className="gap-2 h-auto p-2"
           >
             <DoorOpen className="h-6 w-6" />
-            <span className="hidden sm:inline text-sm">離開</span>
+            <span className="hidden sm:inline text-sm">Leave</span>
           </Button>
           
           <div className="flex-1 flex flex-col items-center gap-1">
             <p className="text-sm text-black/60">
-              {user.name || user.userID || '好友'} 的房間
+              {user.name || user.userID || 'Friend'}'s Room
             </p>
             {/* Pet Status */}
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5">
                 <Heart className={`h-3.5 w-3.5 ${pet.mood < 20 ? 'text-red-600' : 'text-black'}`} />
-                <span className="text-xs font-semibold text-black/70 uppercase tracking-wide">心情</span>
+                <span className="text-xs font-semibold text-black/70 uppercase tracking-wide">Mood</span>
                 <span className={`text-xs font-bold ${pet.mood < 20 ? 'text-red-600' : 'text-black'}`}>
                   {pet.mood}/100
                   {pet.mood < 20 && <span className="ml-1 text-[10px] uppercase">⚠️ Warning</span>}
@@ -521,7 +521,7 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
               </div>
               <div className="flex items-center gap-1.5">
                 <Droplet className={`h-3.5 w-3.5 ${currentPetFullness < 20 ? 'text-red-600' : 'text-black'}`} />
-                <span className="text-xs font-semibold text-black/70 uppercase tracking-wide">飽足感</span>
+                <span className="text-xs font-semibold text-black/70 uppercase tracking-wide">Fullness</span>
                 <span className={`text-xs font-bold ${currentPetFullness < 20 ? 'text-red-600' : 'text-black'}`}>
                   {currentPetFullness}/100
                   {currentPetFullness < 20 && <span className="ml-1 text-[10px] uppercase">⚠️ Warning</span>}
@@ -537,12 +537,12 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
               className="gap-2 opacity-50"
               onClick={() => {
                 toast({
-                  title: '即將推出 📸',
-                  description: '拍照功能正在開發中，敬請期待！',
+                  title: 'Coming Soon 📸',
+                  description: 'Photo feature is under development, stay tuned!',
                   duration: 3000,
                 })
               }}
-              title="該功能尚未開發，敬請期待"
+              title="This feature is not yet available, stay tuned"
             >
               <Camera className="h-5 w-5" />
             </Button>
@@ -552,12 +552,12 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
               className="gap-2 opacity-50"
               onClick={() => {
                 toast({
-                  title: '即將推出 🎁',
-                  description: '送禮功能正在開發中，敬請期待！',
+                  title: 'Coming Soon 🎁',
+                  description: 'Gift feature is under development, stay tuned!',
                   duration: 3000,
                 })
               }}
-              title="該功能尚未開發，敬請期待"
+              title="This feature is not yet available, stay tuned"
             >
               <Gift className="h-5 w-5" />
             </Button>
@@ -644,7 +644,7 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
                 {/* Hover hint */}
                 {isHovering && !isPetting && dailyMoodGain < 5 && (
                   <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap bg-black text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg animate-bounce z-10">
-                    摸摸我
+                    Pet me
                   </div>
                 )}
                 
@@ -763,7 +763,7 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
             size="lg"
           >
             <Utensils className="h-5 w-5" />
-            餵食 {pet.name}
+            Feed {pet.name}
           </Button>
         </div>
       </motion.div>
@@ -787,7 +787,7 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold">選擇食物</h3>
+                <h3 className="text-lg font-bold">Select Food</h3>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -798,9 +798,9 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
               </div>
 
               {loadingFood ? (
-                <div className="text-center py-8 text-black/60">載入中...</div>
+                <div className="text-center py-8 text-black/60">Loading...</div>
               ) : foodItems.length === 0 ? (
-                <div className="text-center py-8 text-black/60">沒有食物</div>
+                <div className="text-center py-8 text-black/60">No food available</div>
               ) : (
                 <div className="grid grid-cols-3 gap-4">
                   {foodItems.map((item) => (
@@ -840,7 +840,7 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
           className="fixed top-20 left-0 right-0 z-50 flex justify-center items-center"
         >
           <div className="bg-black/80 text-white px-4 py-2 rounded-full text-sm whitespace-nowrap">
-            今日撫摸獎勵已領滿（+5% 心情）✓
+            Daily petting reward limit reached (+5% mood) ✓
           </div>
         </motion.div>
       )}

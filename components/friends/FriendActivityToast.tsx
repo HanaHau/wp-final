@@ -29,25 +29,25 @@ export default function FriendActivityToast() {
           
           recentActivities.forEach((activity: any, index: number) => {
             setTimeout(() => {
-              const actorName = activity.actor.name || activity.actor.userID || '好友'
+              const actorName = activity.actor.name || activity.actor.userID || 'Friend'
               let title = ''
               let description = ''
               let icon = '🐾'
 
               switch (activity.actionType) {
                 case 'pet':
-                  title = '好友撫摸了你的寵物'
-                  description = `${actorName} 撫摸了你的 ${activity.petName}`
+                  title = 'Friend petted your pet'
+                  description = `${actorName} petted your ${activity.petName}`
                   icon = ''
                   break
                 case 'feed':
-                  title = '好友餵食了你的寵物'
-                  description = `${actorName} 餵食了你的 ${activity.petName} ${activity.details || ''}`
+                  title = 'Friend fed your pet'
+                  description = `${actorName} fed your ${activity.petName} ${activity.details || ''}`
                   icon = '🍖'
                   break
                 case 'visit':
-                  title = '好友訪問了你'
-                  description = `${actorName} 訪問了你的房間`
+                  title = 'Friend visited you'
+                  description = `${actorName} visited your room`
                   icon = '👋'
                   break
               }
@@ -64,8 +64,8 @@ export default function FriendActivityToast() {
           if (unreadActivities.length > 3) {
             setTimeout(() => {
               toast({
-                title: '還有更多活動',
-                description: `查看好友日誌以了解全部 ${unreadActivities.length} 條互動記錄`,
+                title: 'More activities',
+                description: `Check friend log to see all ${unreadActivities.length} interaction records`,
                 duration: 5000,
               })
             }, 2000)

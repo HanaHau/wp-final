@@ -4,8 +4,8 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-// 優化 Prisma Client 單例模式，確保連接池正確管理
-// 在所有環境下都重用同一個實例，避免連接池耗盡
+// Optimize Prisma Client singleton pattern to ensure proper connection pool management
+// Reuse the same instance in all environments to avoid connection pool exhaustion
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
@@ -17,12 +17,12 @@ export const prisma =
     },
   })
 
-// 確保在所有環境下都重用同一個實例（避免連接池耗盡）
+// Ensure the same instance is reused in all environments (avoid connection pool exhaustion)
 globalForPrisma.prisma = prisma
 
-// 在應用關閉時優雅地斷開連接
+// Gracefully disconnect when application closes
 if (typeof window === 'undefined') {
-  // 僅在服務器端執行
+  // Only execute on server side
   process.on('beforeExit', async () => {
     await prisma.$disconnect()
   })

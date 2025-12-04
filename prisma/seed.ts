@@ -5,14 +5,14 @@ const prisma = new PrismaClient()
 async function main() {
   console.log('🌱 Seeding database...')
 
-  // 1. 創建 Type
+  // 1. Create Type
   console.log('Creating types...')
   await prisma.type.upsert({
     where: { id: 1 },
     update: {},
     create: {
       id: 1,
-      name: '支出',
+      name: 'Expense',
     },
   })
 
@@ -21,7 +21,7 @@ async function main() {
     update: {},
     create: {
       id: 2,
-      name: '收入',
+      name: 'Income',
     },
   })
 
@@ -30,11 +30,11 @@ async function main() {
     update: {},
     create: {
       id: 3,
-      name: '存錢',
+      name: 'Deposit',
     },
   })
 
-  // 2. 創建任務定義
+  // 2. Create mission definitions
   console.log('Creating mission definitions...')
   
   const getWeekStart = (date: Date = new Date()): Date => {
@@ -53,17 +53,17 @@ async function main() {
   }
 
   const dailyMissions = [
-    { code: 'record_transaction', title: '今日記帳1筆', description: '記錄一筆交易', target: 1, reward: 10 },
-    { code: 'visit_friend', title: '拜訪1位好友', description: '拜訪一位好友', target: 1, reward: 5 },
-    { code: 'pet_friend', title: '摸摸好友寵物', description: '與好友的寵物互動', target: 1, reward: 5 },
+    { code: 'record_transaction', title: 'Record 1 Transaction Today', description: 'Record one transaction', target: 1, reward: 10 },
+    { code: 'visit_friend', title: 'Visit 1 Friend', description: 'Visit one friend', target: 1, reward: 5 },
+    { code: 'pet_friend', title: 'Pet Friend\'s Pet', description: 'Interact with a friend\'s pet', target: 1, reward: 5 },
   ]
 
   const weeklyMissions = [
-    { code: 'record_5_days', title: '本週記帳達5天', description: '本週記帳達到5天', target: 5, reward: 40 },
-    { code: 'interact_3_friends', title: '與3位好友互動', description: '與3位不同的好友互動', target: 3, reward: 30 },
+    { code: 'record_5_days', title: 'Record Transactions for 5 Days This Week', description: 'Record transactions for 5 days this week', target: 5, reward: 40 },
+    { code: 'interact_3_friends', title: 'Interact with 3 Friends', description: 'Interact with 3 different friends', target: 3, reward: 30 },
   ]
 
-  // 創建每日任務定義
+  // Create daily mission definitions
   for (const mission of dailyMissions) {
     await prisma.mission.upsert({
       where: { code: mission.code },
@@ -87,7 +87,7 @@ async function main() {
     })
   }
 
-  // 創建每週任務定義
+  // Create weekly mission definitions
   for (const mission of weeklyMissions) {
     await prisma.mission.upsert({
       where: { code: mission.code },
@@ -113,7 +113,163 @@ async function main() {
 
   console.log('✅ Mission definitions created!')
 
-  // 5. 為所有現有用戶創建當前的每日和每週任務
+  // 3. Create default categories
+  console.log('Creating default categories...')
+  
+  // Default Expense Categories (typeId = 1)
+  const defaultExpenseCategories = [
+    { name: 'Food', icon: '🍔', sortOrder: 1 },
+    { name: 'Transportation', icon: '🚗', sortOrder: 2 },
+    { name: 'Entertainment', icon: '🎮', sortOrder: 3 },
+    { name: 'Shopping', icon: '🛍️', sortOrder: 4 },
+    { name: 'Healthcare', icon: '🏥', sortOrder: 5 },
+    { name: 'Education', icon: '📚', sortOrder: 6 },
+    { name: 'Work', icon: '💼', sortOrder: 7 },
+    { name: 'Housing', icon: '🏠', sortOrder: 8 },
+    { name: 'Other', icon: '📝', sortOrder: 9, isDefault: true },
+  ]
+
+  // Default Income Categories (typeId = 2)
+  const defaultIncomeCategories = [
+    { name: 'Salary', icon: '💼', sortOrder: 1 },
+    { name: 'Bonus', icon: '🎁', sortOrder: 2 },
+    { name: 'Investment', icon: '📈', sortOrder: 3 },
+    { name: 'Gift', icon: '🎁', sortOrder: 4 },
+    { name: 'Other', icon: '📝', sortOrder: 5, isDefault: true },
+  ]
+
+  // Create or update expense categories
+  for (const cat of defaultExpenseCategories) {
+    const existing = await prisma.category.findFirst({
+      where: {
+        userId: null,
+        typeId: 1,
+        name: cat.name,
+      },
+    })
+
+    if (existing) {
+      await prisma.category.update({
+        where: { id: existing.id },
+        data: {
+          name: cat.name,
+          icon: cat.icon,
+          sortOrder: cat.sortOrder,
+          isDefault: cat.isDefault || false,
+        },
+      })
+    } else {
+      await prisma.category.create({
+        data: {
+          name: cat.name,
+          typeId: 1,
+          userId: null,
+          icon: cat.icon,
+          sortOrder: cat.sortOrder,
+          isDefault: cat.isDefault || false,
+        },
+      })
+    }
+  }
+
+  // Create or update income categories
+  for (const cat of defaultIncomeCategories) {
+    const existing = await prisma.category.findFirst({
+      where: {
+        userId: null,
+        typeId: 2,
+        name: cat.name,
+      },
+    })
+
+    if (existing) {
+      await prisma.category.update({
+        where: { id: existing.id },
+        data: {
+          name: cat.name,
+          icon: cat.icon,
+          sortOrder: cat.sortOrder,
+          isDefault: cat.isDefault || false,
+        },
+      })
+    } else {
+      await prisma.category.create({
+        data: {
+          name: cat.name,
+          typeId: 2,
+          userId: null,
+          icon: cat.icon,
+          sortOrder: cat.sortOrder,
+          isDefault: cat.isDefault || false,
+        },
+      })
+    }
+  }
+
+  // Update existing Chinese category names to English (if they exist)
+  const chineseToEnglishMap: Record<string, string> = {
+    // Expense categories
+    '食物': 'Food',
+    '交通': 'Transportation',
+    '娛樂': 'Entertainment',
+    '購物': 'Shopping',
+    '醫療': 'Healthcare',
+    '教育': 'Education',
+    '工作': 'Work',
+    '住房': 'Housing',
+    '其他': 'Other',
+    // Income categories
+    '薪資': 'Salary',
+    '獎金': 'Bonus',
+    '投資': 'Investment',
+    '禮物': 'Gift',
+  }
+
+  for (const [chineseName, englishName] of Object.entries(chineseToEnglishMap)) {
+    // Find categories with Chinese names (default categories only, userId = null)
+    const chineseCategories = await prisma.category.findMany({
+      where: {
+        name: chineseName,
+        userId: null,
+      },
+    })
+
+    for (const cat of chineseCategories) {
+      // Check if English category already exists
+      const englishCategory = await prisma.category.findFirst({
+        where: {
+          name: englishName,
+          typeId: cat.typeId,
+          userId: null,
+        },
+      })
+
+      if (!englishCategory) {
+        // Update Chinese name to English
+        await prisma.category.update({
+          where: { id: cat.id },
+          data: { name: englishName },
+        })
+        console.log(`Updated category: ${chineseName} -> ${englishName}`)
+      } else {
+        // If English category exists, we need to migrate transactions
+        // First, update all transactions using the Chinese category to use English category
+        await prisma.transaction.updateMany({
+          where: { categoryId: cat.id },
+          data: { categoryId: englishCategory.id },
+        })
+        // Then delete the Chinese category
+        await prisma.category.delete({
+          where: { id: cat.id },
+        })
+        console.log(`Migrated transactions and deleted duplicate category: ${chineseName} -> ${englishName}`)
+      }
+    }
+  }
+
+  console.log('✅ Default categories created/updated!')
+
+  // 4. Create current daily and weekly missions for all existing users
   console.log('Creating user missions for existing users...')
   
   const allUsers = await prisma.user.findMany({
@@ -132,7 +288,7 @@ async function main() {
     for (const missionDef of allMissionDefs) {
       const periodStart = missionDef.type === 'weekly' ? weekStart : dayStart
       
-      // 檢查是否已存在
+      // Check if already exists
       const existing = await prisma.missionUser.findUnique({
         where: {
           userId_missionId_periodStart: {

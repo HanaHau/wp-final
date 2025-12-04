@@ -54,8 +54,8 @@ export default function MissionCard({ mission, onClaimed }: MissionCardProps) {
         setClaimed(true)
         const pointsEarned = data.points || mission.points
         toast({
-          title: '領取成功！',
-          description: `獲得 ${pointsEarned} 點數`,
+          title: 'Claimed Successfully!',
+          description: `Earned ${pointsEarned} points`,
         })
         
         // 觸發事件通知主畫面更新points
@@ -68,16 +68,16 @@ export default function MissionCard({ mission, onClaimed }: MissionCardProps) {
         }
       } else {
         toast({
-          title: '領取失敗',
-          description: data.error || '無法領取獎勵',
+          title: 'Claim Failed',
+          description: data.error || 'Unable to claim reward',
           variant: 'destructive',
         })
       }
     } catch (error) {
       console.error('Claim mission error:', error)
       toast({
-        title: '領取失敗',
-        description: '發生錯誤，請稍後再試',
+        title: 'Claim Failed',
+        description: 'An error occurred, please try again later',
         variant: 'destructive',
       })
     } finally {
@@ -115,7 +115,7 @@ export default function MissionCard({ mission, onClaimed }: MissionCardProps) {
           {/* 目標為1的任務，顯示簡單的完成狀態 */}
           {mission.target === 1 && (
             <div className="text-xs text-black/40 mt-1">
-              {mission.completed ? '✓ 已完成' : '進行中'}
+              {mission.completed ? '✓ Completed' : 'In Progress'}
             </div>
           )}
         </div>
@@ -125,7 +125,7 @@ export default function MissionCard({ mission, onClaimed }: MissionCardProps) {
           {claimed ? (
             <div className="flex items-center gap-1 text-xs text-green-600">
               <CheckCircle2 className="h-3 w-3" />
-              <span>已領取</span>
+              <span>Claimed</span>
             </div>
           ) : mission.completed ? (
             <Button
@@ -134,7 +134,7 @@ export default function MissionCard({ mission, onClaimed }: MissionCardProps) {
               size="sm"
               className="bg-black text-white hover:bg-black/80 text-xs px-3 py-1.5 h-auto"
             >
-              {isClaiming ? '領取中...' : '領取'}
+              {isClaiming ? 'Claiming...' : 'Claim'}
             </Button>
           ) : (
             <Button
@@ -142,7 +142,7 @@ export default function MissionCard({ mission, onClaimed }: MissionCardProps) {
               size="sm"
               className="bg-black/10 text-black/40 border-0 cursor-not-allowed text-xs px-3 py-1.5 h-auto"
             >
-              未完成
+              Incomplete
             </Button>
           )}
         </div>

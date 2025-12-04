@@ -14,7 +14,7 @@ export default function PetActionBar({ onFeedClick, onDecorClick }: PetActionBar
       <button
         onClick={onFeedClick}
         className="flex flex-col items-center gap-1.5 px-6 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-full hover:bg-white/20 hover:border-white/30 transition-all group shadow-lg"
-        aria-label="餵食"
+        aria-label="Feed"
         style={{ borderRadius: '50px' }}
       >
         <UtensilsCrossed className="h-6 w-6 text-white/90 group-hover:text-white" />
@@ -25,7 +25,7 @@ export default function PetActionBar({ onFeedClick, onDecorClick }: PetActionBar
       <button
         onClick={onDecorClick}
         className="flex flex-col items-center gap-1.5 px-6 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-full hover:bg-white/20 hover:border-white/30 transition-all group shadow-lg"
-        aria-label="裝飾"
+        aria-label="Accessory"
         style={{ borderRadius: '50px' }}
       >
         <Sparkles className="h-6 w-6 text-white/90 group-hover:text-white" />

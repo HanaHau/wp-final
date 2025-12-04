@@ -7,8 +7,8 @@ import { Toaster } from '@/components/ui/toaster'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: '寵物記帳 APP',
-  description: '用寵物陪著你記帳，存錢就是儲值虛擬點數',
+  title: 'Pet Accounting App',
+  description: 'Track your expenses with your pet companion, savings become virtual points',
 }
 
 export default function RootLayout({
@@ -17,7 +17,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="zh-TW">
+    <html lang="en">
       <body className={inter.className}>
         <SessionProvider>{children}</SessionProvider>
         <Toaster />

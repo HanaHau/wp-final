@@ -57,8 +57,8 @@ export default function ProfileContent() {
 
     if (file.size > 5 * 1024 * 1024) {
       toast({
-        title: '錯誤',
-        description: '圖片大小不能超過 5MB',
+        title: 'Error',
+        description: 'Image size cannot exceed 5MB',
         variant: 'destructive',
       })
       return
@@ -66,8 +66,8 @@ export default function ProfileContent() {
 
     if (!file.type.startsWith('image/')) {
       toast({
-        title: '錯誤',
-        description: '請選擇圖片檔案',
+        title: 'Error',
+        description: 'Please select an image file',
         variant: 'destructive',
       })
       return
@@ -100,7 +100,7 @@ export default function ProfileContent() {
           const uploadData = await uploadRes.json()
           imageUrl = uploadData.imageUrl
         } else {
-          throw new Error('上傳頭像失敗')
+          throw new Error('Failed to upload avatar')
         }
       }
 
@@ -134,7 +134,7 @@ export default function ProfileContent() {
       if (!res.ok) {
         const error = await res.json()
         console.error('API 錯誤:', error)
-        throw new Error(error.error || '更新失敗')
+        throw new Error(error.error || 'Update failed')
       }
 
       const updatedData = await res.json()
@@ -150,16 +150,16 @@ export default function ProfileContent() {
       console.log('狀態已更新，新的 name:', updatedData.name)
 
       toast({
-        title: '成功',
-        description: '個人資料已更新',
+        title: 'Success',
+        description: 'Profile updated',
       })
     } catch (error: any) {
       console.error('handleSave 發生錯誤:', error)
       console.error('錯誤詳情:', error.message)
       console.error('錯誤堆疊:', error.stack)
       toast({
-        title: '失敗',
-        description: error.message || '請稍後再試',
+        title: 'Failed',
+        description: error.message || 'Please try again later',
         variant: 'destructive',
       })
     } finally {
@@ -171,7 +171,7 @@ export default function ProfileContent() {
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center pb-20">
-        <div className="text-black/60">載入中...</div>
+        <div className="text-black/60">Loading...</div>
       </div>
     )
   }
@@ -180,13 +180,13 @@ export default function ProfileContent() {
     <div className="min-h-screen bg-white pb-20">
       <div className="max-w-2xl mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold text-black uppercase tracking-wide mb-8">
-          個人資料
+          Profile
         </h1>
 
         <div className="space-y-6">
           <div className="bg-white rounded-2xl border border-black/20 p-6 shadow-sm">
             <Label className="text-sm font-semibold text-black mb-4 block">
-              頭像
+              Avatar
             </Label>
             <div className="flex items-center gap-6">
               <div className="relative">
@@ -220,7 +220,7 @@ export default function ProfileContent() {
                   className="gap-2"
                 >
                   <Upload className="h-4 w-4" />
-                  上傳頭像
+                  Upload Avatar
                 </Button>
                 {imageFile && (
                   <p className="text-xs text-black/60 mt-2">
@@ -235,13 +235,13 @@ export default function ProfileContent() {
             <div className="space-y-4">
               <div>
                 <Label htmlFor="name" className="text-sm font-semibold text-black mb-2 block">
-                  名稱
+                  Name
                 </Label>
                 <Input
                   id="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="輸入您的名稱"
+                  placeholder="Enter your name"
                   className="max-w-md"
                 />
               </div>
@@ -254,14 +254,14 @@ export default function ProfileContent() {
                   id="userID"
                   value={userID}
                   onChange={(e) => setUserID(e.target.value)}
-                  placeholder="輸入您的 User ID"
+                  placeholder="Enter your User ID"
                   className={`max-w-md ${userData?.userID ? 'bg-gray-50' : ''}`}
                   disabled={!!userData?.userID}
                 />
                 <p className="text-xs text-black/60 mt-2">
                   {userData?.userID 
-                    ? 'User ID 無法更改' 
-                    : '此 ID 將用於好友搜尋，設定後無法更改'}
+                    ? 'User ID cannot be changed' 
+                    : 'This ID will be used for friend search. Cannot be changed after setting'}
                 </p>
               </div>
 
@@ -275,7 +275,7 @@ export default function ProfileContent() {
                   className="max-w-md bg-gray-50"
                 />
                 <p className="text-xs text-black/60 mt-2">
-                  Email 無法更改
+                  Email cannot be changed
                 </p>
               </div>
             </div>
@@ -288,7 +288,7 @@ export default function ProfileContent() {
               className="gap-2"
             >
               <Save className="h-4 w-4" />
-              {saving ? '儲存中...' : '儲存變更'}
+              {saving ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
 
@@ -299,7 +299,7 @@ export default function ProfileContent() {
               className="gap-2"
             >
               <LogOut className="h-4 w-4" />
-              登出
+              Sign Out
             </Button>
           </div>
         </div>

@@ -11,7 +11,7 @@ datasource db {
 model User {
   id               String          @id @default(cuid())
   email            String          @unique
-  userID           String?         @unique // 使用者自訂 ID
+  userID           String?         @unique // User-defined ID
   name             String?
   image            String?
   emailVerified    DateTime?
@@ -77,16 +77,16 @@ model VerificationToken {
 model Pet {
   id                   String         @id @default(cuid())
   userId               String         @unique
-  name                 String         @default("我的寵物")
+  name                 String         @default("My Pet")
   imageUrl             String?
   facingDirection      String         @default("right")
   points               Int            @default(0)
   fullness             Int            @default(70)
   mood                 Int            @default(70)
-  lastLoginDate        DateTime? // 追蹤最後登入日期（用於判斷是否為當天第一次登入）
-  lastDailyReset       DateTime? // 追蹤最後一次每日重置的時間（用於判斷是否需要重置）
-  lastPetPageVisit     DateTime? // 追蹤最後一次訪問 pet page 的日期（用於判斷是否為當天第一次訪問）
-  consecutiveLoginDays Int            @default(0) // 追蹤連續登入天數
+  lastLoginDate        DateTime? // Track last login date (to determine if it's the first login of the day)
+  lastDailyReset       DateTime? // Track last daily reset time (to determine if reset is needed)
+  lastPetPageVisit     DateTime? // Track last pet page visit date (to determine if it's the first visit of the day)
+  consecutiveLoginDays Int            @default(0) // Track consecutive login days
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
   accessories          PetAccessory[]
@@ -184,7 +184,7 @@ model CustomSticker {
   name      String
   imageUrl  String
   category  String
-  price     Int      @default(100) // 未來購買該貼紙的價格（50, 100, 150）
+  price     Int      @default(100) // Future purchase price for this sticker (50, 100, 150)
   isPublic  Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -211,8 +211,8 @@ model PetAccessory {
 
 model Friend {
   id        String   @id @default(cuid())
-  userId    String // 發送好友請求的使用者
-  friendId  String // 被加為好友的使用者
+  userId    String // User who sent the friend request
+  friendId  String // User who was added as a friend
   status    String   @default("PENDING") // PENDING, accepted, blocked
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -227,10 +227,10 @@ model Friend {
 
 model FriendMessage {
   id         String   @id @default(cuid())
-  senderId   String // 發送訊息的使用者
-  receiverId String // 接收訊息的使用者（寵物主人）
-  petId      String // 相關的寵物 ID
-  message    String? // 留言內容（可選）
+  senderId   String // User who sent the message
+  receiverId String // User who received the message (pet owner)
+  petId      String // Related pet ID
+  message    String? // Message content (optional)
   action     String // pet, feed, message
   createdAt  DateTime @default(now())
   sender     User     @relation("SenderMessages", fields: [senderId], references: [id], onDelete: Cascade)
@@ -243,13 +243,13 @@ model FriendMessage {
 
 model FriendActivity {
   id         String   @id @default(cuid())
-  actorId    String   // 執行動作的用戶 ID
-  targetId   String   // 被影響的用戶 ID（寵物主人）
-  petId      String   // 相關的寵物 ID
-  petName    String   // 寵物名稱（冗餘，方便顯示）
+  actorId    String   // User ID who performed the action
+  targetId   String   // User ID who was affected (pet owner)
+  petId      String   // Related pet ID
+  petName    String   // Pet name (redundant, for display convenience)
   actionType String   // "pet", "feed", "visit"
-  details    String?  // 額外細節，如餵食的食物名稱
-  isRead     Boolean  @default(false) // 是否已讀
+  details    String?  // Additional details, such as food name fed
+  isRead     Boolean  @default(false) // Whether read
   createdAt  DateTime @default(now())
   actor      User     @relation("ActorActivities", fields: [actorId], references: [id], onDelete: Cascade)
   target     User     @relation("TargetActivities", fields: [targetId], references: [id], onDelete: Cascade)

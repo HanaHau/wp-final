@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
   try {
     const user = await getCurrentUser()
     if (!user || !user.email) {
-      return NextResponse.json({ error: '未授權' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // 使用 email 查找用戶，因為 ID 可能不一致
@@ -40,11 +40,11 @@ export async function POST(request: NextRequest) {
     })
 
     if (!userRecord) {
-      return NextResponse.json({ error: '用戶不存在' }, { status: 404 })
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     if (userRecord.isInitialized) {
-      return NextResponse.json({ error: '已經完成首次設定' }, { status: 400 })
+      return NextResponse.json({ error: 'Initial setup already completed' }, { status: 400 })
     }
 
     const dbUserId = userRecord.id
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     if (existingUserWithUserID) {
       return NextResponse.json(
-        { error: '此 userID 已被使用，請選擇其他 userID' },
+        { error: 'This userID is already taken, please choose another userID' },
         { status: 400 }
       )
     }
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
       // 如果是唯一性約束錯誤
       if (error.code === 'P2002' && error.meta?.target?.includes('userID')) {
         return NextResponse.json(
-          { error: '此 userID 已被使用，請選擇其他 userID' },
+          { error: 'This userID is already taken, please choose another userID' },
           { status: 400 }
         )
       }
@@ -189,14 +189,14 @@ export async function POST(request: NextRequest) {
     if (error instanceof z.ZodError) {
       console.error('資料驗證錯誤:', error.errors)
       return NextResponse.json(
-        { error: '資料驗證失敗', details: error.errors },
+        { error: 'Data validation failed', details: error.errors },
         { status: 400 }
       )
     }
     console.error('首次設定錯誤:', error)
-    const errorMessage = error instanceof Error ? error.message : '未知錯誤'
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json({ 
-      error: '首次設定失敗',
+      error: 'Initial setup failed',
       details: errorMessage 
     }, { status: 500 })
   }
@@ -207,7 +207,7 @@ export async function GET() {
   try {
     const user = await getCurrentUser()
     if (!user || !user.email) {
-      return NextResponse.json({ error: '未授權' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // 使用 email 查找用戶，因為 ID 可能不一致
@@ -221,7 +221,7 @@ export async function GET() {
     })
   } catch (error) {
     console.error('檢查設定狀態錯誤:', error)
-    return NextResponse.json({ error: '檢查失敗' }, { status: 500 })
+    return NextResponse.json({ error: 'Check failed' }, { status: 500 })
   }
 }
 

@@ -128,7 +128,7 @@ export default function PetRoomContent() {
       const petRes = await fetch('/api/pet')
       const petData = await petRes.json()
       setPet(petData)
-      setPetNameInput(petData.name || '我的寵物')
+      setPetNameInput(petData.name || 'My Pet')
       
       // Extract food items from purchases (including custom stickers with food category)
       const purchases = petData.purchases || []
@@ -284,8 +284,8 @@ export default function PetRoomContent() {
     const trimmedName = petNameInput.trim()
     if (!trimmedName) {
       toast({
-        title: '名稱不能為空',
-        description: '請輸入寵物名稱',
+        title: 'Name cannot be empty',
+        description: 'Please enter a pet name',
         variant: 'destructive',
       })
       return
@@ -305,7 +305,7 @@ export default function PetRoomContent() {
       })
 
       if (!response.ok) {
-        throw new Error('更新失敗')
+        throw new Error('Update failed')
       }
 
       const updatedPet = await response.json()
@@ -313,14 +313,14 @@ export default function PetRoomContent() {
       setIsEditingName(false)
 
       toast({
-        title: '名稱已更新',
-        description: `寵物名稱已更改為「${trimmedName}」`,
+        title: 'Name updated',
+        description: `Pet name changed to "${trimmedName}"`,
       })
     } catch (error: any) {
       console.error('更新名稱錯誤:', error)
       toast({
-        title: '更新失敗',
-        description: error.message || '請重試',
+        title: 'Update failed',
+        description: error.message || 'Please try again',
         variant: 'destructive',
       })
     } finally {
@@ -442,8 +442,8 @@ export default function PetRoomContent() {
       }, 600)
       
       toast({
-        title: '餵食成功！',
-        description: `飽食度 +${data.fullnessGain}`,
+        title: 'Feed successful!',
+        description: `Fullness +${data.fullnessGain}`,
       })
       
       // Reset states
@@ -530,7 +530,7 @@ export default function PetRoomContent() {
       setFeedingAnimation(null)
       setPetState('idle')
       toast({
-        title: '餵食失敗',
+        title: 'Feed failed',
         description: error.message,
         variant: 'destructive',
       })
@@ -556,8 +556,8 @@ export default function PetRoomContent() {
 
       if (!res.ok) throw new Error('Failed to equip')
       toast({
-        title: '裝備成功！',
-        description: '成功為寵物添加配件',
+        title: 'Equip successful!',
+        description: 'Successfully added accessory to pet',
       })
       showParticleEffect('✨', 4)
       setRefreshKey(prev => prev + 1)
@@ -577,11 +577,11 @@ export default function PetRoomContent() {
         method: 'DELETE',
       })
       if (!res.ok) throw new Error('Failed to remove accessory')
-      toast({ title: '已移除配件' })
+      toast({ title: 'Accessory removed' })
       setRefreshKey(prev => prev + 1)
     } catch (error: any) {
       toast({
-        title: '移除失敗',
+        title: 'Remove failed',
         description: error.message,
         variant: 'destructive',
       })
@@ -625,7 +625,7 @@ export default function PetRoomContent() {
                   onClick={handleSaveName}
                   disabled={isSavingName}
                   className="p-1 hover:bg-white/20 rounded-full transition-colors disabled:opacity-50"
-                  title="儲存"
+                  title="Save"
                 >
                   <Check className="h-4 w-4 text-white/90" />
                 </button>
@@ -633,7 +633,7 @@ export default function PetRoomContent() {
                   onClick={handleCancelEditName}
                   disabled={isSavingName}
                   className="p-1 hover:bg-white/20 rounded-full transition-colors disabled:opacity-50"
-                  title="取消"
+                  title="Cancel"
                 >
                   <X className="h-4 w-4 text-white/90" />
                 </button>
@@ -646,7 +646,7 @@ export default function PetRoomContent() {
                 <button
                   onClick={handleStartEditName}
                   className="p-1 hover:bg-white/20 rounded-full transition-colors"
-                  title="編輯名稱"
+                  title="Edit name"
                 >
                   <Pencil className="h-4 w-4 text-white/90" />
                 </button>
@@ -703,7 +703,7 @@ export default function PetRoomContent() {
                   }
                 } catch (error: any) {
                   toast({
-                    title: '裝備失敗',
+                    title: 'Equip failed',
                     description: error.message,
                     variant: 'destructive',
                   })
@@ -741,7 +741,7 @@ export default function PetRoomContent() {
                       zIndex: 10,
                     }}
                     onClick={() => handleAccessoryDelete(accessory.id)}
-                    title="點擊移除配件"
+                    title="Click to remove accessory"
                   >
                     {accessory.imageUrl ? (
                       <img

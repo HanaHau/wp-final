@@ -8,14 +8,14 @@ export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser()
     if (!user) {
-      return NextResponse.json({ error: '未授權' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const searchParams = request.nextUrl.searchParams
     const query = searchParams.get('q')
 
     if (!query || query.trim().length === 0) {
-      return NextResponse.json({ error: '請輸入搜尋關鍵字' }, { status: 400 })
+      return NextResponse.json({ error: 'Please enter a search keyword' }, { status: 400 })
     }
 
     const searchTerm = query.trim().toLowerCase()
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (!userRecord) {
-      return NextResponse.json({ error: '使用者不存在' }, { status: 404 })
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     // Search by email or userID (SQLite doesn't support case-insensitive mode)
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Search users error:', error)
     return NextResponse.json(
-      { error: '搜尋失敗' },
+      { error: 'Search failed' },
       { status: 500 }
     )
   }

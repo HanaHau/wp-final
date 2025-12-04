@@ -47,17 +47,17 @@ export default function MissionToastManager() {
 
       // 顯示 toast 通知
       toast({
-        title: '🎉 任務完成！',
-        description: `${mission.name} - 獲得 ${mission.points} 點數`,
+        title: '🎉 Mission Completed!',
+        description: `${mission.name} - Earned ${mission.points} points`,
         action: (
           <ToastAction
-            altText="前往領取"
+            altText="Go to claim"
             onClick={() => {
               router.push('/')
             }}
             className="bg-black text-white hover:bg-black/80 px-3 py-1.5 text-sm"
           >
-            前往領取
+            Go to Claim
           </ToastAction>
         ),
       })

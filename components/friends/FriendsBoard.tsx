@@ -112,12 +112,12 @@ export default function FriendsBoard({ initialFriends }: FriendsBoardProps) {
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
             <h1 className="text-2xl font-bold text-black uppercase tracking-wide">
-              好友小屋
+              Friend Rooms
             </h1>
             
             <div className="flex gap-2 w-full sm:w-auto">
               <Input
-                placeholder="搜尋好友..."
+                placeholder="Search friends..."
                 value={searchFilter}
                 onChange={(e) => setSearchFilter(e.target.value)}
                 className="flex-1 sm:flex-initial sm:w-64"
@@ -128,7 +128,7 @@ export default function FriendsBoard({ initialFriends }: FriendsBoardProps) {
                 className="gap-2 relative"
               >
                 <Mail className="h-4 w-4" />
-                <span className="hidden sm:inline">邀請</span>
+                <span className="hidden sm:inline">Invitations</span>
                 {invitationCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
                     {invitationCount > 9 ? '9+' : invitationCount}
@@ -152,7 +152,7 @@ export default function FriendsBoard({ initialFriends }: FriendsBoardProps) {
         {filteredFriends.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-black/60 mb-2">
-              {searchFilter ? '沒有找到符合的好友' : '還沒有好友'}
+              {searchFilter ? 'No matching friends found' : 'No friends yet'}
             </p>
             {!searchFilter && (
               <Button
@@ -160,7 +160,7 @@ export default function FriendsBoard({ initialFriends }: FriendsBoardProps) {
                 className="mt-4 gap-2"
               >
                 <UserPlus className="h-4 w-4" />
-                加入第一個好友
+                Add First Friend
               </Button>
             )}
           </div>

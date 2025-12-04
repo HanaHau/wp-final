@@ -15,7 +15,7 @@ export async function GET() {
   try {
     const user = await getCurrentUser()
     if (!user || !user.email) {
-      return NextResponse.json({ error: '未授權' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // 從資料庫獲取用戶 ID，因為 session 的 ID 可能不一致
@@ -25,7 +25,7 @@ export async function GET() {
     })
 
     if (!userRecord) {
-      return NextResponse.json({ error: '用戶不存在' }, { status: 404 })
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     let pet = await prisma.pet.findUnique({
@@ -44,7 +44,7 @@ export async function GET() {
       pet = await prisma.pet.create({
         data: {
           userId: userRecord.id,
-          name: '我的寵物',
+          name: 'My Pet',
           points: 50, // 新用戶初始 points 為 50
           fullness: 70,
           mood: 70,
@@ -147,7 +147,7 @@ export async function GET() {
     return NextResponse.json(petWithWarnings)
   } catch (error) {
     console.error('取得寵物資訊錯誤:', error)
-    return NextResponse.json({ error: '取得寵物資訊失敗' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to get pet information' }, { status: 500 })
   }
 }
 
@@ -156,7 +156,7 @@ export async function PUT(request: NextRequest) {
   try {
     const user = await getCurrentUser()
     if (!user || !user.email) {
-      return NextResponse.json({ error: '未授權' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // 從資料庫獲取用戶 ID，因為 session 的 ID 可能不一致
@@ -166,7 +166,7 @@ export async function PUT(request: NextRequest) {
     })
 
     if (!userRecord) {
-      return NextResponse.json({ error: '用戶不存在' }, { status: 404 })
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     const body = await request.json()
@@ -177,7 +177,7 @@ export async function PUT(request: NextRequest) {
     })
 
     if (!pet) {
-      return NextResponse.json({ error: '找不到寵物' }, { status: 404 })
+      return NextResponse.json({ error: 'Pet not found' }, { status: 404 })
     }
 
     // Only update fields that are provided
@@ -199,12 +199,12 @@ export async function PUT(request: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: '資料驗證失敗', details: error.errors },
+        { error: 'Validation failed', details: error.errors },
         { status: 400 }
       )
     }
     console.error('更新寵物資訊錯誤:', error)
-    return NextResponse.json({ error: '更新寵物資訊失敗' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to update pet information' }, { status: 500 })
   }
 }
 

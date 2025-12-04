@@ -39,11 +39,11 @@ export default function FeedPanel({
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-white/20 bg-white/5">
-          <h2 className="text-xl font-bold uppercase tracking-wide text-white/90">餵食</h2>
+          <h2 className="text-xl font-bold uppercase tracking-wide text-white/90">Feed</h2>
           <button
             onClick={onClose}
             className="p-2 border border-white/20 hover:bg-white/20 hover:border-white/30 transition-colors rounded"
-            aria-label="關閉"
+            aria-label="Close"
           >
             <X className="h-5 w-5 text-white/90" />
           </button>
@@ -53,12 +53,12 @@ export default function FeedPanel({
         <div className="flex-1 overflow-y-auto p-4">
           {foodItems.length === 0 ? (
             <div className="text-center py-12 text-white/60">
-              <p className="text-sm uppercase tracking-wide mb-2">沒有食物</p>
-              <p className="text-xs mb-4">前往商店購買！</p>
+              <p className="text-sm uppercase tracking-wide mb-2">No Food</p>
+              <p className="text-xs mb-4">Go to shop to purchase!</p>
               <Link href="/shop">
                 <button className="inline-flex items-center gap-2 px-4 py-2 border border-white/20 hover:bg-white/20 hover:border-white/30 transition-colors text-xs font-semibold uppercase tracking-wide rounded">
                   <ShoppingCart className="h-4 w-4" />
-                  前往商店
+                  Go to Shop
                 </button>
               </Link>
             </div>
@@ -104,7 +104,7 @@ export default function FeedPanel({
         {/* Footer */}
         <div className="p-4 border-t border-white/20 bg-white/5">
           <p className="text-xs text-center text-white/60 uppercase tracking-wide">
-            點擊食物來餵食你的寵物
+            Click food to feed your pet
           </p>
         </div>
       </div>

@@ -20,13 +20,13 @@ async function ensureUserRecord(sessionUser: {
 
   if (existingUser) {
     // Update existing user if needed
-    // 不要用 session 的 name 覆蓋資料庫中的 name（用戶可能在個人資料頁面修改過）
-    // 只更新 image，name 保持資料庫中的值
+    // Don't overwrite database name with session name (user may have modified it in profile page)
+    // Only update image, keep name as database value
     const updateData: any = {}
     if (sessionUser.image) {
       updateData.image = sessionUser.image
     }
-    // 只有在資料庫中沒有 name 時，才從 session 更新 name
+    // Only update name from session if database doesn't have a name
     if (!existingUser.name && sessionUser.name) {
       updateData.name = sessionUser.name
     }

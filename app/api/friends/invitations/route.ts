@@ -8,7 +8,7 @@ export async function GET() {
   try {
     const user = await getCurrentUser()
     if (!user) {
-      return NextResponse.json({ error: '未授權' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const userRecord = await prisma.user.findUnique({
@@ -17,7 +17,7 @@ export async function GET() {
     })
 
     if (!userRecord) {
-      return NextResponse.json({ error: '使用者不存在' }, { status: 404 })
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     const invitations = await prisma.friend.findMany({
@@ -43,7 +43,7 @@ export async function GET() {
   } catch (error) {
     console.error('Get invitations error:', error)
     return NextResponse.json(
-      { error: '取得邀請列表失敗' },
+      { error: 'Failed to get invitations list' },
       { status: 500 }
     )
   }

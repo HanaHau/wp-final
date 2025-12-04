@@ -459,8 +459,8 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
           handleFeedPet(draggingItem.id)
         } else {
           toast({
-            title: '靠近寵物一點',
-            description: '把食物拖到寵物附近來餵食',
+            title: 'Get closer to pet',
+            description: 'Drag food near the pet to feed',
             variant: 'destructive',
           })
         }
@@ -476,8 +476,8 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
           handlePlaceAccessory(draggingItem.id, clampedX, clampedY)
         } else {
           toast({
-            title: '靠近寵物一點',
-            description: '把配件拖到寵物附近來裝備',
+            title: 'Get closer to pet',
+            description: 'Drag accessory near the pet to equip',
             variant: 'destructive',
           })
         }
@@ -490,8 +490,8 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
         
         if (x < roomMinX || x > roomMaxX || y < roomMinY || y > roomMaxY) {
           toast({
-            title: '放置位置無效',
-            description: '貼紙只能放在房間內',
+            title: 'Invalid placement',
+            description: 'Stickers can only be placed inside the room',
             variant: 'destructive',
           })
         } else {
@@ -540,10 +540,10 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
 
       if (res.ok) {
         onStickerPlaced?.()
-        toast({ title: '已旋轉' })
+        toast({ title: 'Rotated' })
       }
     } catch (error) {
-      toast({ title: '旋轉失敗', variant: 'destructive' })
+      toast({ title: 'Rotation failed', variant: 'destructive' })
     }
   }, [selectedItem, stickers, onStickerPlaced, toast])
 
@@ -567,10 +567,10 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
 
       if (res.ok) {
         onStickerPlaced?.()
-        toast({ title: `縮放: ${newScale}x` })
+        toast({ title: `Scale: ${newScale}x` })
       }
     } catch (error) {
-      toast({ title: '縮放失敗', variant: 'destructive' })
+      toast({ title: 'Scale failed', variant: 'destructive' })
     }
   }, [selectedItem, stickers, onStickerPlaced, toast])
 
@@ -789,7 +789,7 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
       const data = await res.json()
       toast({
         title: data.message || 'Pet petted!',
-        description: `心情 +${data.moodGain ?? 2}`,
+        description: `Mood +${data.moodGain ?? 2}`,
       })
       onPetFed?.()
     } catch (error: any) {
@@ -841,7 +841,7 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
 
       if (!res.ok) {
         const error = await res.json().catch(() => ({}))
-        throw new Error(error.error || '無法放置貼紙')
+        throw new Error(error.error || 'Failed to place sticker')
       }
 
       const data = await res.json()
@@ -858,16 +858,16 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
         })
       })
 
-      toast({
-        title: '貼紙已放置！',
-        description: '成功添加裝飾到房間',
-      })
+        toast({
+          title: 'Sticker placed!',
+          description: 'Successfully added decoration to room',
+        })
     } catch (error: any) {
       // 如果失敗，刷新以恢復正確狀態
       onStickerPlaced?.()
       toast({
-        title: '放置失敗',
-        description: error?.message || '請稍後再試',
+        title: 'Placement failed',
+        description: error?.message || 'Please try again later',
         variant: 'destructive',
       })
     } finally {
@@ -1210,8 +1210,8 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                   setDragPosition(null)
                   setIsActuallyDragging(false)
                   toast({
-                    title: '位置不合法',
-                    description: '貼紙只能放置在房間內',
+                    title: 'Invalid position',
+                    description: 'Stickers can only be placed inside the room',
                     variant: 'destructive',
                   })
                   // 刷新數據以確保位置正確
@@ -1286,7 +1286,7 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                         setDragPreview(null)
                         setDragPosition(null)
                         setIsActuallyDragging(false)
-                        toast({ title: '移動失敗', variant: 'destructive' })
+                        toast({ title: 'Move failed', variant: 'destructive' })
                         onStickerPlaced?.() // 刷新以恢復原位置
                       }
                     })
@@ -1298,7 +1298,7 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                       setDragPreview(null)
                       setDragPosition(null)
                       setIsActuallyDragging(false)
-                      toast({ title: '移動失敗', variant: 'destructive' })
+                      toast({ title: 'Move failed', variant: 'destructive' })
                       onStickerPlaced?.() // 刷新以恢復原位置
                     })
                 } else {
@@ -1618,7 +1618,7 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                 {showPetTooltip && !isPetting && (
                   <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 z-50">
                     <div className="bg-gray-800/80 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                      摸摸我
+                      Pet me
                     </div>
                     {/* Tooltip arrow */}
                     <div className="absolute top-full left-1/2 transform -translate-x-1/2">
@@ -1660,11 +1660,11 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
           <h3 className="text-xs text-black/60 uppercase tracking-wide mb-2 sticky top-0 bg-white">Decor</h3>
           {availableStickers.length === 0 && (
             <div className="text-center py-4">
-              <p className="text-[10px] text-center text-black/40 mb-2">尚無貼紙</p>
+              <p className="text-[10px] text-center text-black/40 mb-2">No stickers yet</p>
               <Link href="/shop">
                 <button className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-black/20 hover:bg-black/5 transition-colors text-[10px] font-semibold uppercase tracking-wide">
                   <ShoppingCart className="h-3 w-3" />
-                  前往商店
+                  Go to Shop
                 </button>
               </Link>
             </div>
@@ -1706,7 +1706,7 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
             })}
           </div>
           <p className="text-[10px] text-center text-black/40 mt-2">
-            拖拉貼紙到房間
+            Drag stickers into the room
           </p>
         </div>
 
@@ -1747,18 +1747,18 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                 ))}
               </div>
               <p className="text-[10px] text-center text-black/40 mt-2">
-                拖拉食物到寵物處
+                Drag food to pet
               </p>
             </>
           ) : (
             <div className="text-center mt-6">
               <p className="text-[11px] lg:text-[12px] text-black/40 uppercase tracking-wide mb-3">
-                尚無食物 — 前往商店購買！
+                No food yet — Go to shop to buy!
               </p>
               <Link href="/shop">
                 <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-black/20 hover:bg-black/5 transition-colors text-[10px] lg:text-[11px] font-semibold uppercase tracking-wide">
                   <ShoppingCart className="h-3 w-3 lg:h-3.5 lg:w-3.5" />
-                  前往商店
+                  Go to Shop
                 </button>
               </Link>
             </div>
@@ -1804,18 +1804,18 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                 ))}
               </div>
               <p className="text-[10px] text-center text-black/40 mt-2">
-                拖拉配件到寵物處
+                Drag accessories to pet
               </p>
             </>
           ) : (
             <div className="text-center mt-6">
               <p className="text-[11px] lg:text-[12px] text-black/40 uppercase tracking-wide mb-3">
-                尚無配件 — 前往商店購買！
+                No accessories yet — Go to shop to buy!
               </p>
               <Link href="/shop">
                 <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-black/20 hover:bg-black/5 transition-colors text-[10px] lg:text-[11px] font-semibold uppercase tracking-wide">
                   <ShoppingCart className="h-3 w-3 lg:h-3.5 lg:w-3.5" />
-                  前往商店
+                  Go to Shop
                 </button>
               </Link>
             </div>

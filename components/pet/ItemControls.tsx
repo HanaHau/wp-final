@@ -29,8 +29,8 @@ export default function ItemControls({
       <button
         onClick={onRotate}
         className="p-2 bg-white border-2 border-black hover:bg-black hover:text-white transition-colors shadow-lg"
-        title="旋轉"
-        aria-label="旋轉物品"
+        title="Rotate"
+        aria-label="Rotate item"
       >
         <RotateCw className="h-4 w-4" />
       </button>
@@ -39,8 +39,8 @@ export default function ItemControls({
       <button
         onClick={onScale}
         className="p-2 bg-white border-2 border-black hover:bg-black hover:text-white transition-colors shadow-lg"
-        title="縮放"
-        aria-label="縮放物品"
+        title="Scale"
+        aria-label="Scale item"
       >
         <Maximize2 className="h-4 w-4" />
       </button>
@@ -49,8 +49,8 @@ export default function ItemControls({
       <button
         onClick={onDelete}
         className="p-2 bg-white border-2 border-black hover:bg-black hover:text-white transition-colors shadow-lg"
-        title="放回倉庫"
-        aria-label="放回倉庫"
+        title="Return to warehouse"
+        aria-label="Return to warehouse"
       >
         <Package className="h-4 w-4" />
       </button>

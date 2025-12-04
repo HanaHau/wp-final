@@ -70,15 +70,15 @@ export default function PetDeathOverlay() {
       })
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: '未知錯誤' }))
-        throw new Error(errorData.error || '重新開始失敗')
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(errorData.error || 'Restart failed')
       }
 
       const data = await res.json()
       
       toast({
-        title: '重新開始成功！',
-        description: '您的寵物已經復活，請好好照顧牠！',
+        title: 'Restart Successful!',
+        description: 'Your pet has been revived. Please take good care of it!',
       })
 
       setShowRestartDialog(false)
@@ -90,8 +90,8 @@ export default function PetDeathOverlay() {
     } catch (error: any) {
       console.error('重新開始錯誤:', error)
       toast({
-        title: '重新開始失敗',
-        description: error.message || '請重試',
+        title: 'Restart Failed',
+        description: error.message || 'Please try again',
         variant: 'destructive',
       })
     } finally {
@@ -118,10 +118,10 @@ export default function PetDeathOverlay() {
           <div className="text-center max-w-md">
             <div className="text-8xl mb-6 animate-pulse">💀</div>
             <h2 className="text-3xl font-bold text-white mb-4 uppercase tracking-wide">
-              寵物已死亡
+              Pet Has Died
             </h2>
             <p className="text-white/90 text-base mb-6">
-              您的寵物因為 {pet.mood <= 0 ? '心情' : '飽食度'} 歸零而死亡
+              Your pet has died because {pet.mood <= 0 ? 'mood' : 'fullness'} reached zero
             </p>
             <Button
               onClick={(e) => {
@@ -132,7 +132,7 @@ export default function PetDeathOverlay() {
               className="border-2 border-white bg-white text-black hover:bg-black hover:text-white text-lg px-8 py-6"
               type="button"
             >
-              重新開始遊戲
+              Restart Game
             </Button>
           </div>
         </div>
@@ -143,15 +143,15 @@ export default function PetDeathOverlay() {
         <DialogContent className="border-2 border-black z-[210]">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold uppercase tracking-wide">
-              重新開始遊戲
+              Restart Game
             </DialogTitle>
             <DialogDescription className="text-sm text-black/60">
-              確定要重新開始嗎？這將重置寵物的狀態（points, mood, fullness），但會保留您的收支記錄。
+              Are you sure you want to restart? This will reset your pet's status (points, mood, fullness), but will keep your transaction records.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-4">
             <div className="text-sm">
-              <span className="font-semibold">重置項目：</span>
+              <span className="font-semibold">Reset Items:</span>
               <ul className="list-disc list-inside mt-2 space-y-1">
                 <li>Points: 50</li>
                 <li>Mood: 70</li>
@@ -159,11 +159,11 @@ export default function PetDeathOverlay() {
               </ul>
             </div>
             <div className="text-sm">
-              <span className="font-semibold">保留項目：</span>
+              <span className="font-semibold">Kept Items:</span>
               <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>收支記錄</li>
-                <li>購買記錄</li>
-                <li>其他數據</li>
+                <li>Transaction records</li>
+                <li>Purchase records</li>
+                <li>Other data</li>
               </ul>
             </div>
           </div>
@@ -179,7 +179,7 @@ export default function PetDeathOverlay() {
               className="border-2 border-black"
               type="button"
             >
-              取消
+              Cancel
             </Button>
             <Button
               onClick={(e) => {
@@ -191,7 +191,7 @@ export default function PetDeathOverlay() {
               className="border-2 border-black bg-black text-white hover:bg-white hover:text-black"
               type="button"
             >
-              {isRestarting ? '重新開始中...' : '確認重新開始'}
+              {isRestarting ? 'Restarting...' : 'Confirm Restart'}
             </Button>
           </DialogFooter>
         </DialogContent>
