@@ -5,7 +5,7 @@ import { z } from 'zod'
 
 const reorderSchema = z.object({
   categoryIds: z.array(z.string()),
-  typeId: z.number().int().min(1).max(3),
+  typeId: z.number().int().min(1).max(2), // 1=支出, 2=收入
 })
 
 // PUT /api/categories/reorder - 更新類別排序

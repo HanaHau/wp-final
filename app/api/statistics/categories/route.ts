@@ -24,7 +24,6 @@ export async function GET(request: NextRequest) {
     const typeIdMap: Record<string, number> = {
       'EXPENSE': 1,
       'INCOME': 2,
-      'DEPOSIT': 3,
     }
     const typeId = typeIdMap[type] || 1
 

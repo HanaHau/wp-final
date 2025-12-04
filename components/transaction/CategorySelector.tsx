@@ -42,7 +42,7 @@ interface Category {
 interface CategorySelectorProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  typeId: number // 1=支出, 2=收入, 3=存錢
+  typeId: number // 1=支出, 2=收入
   selectedCategoryId: string | null
   onSelect: (categoryId: string) => void
 }
