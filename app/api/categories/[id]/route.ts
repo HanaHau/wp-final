@@ -7,7 +7,6 @@ export const dynamic = 'force-dynamic'
 
 const categoryUpdateSchema = z.object({
   name: z.string().min(1).optional(),
-  color: z.string().nullable().optional(),
   icon: z.string().nullable().optional(),
 })
 

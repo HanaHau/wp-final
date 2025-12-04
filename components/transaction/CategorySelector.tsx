@@ -32,7 +32,6 @@ interface Category {
   id: string
   name: string
   icon: string | null
-  color: string | null
   typeId: number
   userId: string | null
   isDefault: boolean
@@ -55,16 +54,6 @@ const EMOJI_ICONS = [
   '🎁', '💡', '🔧', '📝', '💰', '💳', '🏦', '📊', '📈', '📉'
 ]
 
-const COLORS = [
-  '#F0E4D4', // Light Beige
-  '#F9D9CA', // Light Peach
-  '#D18063', // Muted Terracotta
-  '#917B56', // Olive Green
-  '#B57FB3', // Medium Purple
-  '#6ECEDA', // Light Blue
-  '#E098AE', // Dusty Rose
-  '#D5CB8E', // Light Yellow
-]
 
 // Sortable Category Item Component
 interface SortableCategoryItemProps {
@@ -182,7 +171,6 @@ export default function CategorySelector({
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [newCategoryIcon, setNewCategoryIcon] = useState('📝')
-  const [newCategoryColor, setNewCategoryColor] = useState<string | null>(null)
   const [showIconPicker, setShowIconPicker] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -212,7 +200,6 @@ export default function CategorySelector({
       setHasUnsavedChanges(false)
       setNewCategoryName('')
       setNewCategoryIcon('📝')
-      setNewCategoryColor(null)
       setEditingCategory(null)
       setActiveId(null)
       setCursorOffset({ x: 0, y: 0 })
@@ -225,12 +212,12 @@ export default function CategorySelector({
   // Track unsaved changes
   useEffect(() => {
     if (viewMode === 'add') {
-      const hasChanges = newCategoryName.trim() !== '' || newCategoryIcon !== '📝' || newCategoryColor !== null
+      const hasChanges = newCategoryName.trim() !== '' || newCategoryIcon !== '📝'
       setHasUnsavedChanges(hasChanges)
     } else {
       setHasUnsavedChanges(false)
     }
-  }, [viewMode, newCategoryName, newCategoryIcon, newCategoryColor])
+  }, [viewMode, newCategoryName, newCategoryIcon])
 
   const fetchCategories = async () => {
     setLoading(true)
@@ -318,7 +305,6 @@ export default function CategorySelector({
     setEditingCategory(category)
     setNewCategoryName(category.name)
     setNewCategoryIcon(category.icon || '📝')
-    setNewCategoryColor(category.color || null)
     setViewMode('add') // Switch to add view for editing
   }
 
@@ -359,7 +345,6 @@ export default function CategorySelector({
           body: JSON.stringify({
             name: newCategoryName.trim(),
             icon: newCategoryIcon,
-            color: newCategoryColor,
           }),
         })
 
@@ -378,7 +363,6 @@ export default function CategorySelector({
         setEditingCategory(null)
         setNewCategoryName('')
         setNewCategoryIcon('📝')
-        setNewCategoryColor(null)
         fetchCategories()
         return
       } else {
@@ -387,7 +371,6 @@ export default function CategorySelector({
           name: newCategoryName.trim(),
           typeId: Number(typeId), // 確保 typeId 是數字
           ...(newCategoryIcon && { icon: newCategoryIcon }),
-          ...(newCategoryColor && { color: newCategoryColor }),
         }
         
         const res = await fetch('/api/categories', {
@@ -421,7 +404,6 @@ export default function CategorySelector({
       setEditingCategory(null)
       setNewCategoryName('')
       setNewCategoryIcon('📝')
-      setNewCategoryColor(null)
       setViewMode('select')
       fetchCategories()
     } catch (error) {
@@ -440,7 +422,6 @@ export default function CategorySelector({
     setEditingCategory(null)
     setNewCategoryName('')
     setNewCategoryIcon('📝')
-    setNewCategoryColor(null)
     setViewMode('select')
   }
 
@@ -829,31 +810,6 @@ export default function CategorySelector({
                   </div>
                 </div>
 
-                <div>
-                  <Label className="text-xs uppercase tracking-wide mb-2 block">
-                    Color (Optional)
-                  </Label>
-                  <div className="flex gap-2 flex-wrap">
-                    {COLORS.map((color) => (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() => setNewCategoryColor(newCategoryColor === color ? null : color)}
-                        className={`w-8 h-8 rounded border-2 ${
-                          newCategoryColor === color ? 'border-black' : 'border-gray-300'
-                        }`}
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => setNewCategoryColor(null)}
-                      className="w-8 h-8 rounded border-2 border-gray-300 flex items-center justify-center text-xs"
-                    >
-                      None
-                    </button>
-                  </div>
-                </div>
 
                 <div className="flex gap-2">
                   <Button

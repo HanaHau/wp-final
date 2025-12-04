@@ -4,22 +4,8 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-// 在開發模式下，強制清除舊的實例以確保使用最新的 Prisma Client
-if (process.env.NODE_ENV !== 'production' && globalForPrisma.prisma) {
-  // 檢查是否有 mission 模型
-  if (!('mission' in globalForPrisma.prisma)) {
-    console.log('🔄 清除舊的 Prisma Client 實例（缺少 mission 模型）')
-    // 嘗試斷開連接（異步，但不等待）
-    const oldPrisma = globalForPrisma.prisma as PrismaClient | undefined
-    if (oldPrisma) {
-      oldPrisma.$disconnect().catch(() => {
-        // 忽略錯誤
-      })
-    }
-    globalForPrisma.prisma = undefined
-  }
-}
-
+// 優化 Prisma Client 單例模式，確保連接池正確管理
+// 在所有環境下都重用同一個實例，避免連接池耗盡
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
@@ -31,17 +17,24 @@ export const prisma =
     },
   })
 
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma
-}
+// 確保在所有環境下都重用同一個實例（避免連接池耗盡）
+globalForPrisma.prisma = prisma
 
-// 驗證 mission 模型存在
-if (!('mission' in prisma)) {
-  console.error('⚠️ Prisma Client 缺少 mission 模型！')
-  console.error('請運行: npx prisma generate')
-  console.error('然後重啟開發伺服器')
-  console.error('如果問題持續，請清除 .next 緩存: rm -rf .next')
-} else {
-  console.log('✅ Prisma Client 已正確載入 mission 模型')
+// 在應用關閉時優雅地斷開連接
+if (typeof window === 'undefined') {
+  // 僅在服務器端執行
+  process.on('beforeExit', async () => {
+    await prisma.$disconnect()
+  })
+  
+  process.on('SIGINT', async () => {
+    await prisma.$disconnect()
+    process.exit(0)
+  })
+  
+  process.on('SIGTERM', async () => {
+    await prisma.$disconnect()
+    process.exit(0)
+  })
 }
 

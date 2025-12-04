@@ -41,24 +41,20 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    // 按類別統計，同時記錄類別的顏色
-    const categoryStats: Record<string, { value: number; color: string | null }> = {}
+    // 按類別統計
+    const categoryStats: Record<string, number> = {}
     transactions.forEach((t) => {
       const categoryName = t.category.name
       if (!categoryStats[categoryName]) {
-        categoryStats[categoryName] = {
-          value: 0,
-          color: t.category.color,
-        }
+        categoryStats[categoryName] = 0
       }
-      categoryStats[categoryName].value += t.amount
+      categoryStats[categoryName] += t.amount
     })
 
     // 轉換為陣列格式供圖表使用
-    const chartData = Object.entries(categoryStats).map(([name, data]) => ({
+    const chartData = Object.entries(categoryStats).map(([name, value]) => ({
       name,
-      value: data.value,
-      color: data.color,
+      value,
     }))
 
     return NextResponse.json({

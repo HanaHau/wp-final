@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -132,7 +133,6 @@ model Category {
   userId       String?
   isDefault    Boolean       @default(false)
   sortOrder    Int           @default(0)
-  color        String?
   icon         String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt

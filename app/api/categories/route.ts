@@ -8,7 +8,6 @@ export const dynamic = 'force-dynamic'
 const categorySchema = z.object({
   name: z.string().min(1),
   typeId: z.number().int().min(1).max(2), // 1=支出, 2=收入
-  color: z.string().nullable().optional(),
   icon: z.string().nullable().optional(),
 })
 
@@ -112,7 +111,6 @@ export async function POST(request: NextRequest) {
         name: validatedData.name,
         typeId: validatedData.typeId,
         userId: user.id,
-        color: validatedData.color,
         icon: validatedData.icon,
         isDefault: false,
         sortOrder: newSortOrder,
