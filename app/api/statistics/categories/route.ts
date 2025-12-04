@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/statistics/categories - 取得類別統計
 export async function GET(request: NextRequest) {
   try {
@@ -40,17 +42,24 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    // 按類別統計
-    const categoryStats: Record<string, number> = {}
+    // 按類別統計，同時記錄類別的顏色
+    const categoryStats: Record<string, { value: number; color: string | null }> = {}
     transactions.forEach((t) => {
       const categoryName = t.category.name
-      categoryStats[categoryName] = (categoryStats[categoryName] || 0) + t.amount
+      if (!categoryStats[categoryName]) {
+        categoryStats[categoryName] = {
+          value: 0,
+          color: t.category.color,
+        }
+      }
+      categoryStats[categoryName].value += t.amount
     })
 
     // 轉換為陣列格式供圖表使用
-    const chartData = Object.entries(categoryStats).map(([name, value]) => ({
+    const chartData = Object.entries(categoryStats).map(([name, data]) => ({
       name,
-      value,
+      value: data.value,
+      color: data.color,
     }))
 
     return NextResponse.json({

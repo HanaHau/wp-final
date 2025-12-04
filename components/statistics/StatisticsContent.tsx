@@ -14,6 +14,7 @@ import DailyTransactionsDialog from './DailyTransactionsDialog'
 interface CategoryData {
   name: string
   value: number
+  color?: string | null
 }
 
 interface MonthlyStats {
@@ -26,7 +27,18 @@ interface MonthlyStats {
   transactionCount: number
 }
 
-const COLORS = ['#000000', '#4A4A4A', '#808080', '#A0A0A0', '#C0C0C0', '#E0E0E0']
+// 預設顏色選項（當類別沒有設定顏色時使用）
+const DEFAULT_COLORS = [
+  '#F0E4D4', // Light Beige
+  '#F9D9CA', // Light Peach
+  '#D18063', // Muted Terracotta
+  '#917B56', // Olive Green
+  '#B57FB3', // Medium Purple
+  '#6ECEDA', // Light Blue
+  '#E098AE', // Dusty Rose
+  '#D5CB8E', // Light Yellow
+]
+
 const GREEN_TINT = '#2D5016' // Dark green for positive
 const RED_TINT = '#5A1F1F' // Dark red for negative
 
@@ -349,12 +361,16 @@ export default function StatisticsContent() {
                           fill="#000"
                           dataKey="value"
                         >
-                          {categoryData.map((entry, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={COLORS[index % COLORS.length]}
-                            />
-                          ))}
+                          {categoryData.map((entry, index) => {
+                            // 使用類別的顏色，如果沒有則使用預設顏色
+                            const color = entry.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length]
+                            return (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={color}
+                              />
+                            )
+                          })}
                         </Pie>
                         <Tooltip formatter={(value: number) => formatCurrency(value)} />
                       </PieChart>
@@ -369,7 +385,7 @@ export default function StatisticsContent() {
                           <div className="flex items-center gap-2 min-w-0 flex-1">
                             <div 
                               className="w-3 h-3 border border-black flex-shrink-0"
-                              style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                              style={{ backgroundColor: entry.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length] }}
                             />
                             <span className="text-xs font-medium truncate">{entry.name}</span>
                             <span className="text-xs font-bold">({percentage}%)</span>

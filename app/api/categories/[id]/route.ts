@@ -3,16 +3,18 @@ import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
+export const dynamic = 'force-dynamic'
+
 const categoryUpdateSchema = z.object({
   name: z.string().min(1).optional(),
-  color: z.string().optional(),
-  icon: z.string().optional(),
+  color: z.string().nullable().optional(),
+  icon: z.string().nullable().optional(),
 })
 
 // PUT /api/categories/[id] - 更新類別
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     const user = await getCurrentUser()
@@ -20,17 +22,20 @@ export async function PUT(
       return NextResponse.json({ error: '未授權' }, { status: 401 })
     }
 
+    // Handle params as Promise (Next.js 15+) or object (Next.js 14)
+    const resolvedParams = await Promise.resolve(params)
+    const categoryId = resolvedParams.id
+
+    if (!categoryId) {
+      return NextResponse.json({ error: '缺少類別 ID' }, { status: 400 })
+    }
+
     const category = await prisma.category.findUnique({
-      where: { id: params.id },
+      where: { id: categoryId },
     })
 
     if (!category) {
       return NextResponse.json({ error: '找不到類別' }, { status: 404 })
-    }
-
-    // 禁止修改系統預設類別
-    if (category.userId === null) {
-      return NextResponse.json({ error: '無法修改系統預設類別' }, { status: 403 })
     }
 
     // 確保只能修改自己的類別
@@ -59,7 +64,7 @@ export async function PUT(
     }
 
     const updatedCategory = await prisma.category.update({
-      where: { id: params.id },
+      where: { id: categoryId },
       data: validatedData,
       include: {
         type: true,
@@ -82,7 +87,7 @@ export async function PUT(
 // DELETE /api/categories/[id] - 刪除類別
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     const user = await getCurrentUser()
@@ -90,8 +95,16 @@ export async function DELETE(
       return NextResponse.json({ error: '未授權' }, { status: 401 })
     }
 
+    // Handle params as Promise (Next.js 15+) or object (Next.js 14)
+    const resolvedParams = await Promise.resolve(params)
+    const categoryId = resolvedParams.id
+
+    if (!categoryId) {
+      return NextResponse.json({ error: '缺少類別 ID' }, { status: 400 })
+    }
+
     const category = await prisma.category.findUnique({
-      where: { id: params.id },
+      where: { id: categoryId },
       include: {
         type: true,
       },
@@ -101,43 +114,27 @@ export async function DELETE(
       return NextResponse.json({ error: '找不到類別' }, { status: 404 })
     }
 
-    // 禁止刪除系統預設類別
-    if (category.userId === null) {
-      return NextResponse.json({ error: '無法刪除系統預設類別' }, { status: 403 })
-    }
-
     // 確保只能刪除自己的類別
     if (category.userId !== user.id) {
       return NextResponse.json({ error: '無權限刪除此類別' }, { status: 403 })
     }
 
-    // 找出該 type 的 fallback 類別（「其他」）
-    const fallbackCategory = await prisma.category.findFirst({
+    // 檢查是否有交易使用此類別
+    const transactionsUsingCategory = await prisma.transaction.findFirst({
       where: {
-        typeId: category.typeId,
-        userId: null,
-        isDefault: true,
-        name: '其他',
+        categoryId: categoryId,
       },
     })
 
-    if (!fallbackCategory) {
-      return NextResponse.json({ error: '找不到 fallback 類別' }, { status: 500 })
+    if (transactionsUsingCategory) {
+      return NextResponse.json({ 
+        error: '無法刪除此類別，因為仍有交易使用此類別。請先刪除或修改相關交易。' 
+      }, { status: 400 })
     }
-
-    // 更新所有使用此類別的 transactions，轉移到 fallback 類別
-    await prisma.transaction.updateMany({
-      where: {
-        categoryId: params.id,
-      },
-      data: {
-        categoryId: fallbackCategory.id,
-      },
-    })
 
     // 刪除類別
     await prisma.category.delete({
-      where: { id: params.id },
+      where: { id: categoryId },
     })
 
     return NextResponse.json({ message: '刪除成功' })

@@ -3,11 +3,13 @@ import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
+export const dynamic = 'force-dynamic'
+
 const categorySchema = z.object({
   name: z.string().min(1),
   typeId: z.number().int().min(1).max(3), // 1=支出, 2=收入, 3=存錢
-  color: z.string().optional(),
-  icon: z.string().optional(),
+  color: z.string().nullable().optional(),
+  icon: z.string().nullable().optional(),
 })
 
 // GET /api/categories - 取得類別列表
@@ -22,10 +24,7 @@ export async function GET(request: NextRequest) {
     const typeId = searchParams.get('typeId')
 
     const where: any = {
-      OR: [
-        { userId: null }, // 系統預設類別
-        { userId: user.id }, // 使用者自訂類別
-      ],
+      userId: user.id, // 只查詢使用者自己的類別
     }
 
     if (typeId) {
@@ -39,7 +38,6 @@ export async function GET(request: NextRequest) {
       },
       orderBy: [
         { typeId: 'asc' },
-        { userId: 'asc' }, // null (預設) 在前，非 null (使用者自訂) 在後
         { sortOrder: 'asc' },
         { name: 'asc' },
       ],
@@ -122,13 +120,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(category, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.error('資料驗證錯誤:', error.errors)
       return NextResponse.json(
         { error: '資料驗證失敗', details: error.errors },
         { status: 400 }
       )
     }
     console.error('新增類別錯誤:', error)
-    return NextResponse.json({ error: '新增類別失敗' }, { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : '新增類別失敗'
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
 

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
-import { updateMissionProgress } from '@/lib/missions'
+
+export const dynamic = 'force-dynamic'
 
 const petUpdateSchema = z.object({
   name: z.string().min(1).max(20).optional(),
@@ -88,10 +89,7 @@ export async function GET() {
       updateData.lastDailyReset = today
     }
     
-    let missionCompleted = null
     if (isFirstLoginToday) {
-      // 更新任務：查看寵物狀態
-      missionCompleted = await updateMissionProgress(userRecord.id, 'daily', 'check_pet', 1)
       const currentMood = updateData.mood ?? pet.mood
       updateData.mood = Math.min(100, currentMood + 5) // 直接 +5
       updateData.lastLoginDate = now
@@ -146,10 +144,7 @@ export async function GET() {
       isHungry: pet.fullness < 30,
     }
 
-    return NextResponse.json({
-      ...petWithWarnings,
-      missionCompleted: missionCompleted || undefined,
-    })
+    return NextResponse.json(petWithWarnings)
   } catch (error) {
     console.error('取得寵物資訊錯誤:', error)
     return NextResponse.json({ error: '取得寵物資訊失敗' }, { status: 500 })

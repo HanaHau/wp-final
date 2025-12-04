@@ -3,6 +3,8 @@ import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { SHOP_ITEM_MAP, DECOR_SHOP_CATEGORIES } from '@/data/shop-items'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     const user = await getCurrentUser()

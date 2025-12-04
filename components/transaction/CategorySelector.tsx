@@ -56,8 +56,14 @@ const EMOJI_ICONS = [
 ]
 
 const COLORS = [
-  '#000000', '#4A4A4A', '#808080', '#A0A0A0', '#C0C0C0', '#E0E0E0',
-  '#2D5016', '#5A1F1F', '#1A4A4A', '#4A1A4A'
+  '#F0E4D4', // Light Beige
+  '#F9D9CA', // Light Peach
+  '#D18063', // Muted Terracotta
+  '#917B56', // Olive Green
+  '#B57FB3', // Medium Purple
+  '#6ECEDA', // Light Blue
+  '#E098AE', // Dusty Rose
+  '#D5CB8E', // Light Yellow
 ]
 
 // Sortable Category Item Component
@@ -358,7 +364,8 @@ export default function CategorySelector({
         })
 
         if (!res.ok) {
-          throw new Error('Update failed')
+          const errorData = await res.json().catch(() => ({ error: 'Update failed' }))
+          throw new Error(errorData.error || 'Update failed')
         }
 
         toast({
@@ -376,19 +383,23 @@ export default function CategorySelector({
         return
       } else {
         // Create new category
+        const requestBody = {
+          name: newCategoryName.trim(),
+          typeId: Number(typeId), // 確保 typeId 是數字
+          ...(newCategoryIcon && { icon: newCategoryIcon }),
+          ...(newCategoryColor && { color: newCategoryColor }),
+        }
+        
         const res = await fetch('/api/categories', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: newCategoryName.trim(),
-            typeId: typeId,
-            icon: newCategoryIcon,
-            color: newCategoryColor,
-          }),
+          body: JSON.stringify(requestBody),
         })
 
         if (!res.ok) {
-          throw new Error('Create failed')
+          const errorData = await res.json().catch(() => ({ error: 'Create failed' }))
+          const errorMessage = errorData.error || errorData.details?.[0]?.message || 'Create failed'
+          throw new Error(errorMessage)
         }
 
         const newCategory = await res.json()
@@ -415,9 +426,10 @@ export default function CategorySelector({
       fetchCategories()
     } catch (error) {
       console.error('Save error:', error)
+      const errorMessage = error instanceof Error ? error.message : (editingCategory ? 'Failed to update category.' : 'Failed to create category.')
       toast({
         title: 'Error',
-        description: editingCategory ? 'Failed to update category.' : 'Failed to create category.',
+        description: errorMessage,
         variant: 'destructive',
       })
     }

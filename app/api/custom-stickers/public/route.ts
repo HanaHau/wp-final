@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/custom-stickers/public - 取得所有公開的自訂貼紙
 export async function GET() {
   try {
