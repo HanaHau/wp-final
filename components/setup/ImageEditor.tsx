@@ -153,32 +153,124 @@ export default function ImageEditor({ imageUrl, onSave, onCancel }: ImageEditorP
     const maskCanvas = maskCanvasRef.current
     if (!canvas || !maskCanvas || !image) return
 
-    // Create a new canvas for the final result
+    // Get mask data
+    const maskCtx = maskCanvas.getContext('2d')
+    if (!maskCtx) return
+    const maskData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height)
+
+    // Find bounding box of selected area (non-transparent pixels)
+    let minX = maskCanvas.width
+    let minY = maskCanvas.height
+    let maxX = 0
+    let maxY = 0
+    let hasSelection = false
+
+    for (let y = 0; y < maskCanvas.height; y++) {
+      for (let x = 0; x < maskCanvas.width; x++) {
+        const index = (y * maskCanvas.width + x) * 4
+        const alpha = maskData.data[index + 3]
+        // If mask is transparent or semi-transparent (selected area), check bounds
+        if (alpha <= 128) {
+          hasSelection = true
+          minX = Math.min(minX, x)
+          minY = Math.min(minY, y)
+          maxX = Math.max(maxX, x)
+          maxY = Math.max(maxY, y)
+        }
+      }
+    }
+
+    // If no selection found, use full canvas
+    if (!hasSelection) {
+      minX = 0
+      minY = 0
+      maxX = maskCanvas.width
+      maxY = maskCanvas.height
+    }
+
+    // Calculate selected area dimensions
+    const selectedWidth = maxX - minX
+    const selectedHeight = maxY - minY
+
+    // Create a temporary canvas to extract the selected region
+    const tempCanvas = document.createElement('canvas')
+    tempCanvas.width = selectedWidth
+    tempCanvas.height = selectedHeight
+    const tempCtx = tempCanvas.getContext('2d')
+    if (!tempCtx) return
+
+    // Get the image data from the main canvas (which already has the scaled image)
+    const canvasCtx = canvas.getContext('2d')
+    if (!canvasCtx) return
+    const canvasImageData = canvasCtx.getImageData(0, 0, canvas.width, canvas.height)
+
+    // Extract the selected region and apply mask
+    const tempImageData = tempCtx.createImageData(selectedWidth, selectedHeight)
+    for (let y = 0; y < selectedHeight; y++) {
+      for (let x = 0; x < selectedWidth; x++) {
+        const canvasX = minX + x
+        const canvasY = minY + y
+        const canvasIndex = (canvasY * canvas.width + canvasX) * 4
+        const tempIndex = (y * selectedWidth + x) * 4
+        
+        // Copy pixel data from canvas
+        tempImageData.data[tempIndex] = canvasImageData.data[canvasIndex]
+        tempImageData.data[tempIndex + 1] = canvasImageData.data[canvasIndex + 1]
+        tempImageData.data[tempIndex + 2] = canvasImageData.data[canvasIndex + 2]
+        
+        // Apply mask: if mask is opaque (dark area), make transparent
+        const maskX = minX + x
+        const maskY = minY + y
+        const maskIndex = (maskY * maskCanvas.width + maskX) * 4
+        const maskAlpha = maskData.data[maskIndex + 3]
+        
+        if (maskAlpha > 128) {
+          tempImageData.data[tempIndex + 3] = 0 // Make transparent
+        } else {
+          tempImageData.data[tempIndex + 3] = canvasImageData.data[canvasIndex + 3] // Keep original alpha
+        }
+      }
+    }
+    tempCtx.putImageData(tempImageData, 0, 0)
+
+    // Create final canvas with selected area centered
     const resultCanvas = document.createElement('canvas')
     resultCanvas.width = canvas.width
     resultCanvas.height = canvas.height
     const resultCtx = resultCanvas.getContext('2d')
     if (!resultCtx) return
 
-    // Draw the original image
-    resultCtx.drawImage(image, 0, 0, canvas.width, canvas.height)
+    // Clear canvas with transparent background
+    resultCtx.clearRect(0, 0, resultCanvas.width, resultCanvas.height)
 
-    // Get mask data
-    const maskCtx = maskCanvas.getContext('2d')
-    if (!maskCtx) return
-    const maskData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height)
-    const imageData = resultCtx.getImageData(0, 0, canvas.width, canvas.height)
+    // Calculate appropriate size for the selected area
+    // Target: selected area should be at least 40% of canvas size, but not exceed 90%
+    const minSizeRatio = 0.4
+    const maxSizeRatio = 0.9
+    const targetWidth = Math.max(
+      canvas.width * minSizeRatio,
+      Math.min(selectedWidth, canvas.width * maxSizeRatio)
+    )
+    const targetHeight = Math.max(
+      canvas.height * minSizeRatio,
+      Math.min(selectedHeight, canvas.height * maxSizeRatio)
+    )
 
-    // Apply mask to make pixels transparent where mask is dark
-    for (let i = 0; i < maskData.data.length; i += 4) {
-      const alpha = maskData.data[i + 3]
-      // If mask is opaque (dark area), make image transparent
-      if (alpha > 128) {
-        imageData.data[i + 3] = 0
-      }
-    }
+    // Calculate scale factor while maintaining aspect ratio
+    const scaleX = targetWidth / selectedWidth
+    const scaleY = targetHeight / selectedHeight
+    const scale = Math.min(scaleX, scaleY) // Use the smaller scale to fit within bounds
 
-    resultCtx.putImageData(imageData, 0, 0)
+    // Calculate final dimensions after scaling
+    const finalWidth = selectedWidth * scale
+    const finalHeight = selectedHeight * scale
+
+    // Calculate center position
+    const centerX = (resultCanvas.width - finalWidth) / 2
+    const centerY = (resultCanvas.height - finalHeight) / 2
+
+    // Draw the selected region centered and scaled
+    resultCtx.drawImage(tempCanvas, centerX, centerY, finalWidth, finalHeight)
 
     // Convert to data URL
     const editedImageUrl = resultCanvas.toDataURL('image/png')
