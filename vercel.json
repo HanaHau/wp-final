@@ -1,0 +1,5 @@
+{
+  "buildCommand": "bash scripts/build.sh",
+  "installCommand": "npm install"
+}
+

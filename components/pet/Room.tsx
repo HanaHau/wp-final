@@ -815,8 +815,8 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
       const isMovingExisting = stickers.some(s => s.id === draggingItem.id)
       event.dataTransfer.dropEffect = isMovingExisting ? 'move' : 'copy'
     } else {
-      event.dataTransfer.dropEffect = 'copy'
-    }
+    event.dataTransfer.dropEffect = 'copy'
+  }
   }
 
   const handleDropSticker = async (stickerId: string, positionX: number, positionY: number, layer: 'floor' | 'wall-left' | 'wall-right') => {
@@ -989,7 +989,7 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
         if (draggedSticker) {
           // Existing sticker being moved
           const display = getStickerDisplay(draggedSticker)
-          return (
+  return (
             <div
               className="fixed pointer-events-none z-[9999] opacity-90 animate-drag-glow"
               style={{
