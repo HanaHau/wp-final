@@ -84,6 +84,10 @@ export async function GET() {
     const missions: any[] = []
 
     for (const missionDef of missionDefinitions) {
+      // 過濾掉已移除的任務
+      if (missionDef.code === 'edit_transaction') {
+        continue
+      }
       const periodStart = missionDef.type === 'weekly' ? weekStart : dayStart
       
       // 先嘗試查找當前週期的任務記錄
@@ -278,7 +282,6 @@ export async function POST(request: Request) {
       const missionConfig: Record<string, { title: string; description: string; target: number; reward: number }> = {
         record_transaction: { title: '今日記帳1筆', description: '記錄一筆交易', target: 1, reward: 10 },
         check_pet: { title: '查看寵物狀態', description: '查看你的寵物', target: 1, reward: 5 },
-        edit_transaction: { title: '整理帳目(任一編輯)', description: '編輯任何一筆交易', target: 1, reward: 5 },
         visit_friend: { title: '拜訪1位好友', description: '拜訪一位好友', target: 1, reward: 5 },
         pet_friend: { title: '摸摸好友寵物', description: '與好友的寵物互動', target: 1, reward: 5 },
         record_5_days: { title: '本週記帳達5天', description: '本週記帳達到5天', target: 5, reward: 40 },

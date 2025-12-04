@@ -73,6 +73,7 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
   const [dailyMoodGain, setDailyMoodGain] = useState(0)
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set())
   const [isHovering, setIsHovering] = useState(false)
+  const [currentPetFullness, setCurrentPetFullness] = useState(pet.fullness)
   const petImageRef = useRef<HTMLDivElement>(null)
   const roomRef = useRef<HTMLDivElement>(null)
   const moveIntervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -110,6 +111,11 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
     }
     return { type: 'emoji' as const, emoji: STICKER_TYPES[sticker.stickerId]?.emoji || '⬜' }
   }
+
+  // Sync pet fullness when pet prop changes
+  useEffect(() => {
+    setCurrentPetFullness(pet.fullness)
+  }, [pet.fullness])
 
   // Fetch daily mood gain limit
   useEffect(() => {
@@ -447,6 +453,9 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
 
       if (res.ok) {
         const data = await res.json()
+        // 立即更新飽足感顯示
+        const fullnessGain = data.fullnessGain || 5
+        setCurrentPetFullness(prev => Math.min(100, prev + fullnessGain))
         toast({
           title: '成功',
           description: data.message || '已餵食好友的寵物',
@@ -511,11 +520,11 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
-                <Droplet className={`h-3.5 w-3.5 ${pet.fullness < 20 ? 'text-red-600' : 'text-black'}`} />
+                <Droplet className={`h-3.5 w-3.5 ${currentPetFullness < 20 ? 'text-red-600' : 'text-black'}`} />
                 <span className="text-xs font-semibold text-black/70 uppercase tracking-wide">飽足感</span>
-                <span className={`text-xs font-bold ${pet.fullness < 20 ? 'text-red-600' : 'text-black'}`}>
-                  {pet.fullness}/100
-                  {pet.fullness < 20 && <span className="ml-1 text-[10px] uppercase">⚠️ Warning</span>}
+                <span className={`text-xs font-bold ${currentPetFullness < 20 ? 'text-red-600' : 'text-black'}`}>
+                  {currentPetFullness}/100
+                  {currentPetFullness < 20 && <span className="ml-1 text-[10px] uppercase">⚠️ Warning</span>}
                 </span>
               </div>
             </div>
@@ -533,6 +542,7 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
                   duration: 3000,
                 })
               }}
+              title="該功能尚未開發，敬請期待"
             >
               <Camera className="h-5 w-5" />
             </Button>
@@ -547,6 +557,7 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
                   duration: 3000,
                 })
               }}
+              title="該功能尚未開發，敬請期待"
             >
               <Gift className="h-5 w-5" />
             </Button>

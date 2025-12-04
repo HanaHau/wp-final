@@ -200,7 +200,7 @@ export default function FriendsBoard({ initialFriends }: FriendsBoardProps) {
       <div className="fixed bottom-24 right-4 z-30">
         <Button
           size="icon"
-          onClick={() => setShowActivityLog(true)}
+          onClick={() => setShowActivityLog(!showActivityLog)}
           className="w-14 h-14 rounded-full bg-black text-white hover:bg-black/80 shadow-lg relative"
         >
           <BookOpen className="h-6 w-6" />

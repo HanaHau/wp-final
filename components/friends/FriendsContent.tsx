@@ -179,7 +179,7 @@ export default function FriendsContent() {
           <h1 className="text-2xl font-bold uppercase tracking-wide">好友</h1>
           <div className="flex gap-2">
             <Button
-              onClick={() => setShowActivityLog(true)}
+              onClick={() => setShowActivityLog(!showActivityLog)}
               variant="outline"
               className="gap-2 relative"
             >

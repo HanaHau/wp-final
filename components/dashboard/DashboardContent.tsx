@@ -326,7 +326,7 @@ export default function DashboardContent() {
           {/* 任務按鈕 */}
           <button
             onClick={() => {
-              setShowMissionsDialog(true)
+              setShowMissionsDialog(!showMissionsDialog)
             }}
             className="bg-white/90 backdrop-blur-sm rounded-lg border border-black/20 w-16 h-18 flex items-center justify-center shadow-sm hover:bg-black/5 transition-colors relative"
             aria-label="查看任務"

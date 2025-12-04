@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
-import { updateMissionProgress } from '@/lib/missions'
 
 const transactionSchema = z.object({
   amount: z.number().positive(),
@@ -227,13 +226,8 @@ export async function PUT(
       },
     })
 
-    // 更新任務：整理帳目(任一編輯)
-    // 注意：不再自動+5pts，等使用者到任務區塊領取獎勵時再加
-    const missionCompleted = await updateMissionProgress(user.id, 'daily', 'edit_transaction', 1)
-
     return NextResponse.json({
       ...updatedTransaction,
-      missionCompleted: missionCompleted || undefined,
     })
   } catch (error) {
     if (error instanceof z.ZodError) {

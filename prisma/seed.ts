@@ -186,7 +186,6 @@ async function main() {
   const dailyMissions = [
     { code: 'record_transaction', title: '今日記帳1筆', description: '記錄一筆交易', target: 1, reward: 10 },
     { code: 'check_pet', title: '查看寵物狀態', description: '查看你的寵物', target: 1, reward: 5 },
-    { code: 'edit_transaction', title: '整理帳目(任一編輯)', description: '編輯任何一筆交易', target: 1, reward: 5 },
     { code: 'visit_friend', title: '拜訪1位好友', description: '拜訪一位好友', target: 1, reward: 5 },
     { code: 'pet_friend', title: '摸摸好友寵物', description: '與好友的寵物互動', target: 1, reward: 5 },
   ]
