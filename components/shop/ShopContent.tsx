@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Navigation from '@/components/dashboard/Navigation'
@@ -255,11 +256,14 @@ export default function ShopContent() {
                 <div className="text-center mb-4">
                   {item.imageUrl && !failedImages.has(item.id) ? (
                     <div className="relative w-full mb-2 flex items-center justify-center" style={{ height: '3rem' }}>
-                      <img
+                      <Image
                         src={item.imageUrl}
                         alt={item.name}
+                        width={48}
+                        height={48}
                         className="max-w-full max-h-full object-contain"
                         style={{ maxHeight: '3rem', maxWidth: '3rem' }}
+                        unoptimized
                         onError={() => {
                           setFailedImages((prev) => new Set(prev).add(item.id))
                         }}

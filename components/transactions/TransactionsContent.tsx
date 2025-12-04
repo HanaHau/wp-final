@@ -28,11 +28,7 @@ export default function TransactionsContent() {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 20
 
-  useEffect(() => {
-    fetchTransactions()
-  }, [filterType])
-
-  const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
     try {
       setLoading(true)
       const params = new URLSearchParams()
@@ -57,7 +53,11 @@ export default function TransactionsContent() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [filterType])
+
+  useEffect(() => {
+    fetchTransactions()
+  }, [fetchTransactions])
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this transaction?')) return

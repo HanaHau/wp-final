@@ -235,7 +235,7 @@ export default function InitialSetupContent() {
               UserID <span className="text-red-600">*</span>
             </Label>
             <p className="text-xs text-black/40 mt-1 mb-2">
-              Please enter your userID (max 50 characters). This ID must be unique. If it's already taken, please choose another ID.
+              Please enter your userID (max 50 characters). This ID must be unique. If it&apos;s already taken, please choose another ID.
             </p>
             <Input
               id="userID"
@@ -319,7 +319,7 @@ export default function InitialSetupContent() {
                 Pet Facing Direction
               </Label>
               <p className="text-xs text-black/40 mt-1 mb-2">
-                Please select the direction your pet's head is facing in the uploaded image. This will determine how your pet appears when moving in the room. (If the image is front-facing or has no specific direction, just pick any direction)
+                Please select the direction your pet&apos;s head is facing in the uploaded image. This will determine how your pet appears when moving in the room. (If the image is front-facing or has no specific direction, just pick any direction)
               </p>
               <div className="flex gap-4 mt-2">
                 <button

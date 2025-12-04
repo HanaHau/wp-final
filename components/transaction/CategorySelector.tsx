@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -192,22 +192,6 @@ export default function CategorySelector({
     })
   )
 
-  useEffect(() => {
-    if (open) {
-      fetchCategories()
-      setViewMode('select')
-      setEditMode(false)
-      setHasUnsavedChanges(false)
-      setNewCategoryName('')
-      setNewCategoryIcon('📝')
-      setEditingCategory(null)
-      setActiveId(null)
-      setCursorOffset({ x: 0, y: 0 })
-      setCardSize({ width: 0, height: 0 })
-      setShowDeleteDialog(false)
-      setCategoryToDelete(null)
-    }
-  }, [open, typeId])
 
   // Track unsaved changes
   useEffect(() => {
@@ -219,7 +203,7 @@ export default function CategorySelector({
     }
   }, [viewMode, newCategoryName, newCategoryIcon])
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     setLoading(true)
     try {
       const res = await fetch(`/api/categories?typeId=${typeId}`)
@@ -242,7 +226,24 @@ export default function CategorySelector({
     } finally {
       setLoading(false)
     }
-  }
+  }, [typeId])
+
+  useEffect(() => {
+    if (open) {
+      fetchCategories()
+      setViewMode('select')
+      setEditMode(false)
+      setHasUnsavedChanges(false)
+      setNewCategoryName('')
+      setNewCategoryIcon('📝')
+      setEditingCategory(null)
+      setActiveId(null)
+      setCursorOffset({ x: 0, y: 0 })
+      setCardSize({ width: 0, height: 0 })
+      setShowDeleteDialog(false)
+      setCategoryToDelete(null)
+    }
+  }, [open, typeId, fetchCategories])
 
   const handleSelect = (categoryId: string) => {
     onSelect(categoryId)

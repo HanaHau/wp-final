@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -232,10 +233,13 @@ export default function CustomStickerDialog({
             <Label className="text-xs uppercase tracking-wide mb-2 block">Image</Label>
             {imagePreview && !showImageEditor ? (
               <div className="relative rounded-xl border border-black/20 p-4 bg-white/50 backdrop-blur-sm">
-                <img
+                <Image
                   src={imagePreview}
                   alt="Preview"
+                  width={400}
+                  height={128}
                   className="w-full h-32 object-contain"
+                  unoptimized
                 />
                 <div className="flex gap-2 mt-2">
                   <Button

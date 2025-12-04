@@ -507,7 +507,7 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
           
           <div className="flex-1 flex flex-col items-center gap-1">
             <p className="text-sm text-black/60">
-              {user.name || user.userID || 'Friend'}'s Room
+              {user.name || user.userID || 'Friend'}&apos;s Room
             </p>
             {/* Pet Status */}
             <div className="flex items-center gap-4">

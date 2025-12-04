@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -70,17 +70,7 @@ export default function TransactionDialog({
     }
   }
 
-  // Fetch categories based on type
-  useEffect(() => {
-    if (open) {
-      fetchCategories()
-      // Reset category when type changes
-      setCategoryId(null)
-      setCategoryName('')
-    }
-  }, [open, type])
-
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     setLoadingCategories(true)
     try {
       const typeId = getTypeId(type)
@@ -108,7 +98,17 @@ export default function TransactionDialog({
     } finally {
       setLoadingCategories(false)
     }
-  }
+  }, [type, categoryId, editingTransaction])
+
+  // Fetch categories based on type
+  useEffect(() => {
+    if (open) {
+      fetchCategories()
+      // Reset category when type changes
+      setCategoryId(null)
+      setCategoryName('')
+    }
+  }, [open, type, fetchCategories])
 
   const handleCategorySelect = async (selectedCategoryId: string) => {
     setCategoryId(selectedCategoryId)

@@ -146,7 +146,7 @@ export default function PetDeathOverlay() {
               Restart Game
             </DialogTitle>
             <DialogDescription className="text-sm text-black/60">
-              Are you sure you want to restart? This will reset your pet's status (points, mood, fullness), but will keep your transaction records.
+              Are you sure you want to restart? This will reset your pet&apos;s status (points, mood, fullness), but will keep your transaction records.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-4">

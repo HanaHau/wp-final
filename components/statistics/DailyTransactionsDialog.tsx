@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { formatCurrency, formatTransactionDate } from '@/lib/utils'
@@ -36,15 +36,7 @@ export default function DailyTransactionsDialog({
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const { toast } = useToast()
 
-  useEffect(() => {
-    if (open && date) {
-      fetchTransactions()
-    } else {
-      setTransactions([])
-    }
-  }, [open, date])
-
-  const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
     if (!date) return
     
     setLoading(true)
@@ -74,7 +66,15 @@ export default function DailyTransactionsDialog({
     } finally {
       setLoading(false)
     }
-  }
+  }, [date])
+
+  useEffect(() => {
+    if (open && date) {
+      fetchTransactions()
+    } else {
+      setTransactions([])
+    }
+  }, [open, date, fetchTransactions])
 
   const formatDate = (dateStr: string) => {
     // dateStr is in format YYYY-MM-DD (Taiwan time)
