@@ -45,13 +45,24 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     highlight: 'tracking'
   },
   {
-    id: 'points',
-    title: 'Earn Rewards',
+    id: 'missions',
+    title: 'Complete Missions',
     content: [
-      "Here's the fun part!",
-      "Every time you track your expenses, you earn points!",
-      "Use these points to buy food and decorations.",
-      "It's our way of rewarding your good financial habits!"
+      "This is how you earn points!",
+      "Complete missions like: record a transaction, visit friends, or pet their companions.",
+      "Once a mission is done, click 'Claim' to get your points!",
+      "Weekly missions offer bigger rewards!"
+    ],
+    highlight: 'missions'
+  },
+  {
+    id: 'points',
+    title: 'Your Rewards',
+    content: [
+      "Daily: Record 1 transaction (+10 pts), Visit friend (+5 pts), Pet friend's pet (+5 pts).",
+      "Weekly: Track 5 days (+40 pts), Interact with 3 friends (+30 pts).",
+      "Bonus: Login 5 days in a row for +20 pts!",
+      "Use points in the Shop to buy food and decorations!"
     ],
     highlight: 'points'
   },
@@ -60,7 +71,7 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     title: 'Your Companion',
     content: [
       "I'm your companion on this journey!",
-      "My mood and fullness depend on your care.",
+      "My mood and fullness decrease over time.",
       "Feed me with food you buy using your earned points!",
       "The more consistently you track expenses, the happier I'll be!"
     ],
@@ -72,29 +83,18 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     content: [
       "Use your points to buy food from the shop!",
       "When you feed me, my fullness increases.",
-      "This is your reward for tracking expenses!",
-      "Don't forget me when you're busy managing money~"
+      "If my mood or fullness reaches 0... I won't survive!",
+      "Please take good care of me~"
     ],
     highlight: 'fullness'
-  },
-  {
-    id: 'missions',
-    title: 'Daily Goals',
-    content: [
-      "Complete daily missions to earn bonus points!",
-      "Main missions: record expenses, check your statistics.",
-      "Extra missions: visit me, pet me, and more!",
-      "Weekly missions offer bigger rewards!"
-    ],
-    highlight: 'missions'
   },
   {
     id: 'friends',
     title: 'Track Together',
     content: [
       "Add friends who also want to build better habits!",
-      "Visit each other's pets and cheer each other on.",
-      "Financial health is more fun with friends!",
+      "Visit their pets and interact with them.",
+      "This also helps you complete missions!",
       "Stay accountable together!"
     ],
     highlight: 'friends'
@@ -104,8 +104,8 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     title: "Start Tracking!",
     content: [
       "You're all set!",
-      "Remember: track your expenses daily!",
-      "Build good habits, earn points, and take care of me.",
+      "Remember: track expenses → complete missions → claim points!",
+      "Use points to keep me happy and healthy.",
       "Let's achieve your financial goals together!"
     ],
   },
@@ -372,9 +372,14 @@ export default function TutorialContent({ pet }: TutorialContentProps) {
               {step.highlight === 'points' && (
                 <div className="flex flex-wrap gap-3">
                   {renderPointsCard(150)}
-                  <div className="bg-white/90 backdrop-blur-sm rounded-xl border border-black/20 px-3 py-2 shadow-sm">
-                    <div className="text-xs text-black/60 uppercase tracking-wide">Reward</div>
-                    <div className="text-sm font-medium text-black">+10 pts per record!</div>
+                  <div className="bg-white/90 backdrop-blur-sm rounded-xl border border-black/20 p-3 shadow-sm flex-1">
+                    <div className="text-xs text-black/60 uppercase tracking-wide mb-2">Rewards</div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="flex justify-between"><span>Record transaction</span><span className="font-bold">+10</span></div>
+                      <div className="flex justify-between"><span>Visit friend</span><span className="font-bold">+5</span></div>
+                      <div className="flex justify-between"><span>Pet friend&apos;s pet</span><span className="font-bold">+5</span></div>
+                      <div className="flex justify-between"><span>5-day login</span><span className="font-bold">+20</span></div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -397,15 +402,23 @@ export default function TutorialContent({ pet }: TutorialContentProps) {
                     <span className="absolute top-1 right-1 w-2 h-2 bg-black rounded-full" />
                   </div>
                   <div className="bg-white/90 backdrop-blur-sm rounded-xl border border-black/20 p-3 shadow-sm flex-1">
-                    <div className="text-xs text-black/60 uppercase tracking-wide mb-2">Daily Missions</div>
+                    <div className="text-xs text-black/60 uppercase tracking-wide mb-2">Mission Example</div>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-black">Record 1 expense</span>
-                        <span className="text-xs px-2 py-0.5 bg-black text-white rounded">+10 pts</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-black">Record 1 transaction</span>
+                          <span className="text-xs text-green-600">✓ Done</span>
+                        </div>
+                        <button className="text-xs px-3 py-1 bg-black text-white rounded font-medium">
+                          Claim +10
+                        </button>
                       </div>
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-black">Pet your companion</span>
-                        <span className="text-xs px-2 py-0.5 bg-black text-white rounded">+5 pts</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-black/50">Visit 1 friend</span>
+                          <span className="text-xs text-black/40">0/1</span>
+                        </div>
+                        <span className="text-xs px-3 py-1 bg-black/10 text-black/40 rounded">+5 pts</span>
                       </div>
                     </div>
                   </div>
@@ -414,7 +427,7 @@ export default function TutorialContent({ pet }: TutorialContentProps) {
               {step.highlight === 'friends' && (
                 <div className="bg-white/90 backdrop-blur-sm rounded-xl border border-black/20 p-3 shadow-sm">
                   <div className="text-xs text-black/60 uppercase tracking-wide mb-2">Friends</div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 mb-2">
                     <div className="flex -space-x-2">
                       <div className="w-8 h-8 bg-black/10 rounded-full border-2 border-white flex items-center justify-center">
                         <span className="text-xs font-bold text-black/60">A</span>
@@ -426,7 +439,10 @@ export default function TutorialContent({ pet }: TutorialContentProps) {
                         <span className="text-xs font-bold text-black/60">C</span>
                       </div>
                     </div>
-                    <span className="text-sm text-black/60">Track expenses together!</span>
+                    <span className="text-sm text-black/60">Visit &amp; interact!</span>
+                  </div>
+                  <div className="text-xs text-black/50">
+                    Visiting and petting friends&apos; pets completes missions!
                   </div>
                 </div>
               )}
