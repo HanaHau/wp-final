@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useSession, signOut } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import Navigation from '@/components/dashboard/Navigation'
-import { Upload, Save, User, LogOut } from 'lucide-react'
+import { Upload, Save, User, LogOut, BookOpen } from 'lucide-react'
 import Image from 'next/image'
 
 interface UserData {
@@ -20,6 +21,7 @@ interface UserData {
 
 export default function ProfileContent() {
   const { data: session } = useSession()
+  const router = useRouter()
   const { toast } = useToast()
   const [userData, setUserData] = useState<UserData | null>(null)
   const [name, setName] = useState('')
@@ -292,7 +294,23 @@ export default function ProfileContent() {
             </Button>
           </div>
 
-          <div className="flex justify-center pt-4">
+          <div className="flex justify-center gap-4 pt-4">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                // Reset tutorial completion and redirect to tutorial
+                try {
+                  await fetch('/api/tutorial/reset', { method: 'POST' })
+                  router.push('/tutorial')
+                } catch (error) {
+                  console.error('Failed to reset tutorial:', error)
+                }
+              }}
+              className="gap-2"
+            >
+              <BookOpen className="h-4 w-4" />
+              Replay Tutorial
+            </Button>
             <Button
               variant="outline"
               onClick={() => signOut()}

@@ -200,8 +200,8 @@ export default function InitialSetupContent() {
         description: 'Welcome to Pet Accounting App!',
       })
 
-      // 重導向到 dashboard
-      router.push('/dashboard')
+      // 重導向到 tutorial 頁面
+      router.push('/tutorial')
       router.refresh()
     } catch (error: any) {
       console.error('設定錯誤:', error)

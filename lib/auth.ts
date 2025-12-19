@@ -66,13 +66,13 @@ export async function getCurrentUser() {
 export async function checkInitialization() {
   const user = await getCurrentUser()
   if (!user || !user.email) {
-    return { isInitialized: false, user: null }
+    return { isInitialized: false, hasCompletedTutorial: false, user: null }
   }
 
   // Find user by email since ID might not match between session and database
   const userRecord = await prisma.user.findUnique({
     where: { email: user.email },
-    select: { isInitialized: true, id: true },
+    select: { isInitialized: true, hasCompletedTutorial: true, id: true },
   })
 
   // Update session user ID to match database ID
@@ -82,6 +82,7 @@ export async function checkInitialization() {
 
   return {
     isInitialized: userRecord?.isInitialized ?? false,
+    hasCompletedTutorial: userRecord?.hasCompletedTutorial ?? false,
     user,
   }
 }

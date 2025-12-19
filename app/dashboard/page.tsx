@@ -10,9 +10,14 @@ export default async function DashboardPage() {
   }
 
   // 檢查是否完成首次設定
-  const { isInitialized } = await checkInitialization()
+  const { isInitialized, hasCompletedTutorial } = await checkInitialization()
   if (!isInitialized) {
     redirect('/setup')
+  }
+
+  // 檢查是否完成教學引導
+  if (!hasCompletedTutorial) {
+    redirect('/tutorial')
   }
 
   return <DashboardContent />
