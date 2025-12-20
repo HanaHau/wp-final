@@ -30,44 +30,31 @@ export default function ShopContent() {
   const { toast } = useToast()
 
   useEffect(() => {
-    fetchPet()
-    fetchCustomStickers()
-    fetchPublicStickers()
+    fetchShopData()
   }, [])
 
-  const fetchPet = async () => {
+  // 合併所有 shop 資料請求為單一 API 調用
+  const fetchShopData = async () => {
     try {
-      const res = await fetch('/api/pet')
+      setLoading(true)
+      const res = await fetch('/api/shop-data', {
+        cache: 'no-store',
+      })
+      
+      if (!res.ok) {
+        throw new Error('Failed to fetch shop data')
+      }
+      
       const data = await res.json()
-      setPet(data)
+      
+      // 設置所有狀態
+      setPet(data.pet)
+      setCustomStickers(data.customStickers || [])
+      setPublicStickers(data.publicStickers || [])
     } catch (error) {
-      console.error('Failed to fetch pet:', error)
+      console.error('Failed to fetch shop data:', error)
     } finally {
       setLoading(false)
-    }
-  }
-
-  const fetchCustomStickers = async () => {
-    try {
-      const res = await fetch('/api/custom-stickers')
-      if (res.ok) {
-        const data = await res.json()
-        setCustomStickers(data)
-      }
-    } catch (error) {
-      console.error('Failed to fetch custom stickers:', error)
-    }
-  }
-
-  const fetchPublicStickers = async () => {
-    try {
-      const res = await fetch('/api/custom-stickers/public')
-      if (res.ok) {
-        const data = await res.json()
-        setPublicStickers(data)
-      }
-    } catch (error) {
-      console.error('Failed to fetch public stickers:', error)
     }
   }
 
@@ -122,7 +109,7 @@ export default function ShopContent() {
         throw new Error(data.error || 'Purchase failed')
       }
 
-      await fetchPet()
+      await fetchShopData()
       setQuantities((prev) => ({
         ...prev,
         [item.id]: 0,
@@ -353,9 +340,7 @@ export default function ShopContent() {
         onOpenChange={setIsCustomStickerDialogOpen}
         petPoints={pet?.points || 0}
         onSuccess={() => {
-          fetchPet()
-          fetchCustomStickers()
-          fetchPublicStickers()
+          fetchShopData()
         }}
       />
     </div>

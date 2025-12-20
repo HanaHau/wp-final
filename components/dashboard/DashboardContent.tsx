@@ -101,14 +101,7 @@ export default function DashboardContent() {
   const [transactionInitialValues, setTransactionInitialValues] = useState<any>(null)
 
   useEffect(() => {
-    fetchUser()
-    fetchPet()
-    fetchStickers()
-    fetchStickerInventory()
-    fetchFoodInventory()
-    fetchAccessories()
-    fetchAccessoryInventory()
-    checkUnclaimedMissions()
+    fetchDashboardData()
   }, [])
 
   // Listen for mission updates to refresh unclaimed missions indicator
@@ -164,108 +157,44 @@ export default function DashboardContent() {
 
   // 當打開倉庫時，自動進入編輯模式（通過 Room 組件內部處理）
 
-  const fetchUser = async () => {
+  // 合併所有 dashboard 資料請求為單一 API 調用
+  const fetchDashboardData = async () => {
     try {
-      // 獲取當月的統計資料來計算 balance（總收入 - 總支出）
-      const now = new Date()
-      const year = now.getFullYear()
-      const month = now.getMonth() + 1
-      
-      const res = await fetch(`/api/statistics/monthly?year=${year}&month=${month}`, {
-        cache: 'no-store', // 確保不從緩存獲取
+      setLoading(true)
+      const res = await fetch('/api/dashboard-data', {
+        cache: 'no-store',
       })
-      if (res.ok) {
-        const data = await res.json()
-        // 計算當月總收入減總支出
-        const monthlyBalance = (data.totalIncome || 0) - (data.totalExpense || 0)
-        console.log('更新餘額（當月）:', monthlyBalance, `(收入: ${data.totalIncome || 0}, 支出: ${data.totalExpense || 0})`)
-        setUserBalance(monthlyBalance)
-      } else {
-        console.error('取得當月統計失敗:', res.status, res.statusText)
-        setUserBalance(0)
-      }
-    } catch (error) {
-      console.error('取得當月統計失敗:', error)
-      setUserBalance(0)
-    }
-  }
-
-  const fetchPet = async () => {
-    try {
-      const res = await fetch('/api/pet')
-      const data = await res.json()
-      setPet(data)
       
-      // 檢查 API 響應中是否有任務完成信息
-      if (data.missionCompleted) {
-        // Dispatch 全局事件，讓 MissionToastManager 處理顯示
-        window.dispatchEvent(new CustomEvent('missionCompleted', { detail: data.missionCompleted }))
+      if (!res.ok) {
+        throw new Error('Failed to fetch dashboard data')
+      }
+      
+      const data = await res.json()
+      
+      // 設置所有狀態
+      setUserBalance(data.userBalance || 0)
+      setPet(data.pet)
+      setStickers(data.stickers || [])
+      setAvailableStickers(data.stickerInventory || [])
+      setFoodItems(data.foodInventory || [])
+      setAccessories(data.accessories || [])
+      setAvailableAccessories(data.accessoryInventory || [])
+      setHasUnclaimedMissions(data.hasUnclaimedMissions || false)
+      
+      // 檢查是否有任務完成信息
+      if (data.pet?.missionCompleted) {
+        window.dispatchEvent(new CustomEvent('missionCompleted', { detail: data.pet.missionCompleted }))
       }
     } catch (error) {
-      console.error('取得寵物資訊失敗:', error)
+      console.error('取得 dashboard 資料失敗:', error)
     } finally {
       setLoading(false)
     }
   }
-
-  const fetchStickers = async () => {
-    try {
-      const res = await fetch('/api/pet/stickers')
-      if (res.ok) {
-        const data = await res.json()
-        setStickers(data)
-      }
-    } catch (error) {
-      console.error('取得貼紙失敗:', error)
-    }
-  }
-
-  const fetchStickerInventory = async () => {
-    try {
-      const res = await fetch('/api/pet/stickers/inventory')
-      if (res.ok) {
-        const data = await res.json()
-        setAvailableStickers(data)
-      }
-    } catch (error) {
-      console.error('取得貼紙庫存失敗:', error)
-    }
-  }
-
-  const fetchFoodInventory = async () => {
-    try {
-      const res = await fetch('/api/pet/food/inventory')
-      if (res.ok) {
-        const data = await res.json()
-        setFoodItems(data)
-      }
-    } catch (error) {
-      console.error('取得食物庫存失敗:', error)
-    }
-  }
-
-  const fetchAccessories = async () => {
-    try {
-      const res = await fetch('/api/pet/accessories')
-      if (res.ok) {
-        const data = await res.json()
-        setAccessories(data)
-      }
-    } catch (error) {
-      console.error('取得配件失敗:', error)
-    }
-  }
-
-  const fetchAccessoryInventory = async () => {
-    try {
-      const res = await fetch('/api/pet/accessories/inventory')
-      if (res.ok) {
-        const data = await res.json()
-        setAvailableAccessories(data)
-      }
-    } catch (error) {
-      console.error('取得配件庫存失敗:', error)
-    }
+  
+  // 刷新 dashboard 資料（用於交易後更新）
+  const refreshDashboardData = async () => {
+    await fetchDashboardData()
   }
 
   const handleTransactionAdded = async (transactionDetails?: { amount: number; type: string; categoryName: string; note?: string }) => {
@@ -324,11 +253,7 @@ export default function DashboardContent() {
     }
     
     await new Promise(resolve => setTimeout(resolve, 100))
-    await fetchUser()
-    fetchPet()
-    fetchStickers()
-    fetchStickerInventory()
-    fetchFoodInventory()
+    await refreshDashboardData()
   }
 
   const handleChatSend = async (message: string) => {
@@ -409,13 +334,11 @@ export default function DashboardContent() {
   }
 
   const handleStickerPlaced = () => {
-    fetchStickers()
-    fetchStickerInventory()
+    refreshDashboardData()
   }
 
   const handlePetFed = () => {
-    fetchPet()
-    fetchFoodInventory()
+    refreshDashboardData()
   }
 
   const renderStatCard = (label: string, value: number | undefined) => {
@@ -562,8 +485,7 @@ export default function DashboardContent() {
           onStickerPlaced={handleStickerPlaced}
           onPetFed={handlePetFed}
           onAccessoryPlaced={() => {
-            fetchAccessories()
-            fetchAccessoryInventory()
+            refreshDashboardData()
           }}
         />
         {/* 寵物聊天氣泡 */}

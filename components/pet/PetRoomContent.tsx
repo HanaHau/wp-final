@@ -121,139 +121,30 @@ export default function PetRoomContent() {
     fetchAllData()
   }, [refreshKey])
 
+  // 合併所有 pet room 資料請求為單一 API 調用
   const fetchAllData = async () => {
     setLoading(true)
     try {
-      // Fetch pet data
-      const petRes = await fetch('/api/pet')
-      const petData = await petRes.json()
-      setPet(petData)
-      setPetNameInput(petData.name || 'My Pet')
+      const res = await fetch('/api/pet-room-data', {
+        cache: 'no-store',
+      })
       
-      // Extract food items from purchases (including custom stickers with food category)
-      const purchases = petData.purchases || []
-      const foodPurchases = purchases.filter((p: any) => 
-        p.itemId.startsWith('food') || 
-        p.itemId === 'water' ||
-        p.category === 'food' // Include custom stickers with food category
-      )
-      
-      // Fetch custom stickers for food items (both own and public)
-      const customFoodItemIds = foodPurchases
-        .filter((p: any) => p.itemId.startsWith('custom-'))
-        .map((p: any) => p.itemId.replace('custom-', ''))
-      
-      let customStickersMap = new Map<string, { imageUrl: string }>()
-      if (customFoodItemIds.length > 0) {
-        try {
-          // Fetch own custom stickers
-          const customStickersRes = await fetch('/api/custom-stickers')
-          if (customStickersRes.ok) {
-            const customStickers = await customStickersRes.json()
-            customStickers.forEach((cs: any) => {
-              if (customFoodItemIds.includes(cs.id)) {
-                customStickersMap.set(`custom-${cs.id}`, { imageUrl: cs.imageUrl })
-              }
-            })
-          }
-          
-          // Fetch public custom stickers (for purchased public stickers)
-          const publicStickersRes = await fetch('/api/custom-stickers/public')
-          if (publicStickersRes.ok) {
-            const publicStickers = await publicStickersRes.json()
-            publicStickers.forEach((ps: any) => {
-              if (customFoodItemIds.includes(ps.id) && !customStickersMap.has(`custom-${ps.id}`)) {
-                customStickersMap.set(`custom-${ps.id}`, { imageUrl: ps.imageUrl })
-              }
-            })
-          }
-        } catch (error) {
-          console.error('Failed to fetch custom stickers:', error)
-        }
+      if (!res.ok) {
+        throw new Error('Failed to fetch pet room data')
       }
       
-      const foodMap = new Map<string, FoodItem>()
-      foodPurchases.forEach((p: any) => {
-        const existing = foodMap.get(p.itemId)
-        if (existing) {
-          existing.count += p.quantity
-        } else {
-          // For custom stickers, use 🖼️ emoji and get imageUrl, otherwise use getItemEmoji
-          const isCustom = p.itemId.startsWith('custom-')
-          const emoji = isCustom ? '🖼️' : getItemEmoji(p.itemId)
-          const customSticker = isCustom ? customStickersMap.get(p.itemId) : null
-          
-          foodMap.set(p.itemId, {
-            itemId: p.itemId,
-            name: p.itemName,
-            emoji: emoji,
-            count: p.quantity,
-            imageUrl: customSticker?.imageUrl || null,
-          })
-        }
-      })
-      setFoodItems(Array.from(foodMap.values()))
-
-      // Fetch stickers
-      const stickersRes = await fetch('/api/pet/stickers')
-      let stickersData: any[] = []
-      if (stickersRes.ok) {
-        stickersData = await stickersRes.json()
-        setStickers(stickersData)
-      }
-
-      // Fetch available stickers from purchases
-      const stickerPurchases = purchases.filter((p: any) => 
-        p.itemId.startsWith('sticker') || p.itemId === 'cat'
-      )
-      const stickerMap = new Map<string, AvailableSticker>()
-      stickerPurchases.forEach((p: any) => {
-        const existing = stickerMap.get(p.itemId)
-        const usedCount = stickersData.filter((s: any) => s.stickerId === p.itemId).length
-        const availableCount = p.quantity - usedCount
-        
-        if (availableCount > 0) {
-          stickerMap.set(p.itemId, {
-            stickerId: p.itemId,
-            name: p.itemName,
-            emoji: getItemEmoji(p.itemId),
-            count: availableCount,
-          })
-        }
-      })
-      setAvailableStickers(Array.from(stickerMap.values()))
-
-      // Fetch accessories
-      const accessoriesRes = await fetch('/api/pet/accessories')
-      let accessoriesData: any[] = []
-      if (accessoriesRes.ok) {
-        accessoriesData = await accessoriesRes.json()
-        setAccessories(accessoriesData)
-      }
-
-      // Fetch available accessories
-      const accessoryPurchases = purchases.filter((p: any) => 
-        p.itemId.startsWith('acc')
-      )
-      const accessoryMap = new Map<string, AvailableAccessory>()
-      accessoryPurchases.forEach((p: any) => {
-        const existing = accessoryMap.get(p.itemId)
-        const usedCount = accessoriesData.filter((a: any) => a.accessoryId === p.itemId).length
-        const availableCount = p.quantity - usedCount
-        
-        if (availableCount > 0) {
-          accessoryMap.set(p.itemId, {
-            accessoryId: p.itemId,
-            name: p.itemName,
-            emoji: getItemEmoji(p.itemId),
-            count: availableCount,
-          })
-        }
-      })
-      setAvailableAccessories(Array.from(accessoryMap.values()))
-
+      const data = await res.json()
+      
+      // 設置所有狀態
+      setPet(data.pet)
+      setPetNameInput(data.pet.name || 'My Pet')
+      setStickers(data.stickers || [])
+      setAvailableStickers(data.stickerInventory || [])
+      setFoodItems(data.foodInventory || [])
+      setAccessories(data.accessories || [])
+      setAvailableAccessories(data.accessoryInventory || [])
     } catch (error) {
-      console.error('Failed to fetch data:', error)
+      console.error('Failed to fetch pet room data:', error)
       toast({
         title: 'Failed to Load',
         description: 'Unable to load pet data',
@@ -452,79 +343,9 @@ export default function PetRoomContent() {
         setPetState('idle')
       }, 1200)
       
-      // Update pet data without triggering full refresh
+      // Refresh all data using the consolidated API
       setTimeout(async () => {
-        try {
-          const petRes = await fetch('/api/pet')
-          const petData = await petRes.json()
-          setPet(petData)
-          
-          // Update food items count (including custom stickers with food category)
-          const purchases = petData.purchases || []
-          const foodPurchases = purchases.filter((p: any) => 
-            p.itemId.startsWith('food') || 
-            p.itemId === 'water' ||
-            p.category === 'food' // Include custom stickers with food category
-          )
-          
-          // Fetch custom stickers for food items (both own and public)
-          const customFoodItemIds = foodPurchases
-            .filter((p: any) => p.itemId.startsWith('custom-'))
-            .map((p: any) => p.itemId.replace('custom-', ''))
-          
-          let customStickersMap = new Map<string, { imageUrl: string }>()
-          if (customFoodItemIds.length > 0) {
-            try {
-              // Fetch own custom stickers
-              const customStickersRes = await fetch('/api/custom-stickers')
-              if (customStickersRes.ok) {
-                const customStickers = await customStickersRes.json()
-                customStickers.forEach((cs: any) => {
-                  if (customFoodItemIds.includes(cs.id)) {
-                    customStickersMap.set(`custom-${cs.id}`, { imageUrl: cs.imageUrl })
-                  }
-                })
-              }
-              
-              // Fetch public custom stickers (for purchased public stickers)
-              const publicStickersRes = await fetch('/api/custom-stickers/public')
-              if (publicStickersRes.ok) {
-                const publicStickers = await publicStickersRes.json()
-                publicStickers.forEach((ps: any) => {
-                  if (customFoodItemIds.includes(ps.id) && !customStickersMap.has(`custom-${ps.id}`)) {
-                    customStickersMap.set(`custom-${ps.id}`, { imageUrl: ps.imageUrl })
-                  }
-                })
-              }
-            } catch (error) {
-              console.error('Failed to fetch custom stickers:', error)
-            }
-          }
-          
-          const foodMap = new Map<string, FoodItem>()
-          foodPurchases.forEach((p: any) => {
-            const existing = foodMap.get(p.itemId)
-            if (existing) {
-              existing.count += p.quantity
-            } else {
-              // For custom stickers, use 🖼️ emoji and get imageUrl, otherwise use getItemEmoji
-              const isCustom = p.itemId.startsWith('custom-')
-              const emoji = isCustom ? '🖼️' : getItemEmoji(p.itemId)
-              const customSticker = isCustom ? customStickersMap.get(p.itemId) : null
-              
-              foodMap.set(p.itemId, {
-                itemId: p.itemId,
-                name: p.itemName,
-                emoji: emoji,
-                count: p.quantity,
-                imageUrl: customSticker?.imageUrl || null,
-              })
-            }
-          })
-          setFoodItems(Array.from(foodMap.values()))
-        } catch (error) {
-          console.error('Failed to update pet data:', error)
-        }
+        await fetchAllData()
       }, 1300)
     } catch (error: any) {
       setFeedingAnimation(null)
