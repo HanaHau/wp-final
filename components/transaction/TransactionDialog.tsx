@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -21,11 +21,20 @@ interface Transaction {
   note: string | null
 }
 
+interface InitialValues {
+  amount?: number
+  type?: 'EXPENSE' | 'INCOME'
+  categoryName?: string
+  date?: string
+  note?: string
+}
+
 interface TransactionDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSuccess: () => void
+  onSuccess: (transactionDetails?: { amount: number; type: string; categoryName: string; note?: string }) => void
   editingTransaction?: Transaction | null
+  initialValues?: InitialValues | null
 }
 
 interface Category {
@@ -44,6 +53,7 @@ export default function TransactionDialog({
   onOpenChange,
   onSuccess,
   editingTransaction,
+  initialValues,
 }: TransactionDialogProps) {
   const [amount, setAmount] = useState('0')
   const [categoryId, setCategoryId] = useState<string | null>(null)
@@ -57,6 +67,8 @@ export default function TransactionDialog({
   const [showCategorySelector, setShowCategorySelector] = useState(false)
   const { toast } = useToast()
   const router = useRouter()
+  // Track if category was set from initialValues to prevent override
+  const categorySetFromInitialValues = useRef(false)
 
   // Map type to typeId
   const getTypeId = (type: 'EXPENSE' | 'INCOME'): number => {
@@ -71,6 +83,10 @@ export default function TransactionDialog({
   }
 
   const fetchCategories = useCallback(async () => {
+    // NEVER set any default category - categories are ONLY set by:
+    // 1. User selection (handleCategorySelect)
+    // 2. initialValues (from chat API)
+    // 3. editingTransaction (when editing)
     setLoadingCategories(true)
     try {
       const typeId = getTypeId(type)
@@ -78,37 +94,37 @@ export default function TransactionDialog({
       if (res.ok) {
         const data = await res.json()
         setCategories(data)
-        // If we have a selected categoryId, find its name
-        if (categoryId) {
-          const selected = data.find((c: Category) => c.id === categoryId)
-          if (selected) {
-            setCategoryName(selected.name)
-          }
-        } else if (!editingTransaction && data.length > 0) {
-          // Set default to category with sortOrder = 1 (first non-fallback category)
-          const defaultCategory = data.find((c: Category) => c.sortOrder === 1) || data[0]
-          if (defaultCategory) {
-            setCategoryId(defaultCategory.id)
-            setCategoryName(defaultCategory.name)
-          }
-        }
+        console.log('✅ Categories loaded - NO default category will be set')
       }
     } catch (error) {
       console.error('Failed to fetch categories:', error)
     } finally {
       setLoadingCategories(false)
     }
-  }, [type, categoryId, editingTransaction])
+  }, [type]) // Only depend on type, nothing else!
 
-  // Fetch categories based on type
+  // Fetch categories when dialog opens or type changes
+  // CRITICAL: Never reset or set any category here - only fetch the list
   useEffect(() => {
     if (open) {
       fetchCategories()
-      // Reset category when type changes
-      setCategoryId(null)
-      setCategoryName('')
+      // ONLY reset category if ALL of these are true:
+      // 1. No initialValues
+      // 2. Not editing
+      // 3. Category is not protected
+      // 4. Category ref shows it hasn't been set
+      // This ensures we never override a category set from initialValues
+      if (!initialValues && !editingTransaction && !categorySetFromInitialValues.current && !categorySetRef.current) {
+        // Only reset if category is completely empty and not set
+        setCategoryId(null)
+        setCategoryName('')
+      }
+    } else {
+      // When dialog closes, reset flags for next time
+      categorySetFromInitialValues.current = false
+      categorySetRef.current = false
     }
-  }, [open, type, fetchCategories])
+  }, [open, type, fetchCategories, initialValues, editingTransaction]) // REMOVED categoryId and categoryName from dependencies!
 
   const handleCategorySelect = async (selectedCategoryId: string) => {
     setCategoryId(selectedCategoryId)
@@ -176,8 +192,10 @@ export default function TransactionDialog({
     return utcDate.toISOString()
   }
 
-  // Populate form when editing
+  // Populate form when editing or when initialValues are provided
   useEffect(() => {
+    if (!open) return // Don't update when dialog is closed
+    
     if (editingTransaction) {
       setAmount(editingTransaction.amount.toString())
       // Get categoryId from transaction (API should return categoryId)
@@ -192,6 +210,25 @@ export default function TransactionDialog({
       setType(editingTransaction.type as 'EXPENSE' | 'INCOME')
       setNote(editingTransaction.note || '')
       setDate(formatDateForInput(editingTransaction.date))
+    } else if (initialValues) {
+      // Use initialValues from chat
+      console.log('Setting initial values from chat:', initialValues)
+      if (initialValues.amount) {
+        setAmount(initialValues.amount.toString())
+      } else {
+        setAmount('0')
+      }
+      // Don't set categoryId here - it will be set after categories are loaded
+      setCategoryId(null)
+      if (initialValues.categoryName) {
+        setCategoryName(initialValues.categoryName)
+      } else {
+        setCategoryName('')
+      }
+      setType(initialValues.type || 'EXPENSE')
+      setNote(initialValues.note || '')
+      // Always use today's date (don't use date from API)
+      setDate(formatDateForInput(new Date()))
     } else {
       setAmount('0')
       setCategoryId(null)
@@ -201,17 +238,71 @@ export default function TransactionDialog({
       // Set default date to today in Taiwan time
       setDate(formatDateForInput(new Date()))
     }
-  }, [editingTransaction, open])
+  }, [editingTransaction, initialValues, open])
 
-  // Update categoryId when categories are loaded and we have a category name
+  // Set protection flag IMMEDIATELY when we have initialValues with categoryName
   useEffect(() => {
-    if (categories.length > 0 && categoryName && !categoryId) {
-      const found = categories.find((c) => c.name === categoryName)
+    if (initialValues?.categoryName && open) {
+      categorySetFromInitialValues.current = true
+      console.log('🛡️ Protection flag set IMMEDIATELY for category:', initialValues.categoryName)
+    }
+  }, [initialValues, open])
+
+  // Set category from initialValues ONCE when categories are loaded
+  // Use a ref to track if we've already set the category to prevent re-running
+  const categorySetRef = useRef(false)
+  
+  useEffect(() => {
+    // Reset the ref when dialog closes or initialValues changes
+    if (!open) {
+      categorySetRef.current = false
+      return
+    }
+    
+    // Only run ONCE if we have initialValues, categories are loaded, and category is not yet set
+    if (initialValues?.categoryName && categories.length > 0 && !categoryId && !categorySetRef.current && open) {
+      // Mark that we're about to set the category
+      categorySetRef.current = true
+      categorySetFromInitialValues.current = true
+      
+      console.log('🛡️ Setting category from initialValues - PROTECTED:', initialValues.categoryName)
+      
+      const typeId = getTypeId(type)
+      const found = categories.find(
+        (c) => c.name === initialValues.categoryName && c.typeId === typeId
+      )
       if (found) {
+        console.log('✅ Setting category ONCE:', found.name, 'ID:', found.id, '- WILL NOT BE OVERRIDDEN')
+        // Set both at the same time - this should only happen once
         setCategoryId(found.id)
+        setCategoryName(found.name)
+        console.log('🔒 Category LOCKED and PROTECTED:', found.name)
+      } else {
+        console.warn('⚠️ Category not found:', initialValues.categoryName, 'for type:', type)
+        // Try "Other" as fallback
+        const otherCategory = categories.find(c => c.name === 'Other' && c.typeId === typeId)
+        if (otherCategory) {
+          console.log('Falling back to "Other" category')
+          setCategoryId(otherCategory.id)
+          setCategoryName('Other')
+        } else {
+          // If even "Other" is not found, reset flags
+          categorySetFromInitialValues.current = false
+          categorySetRef.current = false
+        }
       }
     }
-  }, [categories, categoryName, categoryId])
+  }, [categories, initialValues, type, categoryId, open]) // Only run when these change, and only if categoryId is not set
+  
+  // Reset the protection flag when dialog closes (but keep category if it was set)
+  useEffect(() => {
+    if (!open) {
+      // Reset protection flag when dialog closes
+      categorySetFromInitialValues.current = false
+      // Also reset initialValues-related state
+      // But DON'T reset categoryId/categoryName here - let the form reset handle it
+    }
+  }, [open])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -284,10 +375,21 @@ export default function TransactionDialog({
         return
       }
 
-      // Reset form
+      // Get transaction details for pet response
+      const transactionDetails = {
+        amount: amountValue,
+        type,
+        categoryName: categoryName,
+        note: note || undefined,
+      }
+
+      // Reset form - but DON'T reset category if it was from initialValues
       setAmount('0')
-      setCategoryId(null)
-      setCategoryName('')
+      // Only reset category if it wasn't from initialValues
+      if (!categorySetFromInitialValues.current) {
+        setCategoryId(null)
+        setCategoryName('')
+      }
       setNote('')
       
       // Show success toast with View button for new transactions
@@ -314,7 +416,11 @@ export default function TransactionDialog({
         window.dispatchEvent(new CustomEvent('missionCompleted', { detail: data.missionCompleted }))
       }
       
-      onSuccess()
+      // Close dialog first
+      onOpenChange(false)
+      
+      // Call onSuccess with transaction details for pet response
+      onSuccess(transactionDetails)
     } catch (error) {
       console.error('Transaction error:', error)
       toast({
@@ -354,7 +460,17 @@ export default function TransactionDialog({
                 <Button
                   type="button"
                   variant={type === 'EXPENSE' ? 'default' : 'outline'}
-                  onClick={() => setType('EXPENSE')}
+                  onClick={() => {
+                    // If category was set from initialValues, don't allow type change to reset it
+                    if (categorySetFromInitialValues.current) {
+                      console.log('⚠️ Type change blocked - category is protected from initialValues')
+                      return
+                    }
+                    setType('EXPENSE')
+                    // Reset category when type changes (only if not protected)
+                    setCategoryId(null)
+                    setCategoryName('')
+                  }}
                   className="rounded-xl"
                 >
                   Expense
@@ -362,7 +478,17 @@ export default function TransactionDialog({
                 <Button
                   type="button"
                   variant={type === 'INCOME' ? 'default' : 'outline'}
-                  onClick={() => setType('INCOME')}
+                  onClick={() => {
+                    // If category was set from initialValues, don't allow type change to reset it
+                    if (categorySetFromInitialValues.current) {
+                      console.log('⚠️ Type change blocked - category is protected from initialValues')
+                      return
+                    }
+                    setType('INCOME')
+                    // Reset category when type changes (only if not protected)
+                    setCategoryId(null)
+                    setCategoryName('')
+                  }}
                   className="rounded-xl"
                 >
                   Income

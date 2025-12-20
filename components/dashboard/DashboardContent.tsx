@@ -10,6 +10,8 @@ import Navigation from './Navigation'
 import { Plus, Package, ListChecks } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
 import { ToastAction } from '@/components/ui/toast'
+import ChatInput from '@/components/chat/ChatInput'
+import PetChatBubble from '@/components/chat/PetChatBubble'
 
 interface Pet {
   id: string
@@ -94,6 +96,9 @@ export default function DashboardContent() {
   const [showEditPanel, setShowEditPanel] = useState(false)
   const [showMissionsDialog, setShowMissionsDialog] = useState(false)
   const [hasUnclaimedMissions, setHasUnclaimedMissions] = useState(false)
+  const [chatBubbles, setChatBubbles] = useState<Array<{ id: string; message: string; position: { x: number; y: number } }>>([])
+  const [isChatLoading, setIsChatLoading] = useState(false)
+  const [transactionInitialValues, setTransactionInitialValues] = useState<any>(null)
 
   useEffect(() => {
     fetchUser()
@@ -263,15 +268,144 @@ export default function DashboardContent() {
     }
   }
 
-  const handleTransactionAdded = async () => {
-    console.log('記帳完成，開始更新資料...')
+  const handleTransactionAdded = async (transactionDetails?: { amount: number; type: string; categoryName: string; note?: string }) => {
+    console.log('記帳完成，開始更新資料...', transactionDetails)
     setIsDialogOpen(false)
+    setTransactionInitialValues(null)
+    
+    // Show pet response for the transaction - do this BEFORE other updates
+    if (transactionDetails) {
+      console.log('📝 Transaction completed, getting pet response for:', transactionDetails)
+      try {
+        // Create a message for the pet based on transaction
+        const typeText = transactionDetails.type === 'EXPENSE' ? '支出' : '收入'
+        const message = `我剛剛記錄了一筆${typeText}：${transactionDetails.amount}元，分類是${transactionDetails.categoryName}`
+        
+        console.log('💬 Sending message to pet:', message)
+        
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ message }),
+        })
+
+        if (res.ok) {
+          const data = await res.json()
+          console.log('✅ Pet response received:', data)
+          if (data.message) {
+            const bubbleId = `bubble-${Date.now()}-${Math.random()}`
+            // Position bubble near the pet (center-left of screen, above pet area)
+            const position = { x: 30, y: 25 }
+            console.log('💭 Adding chat bubble:', bubbleId, data.message, 'at position:', position)
+            setChatBubbles((prev) => {
+              const newBubbles = [...prev, { id: bubbleId, message: data.message, position }]
+              console.log('📊 Current bubbles:', newBubbles.length, newBubbles)
+              return newBubbles
+            })
+
+            // Remove bubble after 15 seconds
+            setTimeout(() => {
+              setChatBubbles((prev) => prev.filter((b) => b.id !== bubbleId))
+            }, 15000)
+          } else {
+            console.warn('⚠️ No message in pet response')
+          }
+        } else {
+          const errorData = await res.json().catch(() => ({}))
+          console.error('❌ Failed to get pet response, status:', res.status, errorData)
+        }
+      } catch (error) {
+        console.error('❌ Failed to get pet response:', error)
+      }
+    } else {
+      console.warn('⚠️ No transaction details provided to handleTransactionAdded')
+    }
+    
     await new Promise(resolve => setTimeout(resolve, 100))
     await fetchUser()
     fetchPet()
     fetchStickers()
     fetchStickerInventory()
     fetchFoodInventory()
+  }
+
+  const handleChatSend = async (message: string) => {
+    setIsChatLoading(true)
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message }),
+      })
+
+      const data = await res.json()
+
+      // Check if there's an error in the response
+      if (!res.ok || data.error) {
+        const errorMessage = data.error || data.message || 'Chat request failed'
+        console.error('Chat API error:', errorMessage, data)
+        toast({
+          title: '錯誤',
+          description: errorMessage || '無法發送訊息，請稍後再試',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      // Show pet response as chat bubble
+      if (data.message) {
+        const bubbleId = `bubble-${Date.now()}-${Math.random()}`
+        const position = { x: 50, y: 30 } // Position near pet's head (center-top of room)
+        setChatBubbles((prev) => [...prev, { id: bubbleId, message: data.message, position }])
+
+        // Remove bubble after 15 seconds (longer duration for better readability)
+        setTimeout(() => {
+          setChatBubbles((prev) => prev.filter((b) => b.id !== bubbleId))
+        }, 15000)
+      }
+
+      // If it's a transaction, open the dialog with pre-filled data
+      if (data.isTransaction && data.transactionData) {
+        const transactionData = data.transactionData
+        console.log('Transaction detected:', transactionData)
+        
+        // Format the transaction data for the dialog
+        const initialValues: any = {
+          amount: transactionData.amount,
+          type: transactionData.type,
+          categoryName: transactionData.categoryName,
+        }
+        
+        if (transactionData.date) {
+          initialValues.date = transactionData.date
+        }
+        
+        if (transactionData.note) {
+          initialValues.note = transactionData.note
+        }
+        
+        setTransactionInitialValues(initialValues)
+        setIsDialogOpen(true)
+      }
+    } catch (error: any) {
+      console.error('Chat error:', error)
+      const errorMessage = error?.message || '無法發送訊息，請稍後再試'
+      toast({
+        title: '錯誤',
+        description: errorMessage,
+        variant: 'destructive',
+      })
+    } finally {
+      setIsChatLoading(false)
+    }
+  }
+
+  const removeChatBubble = (id: string) => {
+    setChatBubbles((prev) => prev.filter((b) => b.id !== id))
   }
 
   const handleStickerPlaced = () => {
@@ -415,7 +549,7 @@ export default function DashboardContent() {
       )}
 
       {/* 主內容區 - 房間顯示 */}
-      <main className="flex-1 flex items-start justify-start px-4 pb-20 pt-24 gap-4">
+      <main className="flex-1 flex items-start justify-start px-4 pb-20 pt-24 gap-4 relative">
         <Room
           pet={pet}
           stickers={stickers}
@@ -432,27 +566,53 @@ export default function DashboardContent() {
             fetchAccessoryInventory()
           }}
         />
+        {/* 寵物聊天氣泡 */}
+        {chatBubbles.map((bubble) => (
+          <PetChatBubble
+            key={bubble.id}
+            message={bubble.message}
+            position={bubble.position}
+            onClose={() => removeChatBubble(bubble.id)}
+            duration={15000}
+          />
+        ))}
       </main>
 
       {/* 記帳對話框 */}
       <TransactionDialog
         open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open)
+          if (!open) {
+            setTransactionInitialValues(null)
+          }
+        }}
         onSuccess={handleTransactionAdded}
+        initialValues={transactionInitialValues}
       />
 
       {/* 底部導航 */}
       <Navigation />
 
-      {/* 新增記帳按鈕 - 固定在底部，黑色，一直顯示 */}
-      <div className="fixed bottom-24 right-4 z-30">
-        <Button
-          size="icon"
-          onClick={() => setIsDialogOpen(true)}
-          className="w-14 h-14 rounded-full bg-black text-white hover:bg-black/80 shadow-lg"
-        >
-          <Plus className="h-6 w-6" />
-        </Button>
+      {/* 聊天輸入框和新增記帳按鈕 - 固定在底部導航上方 */}
+      <div className="fixed bottom-20 left-0 right-0 z-30 px-4 pb-2">
+        <div className="max-w-7xl mx-auto flex items-center gap-3">
+          {/* 聊天輸入框 - 長條形，佔據左側空間 */}
+          <div className="flex-1">
+            <ChatInput onSend={handleChatSend} disabled={isChatLoading} />
+          </div>
+          {/* 新增記帳按鈕 - 固定在右側 */}
+          <Button
+            size="icon"
+            onClick={() => {
+              setTransactionInitialValues(null)
+              setIsDialogOpen(true)
+            }}
+            className="w-14 h-14 rounded-full bg-black text-white hover:bg-black/80 shadow-lg flex-shrink-0"
+          >
+            <Plus className="h-6 w-6" />
+          </Button>
+        </div>
       </div>
     </div>
   )
