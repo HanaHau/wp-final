@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
     }
     const typeId = typeIdMap[type] || 1
 
+    // 只選擇需要的字段，減少數據傳輸
     const transactions = await prisma.transaction.findMany({
       where: {
         userId: user.id,
@@ -36,8 +37,13 @@ export async function GET(request: NextRequest) {
           lte: endDate,
         },
       },
-      include: {
-        category: true,
+      select: {
+        amount: true,
+        category: {
+          select: {
+            name: true,
+          },
+        },
       },
     })
 

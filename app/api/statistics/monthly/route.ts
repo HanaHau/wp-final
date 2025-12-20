@@ -28,23 +28,55 @@ export async function GET(request: NextRequest) {
     const endDateTaiwan = new Date(year, month - 1, lastDay, 23, 59, 59, 999) // 台灣時間月末
     const endDate = new Date(endDateTaiwan.getTime() - 8 * 60 * 60 * 1000) // 轉為 UTC
 
-    const transactions = await prisma.transaction.findMany({
-      where: {
-        userId: user.id,
-        date: {
-          gte: startDate,
-          lte: endDate,
+    // 使用並行查詢優化性能
+    const [transactions, expenseSum, incomeSum] = await Promise.all([
+      // 獲取所有交易記錄（用於每日統計）
+      prisma.transaction.findMany({
+        where: {
+          userId: user.id,
+          date: {
+            gte: startDate,
+            lte: endDate,
+          },
         },
-      },
-    })
+        select: {
+          typeId: true,
+          amount: true,
+          date: true,
+        },
+      }),
+      // 使用數據庫聚合計算總支出
+      prisma.transaction.aggregate({
+        where: {
+          userId: user.id,
+          typeId: 1, // 支出
+          date: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+        _sum: {
+          amount: true,
+        },
+      }),
+      // 使用數據庫聚合計算總收入
+      prisma.transaction.aggregate({
+        where: {
+          userId: user.id,
+          typeId: 2, // 收入
+          date: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+        _sum: {
+          amount: true,
+        },
+      }),
+    ])
 
-    const totalExpense = transactions
-      .filter((t) => t.typeId === 1) // 1 = 支出
-      .reduce((sum, t) => sum + t.amount, 0)
-
-    const totalIncome = transactions
-      .filter((t) => t.typeId === 2) // 2 = 收入
-      .reduce((sum, t) => sum + t.amount, 0)
+    const totalExpense = expenseSum._sum.amount || 0
+    const totalIncome = incomeSum._sum.amount || 0
 
     // 每日統計 - 轉換為台灣時區 (GMT+8)
     const dailyStats: Record<string, { expense: number; income: number }> = {}

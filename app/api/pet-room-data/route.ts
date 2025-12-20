@@ -468,16 +468,23 @@ export async function GET() {
     
     const formattedAccessoryInventoryWithPurchases = Array.from(accessoryMap.values())
 
-    return NextResponse.json({
-      pet: petData,
-      customStickers,
-      publicStickers,
-      stickers: stickersWithImages,
-      stickerInventory: formattedStickerInventoryWithPurchases,
-      foodInventory: formattedFoodInventory,
-      accessories,
-      accessoryInventory: formattedAccessoryInventoryWithPurchases,
-    })
+    return NextResponse.json(
+      {
+        pet: petData,
+        customStickers,
+        publicStickers,
+        stickers: stickersWithImages,
+        stickerInventory: formattedStickerInventoryWithPurchases,
+        foodInventory: formattedFoodInventory,
+        accessories,
+        accessoryInventory: formattedAccessoryInventoryWithPurchases,
+      },
+      {
+        headers: {
+          'Cache-Control': 'private, no-cache, no-store, must-revalidate',
+        },
+      }
+    )
   } catch (error) {
     console.error('Pet room data API error:', error)
     console.error('Error details:', error instanceof Error ? error.message : String(error))

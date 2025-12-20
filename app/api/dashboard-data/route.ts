@@ -283,10 +283,16 @@ export async function GET() {
     
     if (customStickerPurchases.length > 0) {
       const customStickerIds = customStickerPurchases.map((p: any) => p.itemId.replace('custom-', ''))
+      // 只選擇需要的字段
       const customStickersForDecor = await prisma.customSticker.findMany({
         where: {
           id: { in: customStickerIds },
           category: 'decoration',
+        },
+        select: {
+          id: true,
+          name: true,
+          imageUrl: true,
         },
       })
       
@@ -380,16 +386,23 @@ export async function GET() {
     })
     const formattedAccessoryInventory = Array.from(accessoryMap.values())
 
-    return NextResponse.json({
-      userBalance: userBalanceData.balance,
-      pet: petData,
-      stickers,
-      stickerInventory: formattedStickerInventory,
-      foodInventory: formattedFoodInventory,
-      accessories,
-      accessoryInventory: formattedAccessoryInventory,
-      hasUnclaimedMissions: unclaimedMissions,
-    })
+    return NextResponse.json(
+      {
+        userBalance: userBalanceData.balance,
+        pet: petData,
+        stickers,
+        stickerInventory: formattedStickerInventory,
+        foodInventory: formattedFoodInventory,
+        accessories,
+        accessoryInventory: formattedAccessoryInventory,
+        hasUnclaimedMissions: unclaimedMissions,
+      },
+      {
+        headers: {
+          'Cache-Control': 'private, no-cache, no-store, must-revalidate',
+        },
+      }
+    )
   } catch (error) {
     console.error('Dashboard data API error:', error)
     return NextResponse.json(

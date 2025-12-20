@@ -101,11 +101,18 @@ export async function GET() {
       }),
     ])
 
-    return NextResponse.json({
-      pet,
-      customStickers,
-      publicStickers,
-    })
+    return NextResponse.json(
+      {
+        pet,
+        customStickers,
+        publicStickers,
+      },
+      {
+        headers: {
+          'Cache-Control': 'private, no-cache, no-store, must-revalidate',
+        },
+      }
+    )
   } catch (error) {
     console.error('Shop data API error:', error)
     console.error('Error details:', error instanceof Error ? error.message : String(error))
