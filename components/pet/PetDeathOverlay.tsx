@@ -32,15 +32,15 @@ export default function PetDeathOverlay() {
 
     const checkPetStatus = async () => {
       try {
-        const res = await fetch('/api/pet')
-        if (res.ok) {
-          const petData = await res.json()
+        const { deduplicatedFetch } = await import('@/lib/fetch-utils')
+        const petData = await deduplicatedFetch('/api/pet').catch(() => null)
+        if (petData) {
           setPet(petData)
           
           // 如果寵物死亡，顯示覆蓋層（但不自動打開對話框）
           // 用戶需要點擊按鈕才會打開對話框
-        } else if (res.status === 404) {
-          // 沒有寵物，不顯示
+        } else {
+          // 沒有寵物或錯誤，不顯示
           setPet(null)
         }
       } catch (error) {

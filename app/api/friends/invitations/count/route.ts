@@ -1,10 +1,17 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { addCorsHeaders, handleOptionsRequest } from '@/lib/cors'
 
-export const dynamic = 'force-dynamic'
+// 使用 revalidate 快取策略，60 秒內重用相同響應
+export const revalidate = 60
 
-export async function GET() {
+// 處理 OPTIONS 請求（CORS preflight）
+export async function OPTIONS() {
+  return handleOptionsRequest()
+}
+
+export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser()
     if (!user) {
@@ -27,12 +34,14 @@ export async function GET() {
       },
     })
 
-    return NextResponse.json({ count })
+    const response = NextResponse.json({ count })
+    return addCorsHeaders(response, request)
   } catch (error) {
     console.error('Get invitation count error:', error)
-    return NextResponse.json(
+    const response = NextResponse.json(
       { error: '取得邀請數量失敗' },
       { status: 500 }
     )
+    return addCorsHeaders(response, request)
   }
 }

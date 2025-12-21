@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSession, signOut } from 'next-auth/react'
+import { useSWR } from '@/lib/swr-config'
 import { Button } from '@/components/ui/button'
 import Room from '@/components/pet/Room'
 import TransactionDialog from '@/components/transaction/TransactionDialog'
@@ -100,14 +101,69 @@ export default function DashboardContent() {
   const [isChatLoading, setIsChatLoading] = useState(false)
   const [transactionInitialValues, setTransactionInitialValues] = useState<any>(null)
 
+  // 使用 SWR 獲取 fast dashboard summary（快速資料）
+  const { data: fastSummary, error: fastError, isLoading: fastLoading, mutate: mutateFast } = useSWR('/api/dashboard/summary/fast')
+  
+  // Lazy load monthly statistics（慢速資料，可以稍後載入）
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth() + 1
+  const { data: monthlyStats } = useSWR(`/api/statistics/monthly?year=${currentYear}&month=${currentMonth}`)
+
   useEffect(() => {
-    fetchUser()
-    fetchPet()
-    fetchStickers()
-    fetchStickerInventory()
-    fetchFoodInventory()
-    fetchAccessories()
-    fetchAccessoryInventory()
+    // 當 fast summary 資料載入完成後，更新 state
+    if (fastSummary) {
+      if (fastSummary.pet) {
+        setPet(fastSummary.pet)
+        if (fastSummary.pet.missionCompleted) {
+          window.dispatchEvent(new CustomEvent('missionCompleted', { detail: fastSummary.pet.missionCompleted }))
+        }
+      }
+      
+      if (fastSummary.stickers) {
+        setStickers(fastSummary.stickers)
+      }
+      
+      if (fastSummary.stickerInventory) {
+        setAvailableStickers(fastSummary.stickerInventory)
+      }
+      
+      if (fastSummary.foodInventory) {
+        setFoodItems(fastSummary.foodInventory)
+      }
+      
+      if (fastSummary.accessories) {
+        setAccessories(fastSummary.accessories)
+      }
+      
+      if (fastSummary.accessoryInventory) {
+        setAvailableAccessories(fastSummary.accessoryInventory)
+      }
+      
+      if (fastSummary.unclaimedMissions?.missions) {
+        setHasUnclaimedMissions(fastSummary.unclaimedMissions.missions.length > 0)
+      }
+      
+      setLoading(false)
+    } else if (fastError) {
+      console.error('取得 dashboard summary fast 失敗:', fastError)
+      setUserBalance(0)
+      setLoading(false)
+    } else if (fastLoading) {
+      setLoading(true)
+    }
+  }, [fastSummary, fastError, fastLoading])
+
+  // 當 monthly statistics 載入完成後，更新餘額
+  useEffect(() => {
+    if (monthlyStats) {
+      const monthlyBalance = (monthlyStats.totalIncome || 0) - (monthlyStats.totalExpense || 0)
+      console.log('更新餘額（當月）:', monthlyBalance, `(收入: ${monthlyStats.totalIncome || 0}, 支出: ${monthlyStats.totalExpense || 0})`)
+      setUserBalance(monthlyBalance)
+    }
+  }, [monthlyStats])
+
+  useEffect(() => {
     checkUnclaimedMissions()
   }, [])
 
@@ -150,122 +206,20 @@ export default function DashboardContent() {
 
   const checkUnclaimedMissions = async () => {
     try {
-      const res = await fetch('/api/missions/completed')
-      if (res.ok) {
-        const data = await res.json()
-        const missions = data.missions || []
-        setHasUnclaimedMissions(missions.length > 0)
-      }
+      const { deduplicatedFetch } = await import('@/lib/fetch-utils')
+      const data = await deduplicatedFetch('/api/missions/completed')
+      const missions = data.missions || []
+      setHasUnclaimedMissions(missions.length > 0)
     } catch (error) {
       console.error('檢查未領取任務失敗:', error)
     }
   }
 
-
   // 當打開倉庫時，自動進入編輯模式（通過 Room 組件內部處理）
 
-  const fetchUser = async () => {
-    try {
-      // 獲取當月的統計資料來計算 balance（總收入 - 總支出）
-      const now = new Date()
-      const year = now.getFullYear()
-      const month = now.getMonth() + 1
-      
-      const res = await fetch(`/api/statistics/monthly?year=${year}&month=${month}`, {
-        cache: 'no-store', // 確保不從緩存獲取
-      })
-      if (res.ok) {
-        const data = await res.json()
-        // 計算當月總收入減總支出
-        const monthlyBalance = (data.totalIncome || 0) - (data.totalExpense || 0)
-        console.log('更新餘額（當月）:', monthlyBalance, `(收入: ${data.totalIncome || 0}, 支出: ${data.totalExpense || 0})`)
-        setUserBalance(monthlyBalance)
-      } else {
-        console.error('取得當月統計失敗:', res.status, res.statusText)
-        setUserBalance(0)
-      }
-    } catch (error) {
-      console.error('取得當月統計失敗:', error)
-      setUserBalance(0)
-    }
-  }
-
-  const fetchPet = async () => {
-    try {
-      const res = await fetch('/api/pet')
-      const data = await res.json()
-      setPet(data)
-      
-      // 檢查 API 響應中是否有任務完成信息
-      if (data.missionCompleted) {
-        // Dispatch 全局事件，讓 MissionToastManager 處理顯示
-        window.dispatchEvent(new CustomEvent('missionCompleted', { detail: data.missionCompleted }))
-      }
-    } catch (error) {
-      console.error('取得寵物資訊失敗:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchStickers = async () => {
-    try {
-      const res = await fetch('/api/pet/stickers')
-      if (res.ok) {
-        const data = await res.json()
-        setStickers(data)
-      }
-    } catch (error) {
-      console.error('取得貼紙失敗:', error)
-    }
-  }
-
-  const fetchStickerInventory = async () => {
-    try {
-      const res = await fetch('/api/pet/stickers/inventory')
-      if (res.ok) {
-        const data = await res.json()
-        setAvailableStickers(data)
-      }
-    } catch (error) {
-      console.error('取得貼紙庫存失敗:', error)
-    }
-  }
-
-  const fetchFoodInventory = async () => {
-    try {
-      const res = await fetch('/api/pet/food/inventory')
-      if (res.ok) {
-        const data = await res.json()
-        setFoodItems(data)
-      }
-    } catch (error) {
-      console.error('取得食物庫存失敗:', error)
-    }
-  }
-
-  const fetchAccessories = async () => {
-    try {
-      const res = await fetch('/api/pet/accessories')
-      if (res.ok) {
-        const data = await res.json()
-        setAccessories(data)
-      }
-    } catch (error) {
-      console.error('取得配件失敗:', error)
-    }
-  }
-
-  const fetchAccessoryInventory = async () => {
-    try {
-      const res = await fetch('/api/pet/accessories/inventory')
-      if (res.ok) {
-        const data = await res.json()
-        setAvailableAccessories(data)
-      }
-    } catch (error) {
-      console.error('取得配件庫存失敗:', error)
-    }
+  // 刷新 dashboard summary（使用 SWR mutate）
+  const fetchDashboardSummary = async () => {
+    await mutateFast()
   }
 
   const handleTransactionAdded = async (transactionDetails?: { amount: number; type: string; categoryName: string; note?: string }) => {
@@ -324,11 +278,7 @@ export default function DashboardContent() {
     }
     
     await new Promise(resolve => setTimeout(resolve, 100))
-    await fetchUser()
-    fetchPet()
-    fetchStickers()
-    fetchStickerInventory()
-    fetchFoodInventory()
+    await fetchDashboardSummary()
   }
 
   const handleChatSend = async (message: string) => {
@@ -409,13 +359,11 @@ export default function DashboardContent() {
   }
 
   const handleStickerPlaced = () => {
-    fetchStickers()
-    fetchStickerInventory()
+    fetchDashboardSummary()
   }
 
   const handlePetFed = () => {
-    fetchPet()
-    fetchFoodInventory()
+    fetchDashboardSummary()
   }
 
   const renderStatCard = (label: string, value: number | undefined) => {
@@ -452,10 +400,50 @@ export default function DashboardContent() {
     )
   }
 
-  if (loading) {
+  // Skeleton loading state - 立即顯示頁面結構，資料慢慢補上
+  if (loading || fastLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-sm text-black/60 uppercase tracking-wide">Loading...</div>
+      <div className="min-h-screen bg-white relative overflow-hidden">
+        {/* 頂部資訊欄 Skeleton */}
+        <div className="absolute top-0 left-0 right-0 z-20 flex justify-between items-start p-4 pointer-events-none">
+          <div className="flex gap-3 pointer-events-auto">
+            {/* 任務按鈕 Skeleton */}
+            <div className="bg-gray-200 rounded-lg w-16 h-18 animate-pulse" />
+            {/* 餘額 Skeleton */}
+            <div className="bg-gray-200 rounded-xl px-3 py-2 animate-pulse min-w-[100px] h-18" />
+            {/* 點數 Skeleton */}
+            <div className="bg-gray-200 rounded-xl px-3 py-2 animate-pulse min-w-[100px] h-18" />
+            {/* 狀態卡片 Skeleton */}
+            <div className="bg-gray-200 rounded-xl px-4 py-2 animate-pulse min-w-[220px] h-18" />
+            <div className="bg-gray-200 rounded-xl px-4 py-2 animate-pulse min-w-[220px] h-18" />
+          </div>
+          {/* 右側按鈕 Skeleton */}
+          <div className="pointer-events-auto">
+            <div className="bg-gray-200 rounded-xl w-12 h-12 animate-pulse" />
+          </div>
+        </div>
+
+        {/* 主內容區 Skeleton */}
+        <main className="flex-1 flex items-start justify-start px-4 pb-20 pt-24 gap-4 relative">
+          <div className="flex-1 bg-gray-100 rounded-2xl animate-pulse min-h-[500px]" />
+        </main>
+
+        {/* 底部導航 Skeleton */}
+        <div className="fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200">
+          <div className="max-w-7xl mx-auto flex justify-around items-center p-4">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="bg-gray-200 rounded-lg w-12 h-12 animate-pulse" />
+            ))}
+          </div>
+        </div>
+
+        {/* 底部輸入框 Skeleton */}
+        <div className="fixed bottom-20 left-0 right-0 z-30 px-4 pb-2">
+          <div className="max-w-7xl mx-auto flex items-center gap-3">
+            <div className="flex-1 bg-gray-200 rounded-full h-14 animate-pulse" />
+            <div className="bg-gray-200 rounded-full w-14 h-14 animate-pulse" />
+          </div>
+        </div>
       </div>
     )
   }
@@ -562,8 +550,7 @@ export default function DashboardContent() {
           onStickerPlaced={handleStickerPlaced}
           onPetFed={handlePetFed}
           onAccessoryPlaced={() => {
-            fetchAccessories()
-            fetchAccessoryInventory()
+            fetchDashboardSummary()
           }}
         />
         {/* 寵物聊天氣泡 */}

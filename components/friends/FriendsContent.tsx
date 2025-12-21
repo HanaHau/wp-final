@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useToast } from '@/components/ui/use-toast'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,8 @@ import AddFriendDialog from './AddFriendDialog'
 import InvitationDialog from './InvitationDialog'
 import FriendActivityLog from './FriendActivityLog'
 import FriendActivityToast from './FriendActivityToast'
+import { useSWR } from '@/lib/swr-config'
+import { SkeletonFriendCard, SkeletonButton } from '@/components/ui/skeleton-loader'
 
 interface Friend {
   id: string
@@ -32,66 +34,21 @@ interface SearchResult {
 
 export default function FriendsContent() {
   const { toast } = useToast()
-  const [friends, setFriends] = useState<Friend[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
-  const [loading, setLoading] = useState(true)
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showInvitationDialog, setShowInvitationDialog] = useState(false)
   const [showActivityLog, setShowActivityLog] = useState(false)
-  const [invitationCount, setInvitationCount] = useState(0)
-  const [unreadActivityCount, setUnreadActivityCount] = useState(0)
 
-  const fetchInvitationCount = async () => {
-    try {
-      const res = await fetch('/api/friends/invitations/count')
-      if (res.ok) {
-        const data = await res.json()
-        setInvitationCount(data.count || 0)
-      }
-    } catch (error) {
-      console.error('取得邀請數量失敗:', error)
-    }
-  }
+  // 使用 SWR 獲取 friends summary
+  const { data: summaryData, error: summaryError, mutate: mutateSummary } = useSWR('/api/friends/summary')
 
-  const fetchActivityCount = async () => {
-    try {
-      const res = await fetch('/api/friend-activities')
-      if (res.ok) {
-        const data = await res.json()
-        setUnreadActivityCount(data.unreadCount || 0)
-      }
-    } catch (error) {
-      console.error('取得活動數量失敗:', error)
-    }
-  }
-
-  useEffect(() => {
-    fetchFriends()
-    fetchInvitationCount()
-    fetchActivityCount()
-    // 每30秒刷新一次邀請和活動數量
-    const interval = setInterval(() => {
-      fetchInvitationCount()
-      fetchActivityCount()
-    }, 30000)
-    return () => clearInterval(interval)
-  }, [])
-
-  const fetchFriends = async () => {
-    try {
-      const res = await fetch('/api/friends')
-      if (res.ok) {
-        const data = await res.json()
-        setFriends(data)
-      }
-    } catch (error) {
-      console.error('取得好友列表失敗:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  // 從 summary 中提取資料
+  const friends = summaryData?.friends || []
+  const invitationCount = summaryData?.invitationCount || 0
+  const unreadActivityCount = summaryData?.unreadActivityCount || 0
+  const loading = !summaryData && !summaryError
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
@@ -138,7 +95,7 @@ export default function FriendsContent() {
           title: 'Success',
           description: data.message || 'Friend added',
         })
-        fetchFriends()
+        mutateSummary()
         // Refresh search results to update status
         if (searchQuery.trim()) {
           handleSearch()
@@ -304,7 +261,11 @@ export default function FriendsContent() {
           </h2>
 
           {loading ? (
-            <div className="text-center py-8 text-black/60">Loading...</div>
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <SkeletonFriendCard key={i} />
+              ))}
+            </div>
           ) : friends.length === 0 ? (
             <div className="text-center py-8 text-black/60">
               <p className="mb-2">No friends yet</p>
@@ -312,7 +273,7 @@ export default function FriendsContent() {
             </div>
           ) : (
             <div className="space-y-2">
-              {friends.map((friend) => (
+              {friends.map((friend: Friend) => (
                 <Link
                   key={friend.id}
                   href={`/friends/${friend.id}`}
@@ -342,7 +303,7 @@ export default function FriendsContent() {
         open={showAddDialog}
         onOpenChange={setShowAddDialog}
         onFriendAdded={() => {
-          fetchFriends()
+          mutateSummary()
           if (searchQuery.trim()) {
             handleSearch()
           }
@@ -354,19 +315,18 @@ export default function FriendsContent() {
         onOpenChange={(open) => {
           setShowInvitationDialog(open)
           if (!open) {
-            fetchInvitationCount()
+            mutateSummary()
           }
         }}
         onInvitationAccepted={() => {
-          fetchInvitationCount()
-          fetchFriends()
+          mutateSummary()
         }}
       />
 
       {showActivityLog && (
         <FriendActivityLog
           onClose={() => setShowActivityLog(false)}
-          onUnreadCountUpdate={(count) => setUnreadActivityCount(count)}
+          onUnreadCountUpdate={() => mutateSummary()}
         />
       )}
 

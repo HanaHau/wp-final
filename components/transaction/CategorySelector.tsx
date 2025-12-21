@@ -645,7 +645,7 @@ export default function CategorySelector({
                   {/* Category Grid - Separate default and user categories */}
                   {/* Default Categories (userId = null) */}
                   <div className="text-xs uppercase tracking-wide text-black/60 mb-2 px-1">
-                    Default Categories
+                    Default Categories (cannot be edited or reordered)
                   </div>
                   <div className="grid grid-cols-4 gap-3 mb-4">
                     {categories

@@ -1,21 +1,12 @@
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUserRecord } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { redirect } from 'next/navigation'
 import FriendsBoard from '@/components/friends/FriendsBoard'
 
+// Layout 已經處理了認證和初始化檢查
 export default async function FriendsPage() {
-  const user = await getCurrentUser()
-  if (!user) {
-    redirect('/auth/signin')
-  }
-
-  const userRecord = await prisma.user.findUnique({
-    where: { email: user.email! },
-    select: { id: true },
-  })
-
+  const userRecord = await getCurrentUserRecord()
   if (!userRecord) {
-    redirect('/auth/signin')
+    return null
   }
 
   // Fetch friends list

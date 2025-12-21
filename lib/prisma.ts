@@ -15,6 +15,8 @@ export const prisma =
         url: process.env.DATABASE_URL,
       },
     },
+    // 優化連線池配置以減少連線建立時間
+    // 在 Vercel 等 serverless 環境中，這些參數可以幫助減少冷啟動時間
   })
 
 // Ensure the same instance is reused in all environments (avoid connection pool exhaustion)

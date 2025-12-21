@@ -12,8 +12,10 @@ import DecorPanel from './DecorPanel'
 import PetStatusHUD from './PetStatusHUD'
 import PetActionBar from './PetActionBar'
 import VoidBackground from './VoidBackground'
+import { SkeletonPetRoom } from '@/components/ui/skeleton-loader'
 import { motion } from 'framer-motion'
 import { SHOP_ITEM_MAP } from '@/data/shop-items'
+import { useSWR } from '@/lib/swr-config'
 
 interface Pet {
   id: string
@@ -79,7 +81,6 @@ export default function PetRoomContent() {
   const [foodItems, setFoodItems] = useState<FoodItem[]>([])
   const [accessories, setAccessories] = useState<PetAccessory[]>([])
   const [availableAccessories, setAvailableAccessories] = useState<AvailableAccessory[]>([])
-  const [refreshKey, setRefreshKey] = useState(0)
   
   // Panel states
   const [showFeedPanel, setShowFeedPanel] = useState(false)
@@ -114,63 +115,37 @@ export default function PetRoomContent() {
   // const [showRestartDialog, setShowRestartDialog] = useState(false)
   // const [isRestarting, setIsRestarting] = useState(false)
   
-  // Check if pet is dead - 保留用於禁用操作
-  const isPetDead = pet && (pet.mood <= 0 || pet.fullness <= 0)
+  // 使用 SWR 獲取 pet summary
+  const { data: summaryData, error: summaryError, mutate: mutateSummary } = useSWR('/api/pet/summary')
 
+  // 處理 summary 資料
   useEffect(() => {
-    fetchAllData()
-  }, [refreshKey])
-
-  const fetchAllData = async () => {
-    setLoading(true)
-    try {
-      // Fetch pet data
-      const petRes = await fetch('/api/pet')
-      const petData = await petRes.json()
+    if (summaryData) {
+      const { pet: petData, stickers: stickersData, accessories: accessoriesData, customStickers, publicStickers } = summaryData
+      
+      // 設置 pet
       setPet(petData)
       setPetNameInput(petData.name || 'My Pet')
       
-      // Extract food items from purchases (including custom stickers with food category)
+      // 設置 stickers 和 accessories
+      setStickers(stickersData || [])
+      setAccessories(accessoriesData || [])
+      
+      // 構建 custom stickers map
+      const customStickersMap = new Map<string, { imageUrl: string }>()
+      ;[...(customStickers || []), ...(publicStickers || [])].forEach((cs: any) => {
+        customStickersMap.set(`custom-${cs.id}`, { imageUrl: cs.imageUrl })
+      })
+      
+      // 從 summary 中獲取 purchases
       const purchases = petData.purchases || []
+      
+      // Extract food items
       const foodPurchases = purchases.filter((p: any) => 
         p.itemId.startsWith('food') || 
         p.itemId === 'water' ||
-        p.category === 'food' // Include custom stickers with food category
+        p.category === 'food'
       )
-      
-      // Fetch custom stickers for food items (both own and public)
-      const customFoodItemIds = foodPurchases
-        .filter((p: any) => p.itemId.startsWith('custom-'))
-        .map((p: any) => p.itemId.replace('custom-', ''))
-      
-      let customStickersMap = new Map<string, { imageUrl: string }>()
-      if (customFoodItemIds.length > 0) {
-        try {
-          // Fetch own custom stickers
-          const customStickersRes = await fetch('/api/custom-stickers')
-          if (customStickersRes.ok) {
-            const customStickers = await customStickersRes.json()
-            customStickers.forEach((cs: any) => {
-              if (customFoodItemIds.includes(cs.id)) {
-                customStickersMap.set(`custom-${cs.id}`, { imageUrl: cs.imageUrl })
-              }
-            })
-          }
-          
-          // Fetch public custom stickers (for purchased public stickers)
-          const publicStickersRes = await fetch('/api/custom-stickers/public')
-          if (publicStickersRes.ok) {
-            const publicStickers = await publicStickersRes.json()
-            publicStickers.forEach((ps: any) => {
-              if (customFoodItemIds.includes(ps.id) && !customStickersMap.has(`custom-${ps.id}`)) {
-                customStickersMap.set(`custom-${ps.id}`, { imageUrl: ps.imageUrl })
-              }
-            })
-          }
-        } catch (error) {
-          console.error('Failed to fetch custom stickers:', error)
-        }
-      }
       
       const foodMap = new Map<string, FoodItem>()
       foodPurchases.forEach((p: any) => {
@@ -178,7 +153,6 @@ export default function PetRoomContent() {
         if (existing) {
           existing.count += p.quantity
         } else {
-          // For custom stickers, use 🖼️ emoji and get imageUrl, otherwise use getItemEmoji
           const isCustom = p.itemId.startsWith('custom-')
           const emoji = isCustom ? '🖼️' : getItemEmoji(p.itemId)
           const customSticker = isCustom ? customStickersMap.get(p.itemId) : null
@@ -193,22 +167,13 @@ export default function PetRoomContent() {
         }
       })
       setFoodItems(Array.from(foodMap.values()))
-
-      // Fetch stickers
-      const stickersRes = await fetch('/api/pet/stickers')
-      let stickersData: any[] = []
-      if (stickersRes.ok) {
-        stickersData = await stickersRes.json()
-        setStickers(stickersData)
-      }
-
+      
       // Fetch available stickers from purchases
       const stickerPurchases = purchases.filter((p: any) => 
         p.itemId.startsWith('sticker') || p.itemId === 'cat'
       )
       const stickerMap = new Map<string, AvailableSticker>()
       stickerPurchases.forEach((p: any) => {
-        const existing = stickerMap.get(p.itemId)
         const usedCount = stickersData.filter((s: any) => s.stickerId === p.itemId).length
         const availableCount = p.quantity - usedCount
         
@@ -222,22 +187,13 @@ export default function PetRoomContent() {
         }
       })
       setAvailableStickers(Array.from(stickerMap.values()))
-
-      // Fetch accessories
-      const accessoriesRes = await fetch('/api/pet/accessories')
-      let accessoriesData: any[] = []
-      if (accessoriesRes.ok) {
-        accessoriesData = await accessoriesRes.json()
-        setAccessories(accessoriesData)
-      }
-
+      
       // Fetch available accessories
       const accessoryPurchases = purchases.filter((p: any) => 
         p.itemId.startsWith('acc')
       )
       const accessoryMap = new Map<string, AvailableAccessory>()
       accessoryPurchases.forEach((p: any) => {
-        const existing = accessoryMap.get(p.itemId)
         const usedCount = accessoriesData.filter((a: any) => a.accessoryId === p.itemId).length
         const availableCount = p.quantity - usedCount
         
@@ -251,18 +207,23 @@ export default function PetRoomContent() {
         }
       })
       setAvailableAccessories(Array.from(accessoryMap.values()))
-
-    } catch (error) {
-      console.error('Failed to fetch data:', error)
+      
+      setLoading(false)
+    } else if (summaryError) {
+      console.error('Failed to fetch pet summary:', summaryError)
       toast({
         title: 'Failed to Load',
         description: 'Unable to load pet data',
         variant: 'destructive',
       })
-    } finally {
       setLoading(false)
+    } else {
+      setLoading(true)
     }
-  }
+  }, [summaryData, summaryError, toast])
+
+  // Check if pet is dead - 保留用於禁用操作
+  const isPetDead = pet && (pet.mood <= 0 || pet.fullness <= 0)
 
   const handleStartEditName = () => {
     if (pet) {
@@ -309,7 +270,8 @@ export default function PetRoomContent() {
       }
 
       const updatedPet = await response.json()
-      setPet(updatedPet)
+      // 使用 SWR mutate 刷新資料
+      mutateSummary()
       setIsEditingName(false)
 
       toast({
@@ -452,80 +414,10 @@ export default function PetRoomContent() {
         setPetState('idle')
       }, 1200)
       
-      // Update pet data without triggering full refresh
-      setTimeout(async () => {
-        try {
-          const petRes = await fetch('/api/pet')
-          const petData = await petRes.json()
-          setPet(petData)
-          
-          // Update food items count (including custom stickers with food category)
-          const purchases = petData.purchases || []
-          const foodPurchases = purchases.filter((p: any) => 
-            p.itemId.startsWith('food') || 
-            p.itemId === 'water' ||
-            p.category === 'food' // Include custom stickers with food category
-          )
-          
-          // Fetch custom stickers for food items (both own and public)
-          const customFoodItemIds = foodPurchases
-            .filter((p: any) => p.itemId.startsWith('custom-'))
-            .map((p: any) => p.itemId.replace('custom-', ''))
-          
-          let customStickersMap = new Map<string, { imageUrl: string }>()
-          if (customFoodItemIds.length > 0) {
-            try {
-              // Fetch own custom stickers
-              const customStickersRes = await fetch('/api/custom-stickers')
-              if (customStickersRes.ok) {
-                const customStickers = await customStickersRes.json()
-                customStickers.forEach((cs: any) => {
-                  if (customFoodItemIds.includes(cs.id)) {
-                    customStickersMap.set(`custom-${cs.id}`, { imageUrl: cs.imageUrl })
-                  }
-                })
-              }
-              
-              // Fetch public custom stickers (for purchased public stickers)
-              const publicStickersRes = await fetch('/api/custom-stickers/public')
-              if (publicStickersRes.ok) {
-                const publicStickers = await publicStickersRes.json()
-                publicStickers.forEach((ps: any) => {
-                  if (customFoodItemIds.includes(ps.id) && !customStickersMap.has(`custom-${ps.id}`)) {
-                    customStickersMap.set(`custom-${ps.id}`, { imageUrl: ps.imageUrl })
-                  }
-                })
-              }
-            } catch (error) {
-              console.error('Failed to fetch custom stickers:', error)
-            }
-          }
-          
-          const foodMap = new Map<string, FoodItem>()
-          foodPurchases.forEach((p: any) => {
-            const existing = foodMap.get(p.itemId)
-            if (existing) {
-              existing.count += p.quantity
-            } else {
-              // For custom stickers, use 🖼️ emoji and get imageUrl, otherwise use getItemEmoji
-              const isCustom = p.itemId.startsWith('custom-')
-              const emoji = isCustom ? '🖼️' : getItemEmoji(p.itemId)
-              const customSticker = isCustom ? customStickersMap.get(p.itemId) : null
-              
-              foodMap.set(p.itemId, {
-                itemId: p.itemId,
-                name: p.itemName,
-                emoji: emoji,
-                count: p.quantity,
-                imageUrl: customSticker?.imageUrl || null,
-              })
-            }
-          })
-          setFoodItems(Array.from(foodMap.values()))
-        } catch (error) {
-          console.error('Failed to update pet data:', error)
-        }
-      }, 1300)
+      // 使用 SWR mutate 刷新資料
+      setTimeout(() => {
+        mutateSummary()
+      }, 1200)
     } catch (error: any) {
       setFeedingAnimation(null)
       setPetState('idle')
@@ -560,7 +452,7 @@ export default function PetRoomContent() {
         description: 'Successfully added accessory to pet',
       })
       showParticleEffect('✨', 4)
-      setRefreshKey(prev => prev + 1)
+      mutateSummary()
     } catch (error: any) {
       toast({
         title: '裝備失敗',
@@ -578,7 +470,7 @@ export default function PetRoomContent() {
       })
       if (!res.ok) throw new Error('Failed to remove accessory')
       toast({ title: 'Accessory removed' })
-      setRefreshKey(prev => prev + 1)
+      mutateSummary()
     } catch (error: any) {
       toast({
         title: 'Remove failed',
@@ -591,8 +483,9 @@ export default function PetRoomContent() {
 
   if (loading || !pet) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-white">
-        <div className="text-sm text-black/60 uppercase tracking-wide">Loading...</div>
+      <div className="h-screen flex flex-col overflow-hidden relative pb-20 bg-[#050505]">
+        <SkeletonPetRoom />
+        <Navigation />
       </div>
     )
   }

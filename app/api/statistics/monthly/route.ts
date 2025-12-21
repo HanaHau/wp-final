@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
-export const dynamic = 'force-dynamic'
+// 使用 revalidate 快取策略，60 秒內重用相同響應
+export const revalidate = 60
 
 // GET /api/statistics/monthly - 取得月統計
 export async function GET(request: NextRequest) {

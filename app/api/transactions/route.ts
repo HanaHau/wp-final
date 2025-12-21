@@ -4,6 +4,9 @@ import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { updateMissionProgress } from '@/lib/missions'
 
+// 使用 revalidate 快取策略，60 秒內重用相同響應（僅對 GET 請求有效）
+export const revalidate = 60
+
 const transactionSchema = z.object({
   amount: z.number().positive(),
   category: z.string().min(1).optional(), // Category name (will be resolved to categoryId)

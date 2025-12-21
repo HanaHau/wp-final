@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
+// 使用 revalidate 快取策略，60 秒內重用相同響應（僅對 GET 請求有效）
+export const revalidate = 60
+
 // Get friends list
 export async function GET() {
   try {

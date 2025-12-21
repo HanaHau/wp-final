@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
-export const dynamic = 'force-dynamic'
+// 使用 revalidate 快取策略，60 秒內重用相同響應
+export const revalidate = 60
 
 // GET /api/custom-stickers/public - 取得所有公開的自訂貼紙
 export async function GET() {

@@ -3,7 +3,8 @@ import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
-export const dynamic = 'force-dynamic'
+// 使用 revalidate 快取策略，300 秒內重用相同響應（類別不常變動，使用較長的快取時間）
+export const revalidate = 300
 
 const categorySchema = z.object({
   name: z.string().min(1),

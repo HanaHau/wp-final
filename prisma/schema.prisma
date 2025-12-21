@@ -121,7 +121,7 @@ model Transaction {
   type       Type     @relation(fields: [typeId], references: [id])
   category   Category @relation(fields: [categoryId], references: [id])
 
-  @@index([userId, date])
+  @@index([userId, date]) // 優化 WHERE userId = ? ORDER BY date DESC 查詢（資料庫可反向掃描 index）
   @@index([categoryId])
   @@index([typeId])
   @@map("transactions")
@@ -223,6 +223,7 @@ model Friend {
   @@unique([userId, friendId])
   @@index([userId])
   @@index([friendId])
+  @@index([friendId, status]) // 優化 WHERE friendId = ? AND status = ? 查詢
   @@map("friends")
 }
 
@@ -291,5 +292,6 @@ model MissionUser {
   mission     Mission   @relation(fields: [missionId], references: [id], onDelete: Cascade)
 
   @@unique([userId, missionId, periodStart])
+  @@index([userId, completed, claimed]) // 優化 WHERE userId = ? AND completed = ? AND claimed = ? 查詢
   @@map("mission_user")
 }

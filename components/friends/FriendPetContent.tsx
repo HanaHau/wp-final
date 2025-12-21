@@ -87,13 +87,13 @@ export default function FriendPetContent({ friendId }: { friendId: string }) {
 
   return (
     <FriendRoom
-      pet={{
-        id: data.pet.id,
-        name: data.pet.name,
-        imageUrl: data.pet.imageUrl,
-        facingDirection: data.pet.facingDirection,
+          pet={{
+            id: data.pet.id,
+            name: data.pet.name,
+            imageUrl: data.pet.imageUrl,
+            facingDirection: data.pet.facingDirection,
         mood: data.pet.mood,
-        fullness: data.pet.fullness,
+            fullness: data.pet.fullness,
       }}
       user={data.user}
       stickers={data.pet.stickers || []}

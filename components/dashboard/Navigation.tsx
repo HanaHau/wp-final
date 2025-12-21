@@ -6,6 +6,9 @@ import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Home, BarChart3, Heart, List, ShoppingBag, User, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useSWR } from '@/lib/swr-config'
+import { useContext } from 'react'
+import { DashboardContext } from '@/contexts/DashboardContext'
 
 const navItems = [
   { href: '/dashboard', label: 'Home', icon: Home },
@@ -18,26 +21,17 @@ const navItems = [
 
 export default function Navigation() {
   const pathname = usePathname()
-  const [invitationCount, setInvitationCount] = useState(0)
-
-  useEffect(() => {
-    const fetchInvitationCount = async () => {
-      try {
-        const res = await fetch('/api/friends/invitations/count')
-        if (res.ok) {
-          const data = await res.json()
-          setInvitationCount(data.count || 0)
-        }
-      } catch (error) {
-        console.error('取得邀請數量失敗:', error)
-      }
-    }
-
-    fetchInvitationCount()
-    // 每30秒刷新一次邀請數量
-    const interval = setInterval(fetchInvitationCount, 30000)
-    return () => clearInterval(interval)
-  }, [])
+  
+  // 嘗試從 context 獲取 invitationCount（使用 useContext 而不是自定義 hook）
+  const dashboardContext = useContext(DashboardContext)
+  const contextInvitationCount = dashboardContext?.summary?.invitationCount?.count ?? 0
+  
+  // 如果 context 沒有資料，使用 SWR 作為後備
+  const { data: invitationData } = useSWR(
+    contextInvitationCount === 0 ? '/api/friends/invitations/count' : null
+  )
+  
+  const invitationCount = contextInvitationCount || invitationData?.count || 0
 
   return (
     <>
@@ -49,7 +43,7 @@ export default function Navigation() {
               const isActive = pathname === item.href
               const showBadge = item.href === '/friends' && invitationCount > 0
               return (
-                <Link key={item.href} href={item.href}>
+                <Link key={item.href} href={item.href} prefetch={false}>
                   <Button
                     variant="ghost"
                     className={cn(
@@ -72,7 +66,7 @@ export default function Navigation() {
                 </Link>
               )
             })}
-            <Link href="/profile">
+            <Link href="/profile" prefetch={false}>
             <Button
               variant="ghost"
               className={cn(

@@ -104,5 +104,22 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: 'jwt',
   },
+  // 添加 debug 配置（僅在開發環境中啟用）
+  debug: process.env.NODE_ENV === 'development',
+  // 添加錯誤處理配置
+  events: {
+    async signIn({ user, account, profile }) {
+      // 記錄登入事件（僅在開發環境中）
+      if (process.env.NODE_ENV === 'development') {
+        console.log('User signed in:', { email: user.email, provider: account?.provider })
+      }
+    },
+    async signOut({ session, token }) {
+      // 記錄登出事件（僅在開發環境中）
+      if (process.env.NODE_ENV === 'development') {
+        console.log('User signed out')
+      }
+    },
+  },
 }
 

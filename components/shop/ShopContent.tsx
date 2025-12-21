@@ -10,6 +10,8 @@ import { useSession } from 'next-auth/react'
 import { SHOP_ITEMS, ShopItem, ShopItemCategory } from '@/data/shop-items'
 import CustomStickerDialog from './CustomStickerDialog'
 import { useToast } from '@/components/ui/use-toast'
+import { useSWR } from '@/lib/swr-config'
+import { SkeletonCard, SkeletonButton } from '@/components/ui/skeleton-loader'
 
 interface Pet {
   id: string
@@ -29,47 +31,32 @@ export default function ShopContent() {
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set())
   const { toast } = useToast()
 
-  useEffect(() => {
-    fetchPet()
-    fetchCustomStickers()
-    fetchPublicStickers()
-  }, [])
+  // 使用 SWR 獲取資料
+  const { data: petData, error: petError, mutate: mutatePet } = useSWR('/api/pet')
+  const { data: customStickersData, mutate: mutateCustomStickers } = useSWR('/api/custom-stickers')
+  const { data: publicStickersData, mutate: mutatePublicStickers } = useSWR('/api/custom-stickers/public')
 
-  const fetchPet = async () => {
-    try {
-      const res = await fetch('/api/pet')
-      const data = await res.json()
-      setPet(data)
-    } catch (error) {
-      console.error('Failed to fetch pet:', error)
-    } finally {
+  useEffect(() => {
+    if (petData) {
+      setPet(petData)
+      setLoading(false)
+    } else if (petError) {
+      console.error('Failed to fetch pet:', petError)
       setLoading(false)
     }
-  }
+  }, [petData, petError])
 
-  const fetchCustomStickers = async () => {
-    try {
-      const res = await fetch('/api/custom-stickers')
-      if (res.ok) {
-        const data = await res.json()
-        setCustomStickers(data)
-      }
-    } catch (error) {
-      console.error('Failed to fetch custom stickers:', error)
+  useEffect(() => {
+    if (customStickersData) {
+      setCustomStickers(customStickersData)
     }
-  }
+  }, [customStickersData])
 
-  const fetchPublicStickers = async () => {
-    try {
-      const res = await fetch('/api/custom-stickers/public')
-      if (res.ok) {
-        const data = await res.json()
-        setPublicStickers(data)
-      }
-    } catch (error) {
-      console.error('Failed to fetch public stickers:', error)
+  useEffect(() => {
+    if (publicStickersData) {
+      setPublicStickers(publicStickersData)
     }
-  }
+  }, [publicStickersData])
 
   const getQuantity = (itemId: string) => quantities[itemId] ?? 0
 
@@ -122,7 +109,8 @@ export default function ShopContent() {
         throw new Error(data.error || 'Purchase failed')
       }
 
-      await fetchPet()
+      // 刷新 pet 資料以更新 points
+      await mutatePet()
       setQuantities((prev) => ({
         ...prev,
         [item.id]: 0,
@@ -181,8 +169,29 @@ export default function ShopContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-lg text-black">Loading...</div>
+      <div className="min-h-screen bg-white flex flex-col pb-20">
+        <div className="flex-1 overflow-y-auto max-w-7xl mx-auto w-full px-4 py-6">
+          {/* Header Skeleton */}
+          <div className="h-8 bg-gray-200 rounded w-16 mb-6 animate-pulse" />
+          
+          {/* Points Card Skeleton */}
+          <SkeletonCard />
+          
+          {/* Category Filter Skeleton */}
+          <div className="flex gap-2 mb-6 animate-pulse">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-10 bg-gray-200 rounded-xl w-24" />
+            ))}
+          </div>
+          
+          {/* Item Grid Skeleton */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        </div>
+        <Navigation />
       </div>
     )
   }
@@ -353,9 +362,10 @@ export default function ShopContent() {
         onOpenChange={setIsCustomStickerDialogOpen}
         petPoints={pet?.points || 0}
         onSuccess={() => {
-          fetchPet()
-          fetchCustomStickers()
-          fetchPublicStickers()
+          // 刷新所有相關資料
+          mutatePet()
+          mutateCustomStickers()
+          mutatePublicStickers()
         }}
       />
     </div>

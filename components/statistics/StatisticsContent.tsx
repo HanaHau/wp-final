@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Navigation from '@/components/dashboard/Navigation'
@@ -10,6 +10,7 @@ import { ChevronLeft, ChevronRight, ArrowUp, ArrowDown } from 'lucide-react'
 import Link from 'next/link'
 import { MonthPicker } from '@/components/ui/month-picker'
 import DailyTransactionsDialog from './DailyTransactionsDialog'
+import { useSWR } from '@/lib/swr-config'
 
 interface CategoryData {
   name: string
@@ -30,10 +31,6 @@ const GREEN_TINT = '#2D5016' // Dark green for positive
 const RED_TINT = '#5A1F1F' // Dark red for negative
 
 export default function StatisticsContent() {
-  const [monthlyStats, setMonthlyStats] = useState<MonthlyStats | null>(null)
-  const [prevMonthStats, setPrevMonthStats] = useState<MonthlyStats | null>(null)
-  const [categoryData, setCategoryData] = useState<CategoryData[]>([])
-  const [loading, setLoading] = useState(true)
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [showMonthPicker, setShowMonthPicker] = useState(false)
@@ -41,72 +38,48 @@ export default function StatisticsContent() {
   const [showDailyDialog, setShowDailyDialog] = useState(false)
   const [budget, setBudget] = useState(50000) // Default budget, can be made configurable
 
-  useEffect(() => {
-    fetchStats()
-    fetchPrevMonthStats()
-    fetchCategoryStats()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // 計算上一個月
+  const prevMonthData = useMemo(() => {
+    let prevMonth = selectedMonth - 1
+    let prevYear = selectedYear
+    if (prevMonth === 0) {
+      prevMonth = 12
+      prevYear = prevYear - 1
+    }
+    return { month: prevMonth, year: prevYear }
   }, [selectedMonth, selectedYear])
 
-  const fetchStats = async () => {
-    try {
-      setLoading(true)
-      const res = await fetch(
-        `/api/statistics/monthly?year=${selectedYear}&month=${selectedMonth}`
-      )
-      if (!res.ok) {
-        throw new Error('Failed to fetch stats')
-      }
-      const data = await res.json()
-      // Ensure dailyStats exists even if empty
-      if (!data.dailyStats) {
-        data.dailyStats = {}
-      }
-      setMonthlyStats(data)
-    } catch (error) {
-      console.error('取得統計失敗:', error)
-      // Set default empty stats on error
-      setMonthlyStats({
-        year: selectedYear,
-        month: selectedMonth,
-        totalExpense: 0,
-        totalIncome: 0,
-        dailyStats: {},
-        transactionCount: 0,
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
+  // 使用 SWR 獲取資料
+  const { data: monthlyStatsData, error: monthlyStatsError, mutate: mutateMonthlyStats } = useSWR<MonthlyStats>(
+    `/api/statistics/monthly?year=${selectedYear}&month=${selectedMonth}`
+  )
+  
+  const { data: prevMonthStatsData } = useSWR<MonthlyStats>(
+    `/api/statistics/monthly?year=${prevMonthData.year}&month=${prevMonthData.month}`
+  )
+  
+  const { data: categoryStatsData } = useSWR<{ chartData: CategoryData[] }>(
+    `/api/statistics/categories?year=${selectedYear}&month=${selectedMonth}&type=EXPENSE`
+  )
 
-  const fetchPrevMonthStats = async () => {
-    try {
-      let prevMonth = selectedMonth - 1
-      let prevYear = selectedYear
-      if (prevMonth === 0) {
-        prevMonth = 12
-        prevYear = prevYear - 1
-      }
-      const res = await fetch(
-        `/api/statistics/monthly?year=${prevYear}&month=${prevMonth}`
-      )
-      const data = await res.json()
-      setPrevMonthStats(data)
-    } catch (error) {
-      console.error('取得上月統計失敗:', error)
+  // 處理資料，確保 dailyStats 存在
+  const monthlyStats = useMemo(() => {
+    if (!monthlyStatsData) return null
+    return {
+      ...monthlyStatsData,
+      dailyStats: monthlyStatsData.dailyStats || {},
     }
-  }
+  }, [monthlyStatsData])
 
-  const fetchCategoryStats = async () => {
-    try {
-      const res = await fetch(
-        `/api/statistics/categories?year=${selectedYear}&month=${selectedMonth}&type=EXPENSE`
-      )
-      const data = await res.json()
-      setCategoryData(data.chartData || [])
-    } catch (error) {
-      console.error('取得類別統計失敗:', error)
-    }
+  const prevMonthStats = prevMonthStatsData || null
+  const categoryData = categoryStatsData?.chartData || []
+
+  // 計算 loading 狀態
+  const loading = !monthlyStatsData && !monthlyStatsError
+
+  // 刷新資料的函數
+  const refreshStats = () => {
+    mutateMonthlyStats()
   }
 
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -175,13 +148,28 @@ export default function StatisticsContent() {
     }
   })
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-lg text-black">Loading...</div>
-      </div>
-    )
-  }
+  // Skeleton loading 組件
+  const SkeletonCard = () => (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
+      </CardHeader>
+      <CardContent>
+        <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" />
+      </CardContent>
+    </Card>
+  )
+
+  const SkeletonChart = () => (
+    <Card>
+      <CardHeader>
+        <div className="h-4 w-40 bg-gray-200 rounded animate-pulse" />
+      </CardHeader>
+      <CardContent>
+        <div className="h-[300px] bg-gray-100 rounded animate-pulse" />
+      </CardContent>
+    </Card>
+  )
 
   return (
     <div className="min-h-screen bg-white flex flex-col pb-20">
@@ -246,47 +234,63 @@ export default function StatisticsContent() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs uppercase tracking-wide text-black/60">Income</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-black">
-                {monthlyStats ? formatCurrency(monthlyStats.totalIncome) : '$0'}
-              </div>
-            </CardContent>
-          </Card>
+          {loading ? (
+            <>
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </>
+          ) : (
+            <>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs uppercase tracking-wide text-black/60">Income</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-black">
+                    {monthlyStats ? formatCurrency(monthlyStats.totalIncome) : '$0'}
+                  </div>
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs uppercase tracking-wide text-black/60">Expense</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-black">
-                {monthlyStats ? formatCurrency(monthlyStats.totalExpense) : '$0'}
-              </div>
-            </CardContent>
-          </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs uppercase tracking-wide text-black/60">Expense</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-black">
+                    {monthlyStats ? formatCurrency(monthlyStats.totalExpense) : '$0'}
+                  </div>
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs uppercase tracking-wide text-black/60">Net</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${
-                netIncome > 0 ? 'text-green-700' : netIncome < 0 ? 'text-red-700' : 'text-black'
-              }`}>
-                {formatCurrency(netIncome)}
-              </div>
-            </CardContent>
-          </Card>
-
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs uppercase tracking-wide text-black/60">Net</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-2xl font-bold ${
+                    netIncome > 0 ? 'text-green-700' : netIncome < 0 ? 'text-red-700' : 'text-black'
+                  }`}>
+                    {formatCurrency(netIncome)}
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </div>
 
         {/* Charts Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* Category Pie Chart */}
-          <Card>
+          {loading ? (
+            <>
+              <SkeletonChart />
+              <SkeletonChart />
+            </>
+          ) : (
+            <>
+              <Card>
             <CardHeader>
               <CardTitle className="text-sm uppercase tracking-wide">Expense by Category</CardTitle>
             </CardHeader>
@@ -380,6 +384,8 @@ export default function StatisticsContent() {
               )}
             </CardContent>
           </Card>
+            </>
+          )}
         </div>
 
         {/* Daily Transactions List */}
@@ -437,8 +443,7 @@ export default function StatisticsContent() {
         onOpenChange={setShowDailyDialog}
         date={selectedDate}
         onTransactionUpdate={() => {
-          fetchStats()
-          fetchCategoryStats()
+          refreshStats()
         }}
       />
 

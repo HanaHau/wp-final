@@ -10,6 +10,8 @@ import { Label } from '@/components/ui/label'
 import Navigation from '@/components/dashboard/Navigation'
 import { Upload, Save, User, LogOut, BookOpen } from 'lucide-react'
 import Image from 'next/image'
+import { useSWR } from '@/lib/swr-config'
+import { SkeletonCard, SkeletonButton } from '@/components/ui/skeleton-loader'
 
 interface UserData {
   id: string
@@ -23,35 +25,25 @@ export default function ProfileContent() {
   const { data: session } = useSession()
   const router = useRouter()
   const { toast } = useToast()
-  const [userData, setUserData] = useState<UserData | null>(null)
   const [name, setName] = useState('')
   const [userID, setUserID] = useState('')
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [imageFile, setImageFile] = useState<File | null>(null)
-  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    fetchUserData()
-  }, [])
+  // 使用 SWR 獲取使用者資料
+  const { data: userData, error: userError, mutate: mutateUser } = useSWR<UserData>('/api/user')
+  const loading = !userData && !userError
 
-  const fetchUserData = async () => {
-    try {
-      const res = await fetch('/api/user')
-      if (res.ok) {
-        const data = await res.json()
-        setUserData(data)
-        setName(data.name || '')
-        setUserID(data.userID || '')
-        setImagePreview(data.image)
-      }
-    } catch (error) {
-      console.error('取得使用者資料失敗:', error)
-    } finally {
-      setLoading(false)
+  // 當 userData 載入後，更新本地狀態
+  useEffect(() => {
+    if (userData) {
+      setName(userData.name || '')
+      setUserID(userData.userID || '')
+      setImagePreview(userData.image)
     }
-  }
+  }, [userData])
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -142,11 +134,8 @@ export default function ProfileContent() {
       const updatedData = await res.json()
       console.log('API 返回的資料:', updatedData)
       
-      // 直接使用 API 返回的資料更新狀態
-      setUserData(updatedData)
-      setName(updatedData.name || '')
-      setUserID(updatedData.userID || '')
-      setImagePreview(updatedData.image)
+      // 使用 SWR mutate 刷新資料
+      mutateUser()
       setImageFile(null) // 清除已上傳的檔案
 
       console.log('狀態已更新，新的 name:', updatedData.name)
@@ -172,8 +161,19 @@ export default function ProfileContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center pb-20">
-        <div className="text-black/60">Loading...</div>
+      <div className="min-h-screen bg-white pb-20">
+        <div className="max-w-2xl mx-auto px-4 py-8">
+          {/* Header Skeleton */}
+          <div className="h-8 bg-gray-200 rounded w-32 mb-8 animate-pulse" />
+          
+          {/* Content Skeleton */}
+          <div className="space-y-6">
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+        </div>
+        <Navigation />
       </div>
     )
   }

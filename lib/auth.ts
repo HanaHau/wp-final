@@ -9,7 +9,7 @@ async function ensureUserRecord(sessionUser: {
   image?: string | null
 }) {
   if (!sessionUser?.email) {
-    return
+    return null
   }
 
   // Use email as the unique identifier since it's consistent across auth methods
@@ -19,33 +19,37 @@ async function ensureUserRecord(sessionUser: {
   })
 
   if (existingUser) {
-    // Update existing user if needed
-    // Don't overwrite database name with session name (user may have modified it in profile page)
-    // Only update image, keep name as database value
-    const updateData: any = {}
-    if (sessionUser.image) {
-      updateData.image = sessionUser.image
-    }
-    // Only update name from session if database doesn't have a name
-    if (!existingUser.name && sessionUser.name) {
-      updateData.name = sessionUser.name
-    }
+    // 優化：只在真正需要更新時才執行更新查詢
+    // 檢查是否需要更新（避免不必要的資料庫寫入）
+    const needsImageUpdate = sessionUser.image && existingUser.image !== sessionUser.image
+    const needsNameUpdate = !existingUser.name && sessionUser.name
     
-    if (Object.keys(updateData).length > 0) {
-      await prisma.user.update({
+    if (needsImageUpdate || needsNameUpdate) {
+      const updateData: any = {}
+      if (needsImageUpdate) {
+        updateData.image = sessionUser.image
+      }
+      if (needsNameUpdate) {
+        updateData.name = sessionUser.name
+      }
+      
+      const updated = await prisma.user.update({
         where: { email: sessionUser.email },
         data: updateData,
       })
+      return updated
     }
+    return existingUser
   } else {
     // Create new user - let Prisma generate the ID to avoid conflicts
-    await prisma.user.create({
+    const created = await prisma.user.create({
       data: {
         email: sessionUser.email,
         name: sessionUser.name ?? sessionUser.email.split('@')[0],
         image: sessionUser.image ?? null,
       },
     })
+    return created
   }
 }
 
@@ -63,27 +67,34 @@ export async function getCurrentUser() {
   return session.user
 }
 
+// 獲取當前用戶的資料庫記錄（包含 ID）
+export async function getCurrentUserRecord() {
+  const session = await getSession()
+  if (!session?.user?.email) {
+    return null
+  }
+
+  const userRecord = await ensureUserRecord(session.user)
+  return userRecord
+}
+
 export async function checkInitialization() {
-  const user = await getCurrentUser()
-  if (!user || !user.email) {
+  // 優化：直接使用 getCurrentUserRecord，避免重複查詢
+  const userRecord = await getCurrentUserRecord()
+  if (!userRecord) {
     return { isInitialized: false, hasCompletedTutorial: false, user: null }
   }
 
-  // Find user by email since ID might not match between session and database
-  const userRecord = await prisma.user.findUnique({
-    where: { email: user.email },
-    select: { isInitialized: true, hasCompletedTutorial: true, id: true },
-  })
-
-  // Update session user ID to match database ID
-  if (userRecord && user.id !== userRecord.id) {
-    user.id = userRecord.id
-  }
-
+  // 直接使用 userRecord，不需要再次查詢
   return {
-    isInitialized: userRecord?.isInitialized ?? false,
-    hasCompletedTutorial: userRecord?.hasCompletedTutorial ?? false,
-    user,
+    isInitialized: userRecord.isInitialized ?? false,
+    hasCompletedTutorial: userRecord.hasCompletedTutorial ?? false,
+    user: {
+      id: userRecord.id,
+      email: userRecord.email,
+      name: userRecord.name,
+      image: userRecord.image,
+    },
   }
 }
 

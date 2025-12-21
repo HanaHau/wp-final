@@ -3,6 +3,9 @@ import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
+// 使用 revalidate 快取策略，60 秒內重用相同響應（僅對 GET 請求有效）
+export const revalidate = 60
+
 const customStickerSchema = z.object({
   name: z.string().min(1).max(50),
   imageUrl: z.string().refine(

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useContext } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -13,6 +13,8 @@ import { ArrowLeft, Upload, ShoppingBag } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useToast } from '@/components/ui/use-toast'
+import { useSWR } from '@/lib/swr-config'
+import { DashboardContext } from '@/contexts/DashboardContext'
 
 interface Pet {
   id: string
@@ -53,48 +55,33 @@ interface AvailableAccessory {
 export default function PetSettingsContent() {
   const router = useRouter()
   const { toast } = useToast()
-  const [pet, setPet] = useState<Pet | null>(null)
-  const [purchases, setPurchases] = useState<Purchase[]>([])
   const [petName, setPetName] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [showImageEditor, setShowImageEditor] = useState(false)
-  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [accessories, setAccessories] = useState<PetAccessory[]>([])
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set())
 
+  // 嘗試從 context 獲取 pet 資料
+  const dashboardContext = useContext(DashboardContext)
+  const contextPet = dashboardContext?.summary?.pet
+
+  // 使用 SWR 獲取 pet 和 accessories
+  const { data: petData, error: petError, mutate: mutatePet } = useSWR('/api/pet')
+  const { data: accessoriesData, mutate: mutateAccessories } = useSWR('/api/pet/accessories')
+
+  // 優先使用 context 的 pet，否則使用 SWR 的 pet
+  const pet = contextPet || petData || null
+  const accessories = accessoriesData || []
+  const purchases = pet?.purchases || []
+  const loading = !pet && !petError && !contextPet
+
+  // 當 pet 資料載入後，更新 petName
   useEffect(() => {
-    fetchPet()
-    fetchAccessories()
-  }, [])
-
-  const fetchPet = async () => {
-    try {
-      const res = await fetch('/api/pet')
-      const data = await res.json()
-      setPet(data)
-      setPetName(data.name)
-      setPurchases(data.purchases || [])
-    } catch (error) {
-      console.error('取得寵物資訊失敗:', error)
-    } finally {
-      setLoading(false)
+    if (pet) {
+      setPetName(pet.name)
     }
-  }
-
-  const fetchAccessories = async () => {
-    try {
-      const res = await fetch('/api/pet/accessories')
-      if (res.ok) {
-        const data = await res.json()
-        console.log('PetSettingsContent: Fetched accessories:', JSON.stringify(data.map((a: any) => ({ id: a.id, accessoryId: a.accessoryId, positionX: a.positionX, positionY: a.positionY })), null, 2))
-        setAccessories(data)
-      }
-    } catch (error) {
-      console.error('取得配件失敗:', error)
-    }
-  }
+  }, [pet])
 
 
   const removeBackground = async (file: File): Promise<string> => {
@@ -180,8 +167,12 @@ export default function PetSettingsContent() {
 
       if (!res.ok) throw new Error('Update failed')
 
-      await fetchPet()
-      alert('Updated successfully!')
+      // 使用 SWR mutate 刷新資料
+      mutatePet()
+      toast({
+        title: 'Success',
+        description: 'Pet updated successfully',
+      })
     } catch (error) {
       console.error('Update error:', error)
       alert('Update failed, please try again')
@@ -246,16 +237,8 @@ export default function PetSettingsContent() {
     const clampedY = Math.min(Math.max(positionY, 0), 1)
 
     // Optimistically add accessory to state immediately
+    // 使用樂觀更新（暫時不更新，等待 API 回應後再刷新）
     const tempId = `temp-${Date.now()}`
-    const optimisticAccessory: PetAccessory = {
-      id: tempId,
-      accessoryId: accessoryId!,
-      positionX: clampedX,
-      positionY: clampedY,
-      rotation: 0,
-      scale: 1,
-    }
-    setAccessories(prev => [...prev, optimisticAccessory])
 
     try {
       const res = await fetch('/api/pet/accessories', {
@@ -275,16 +258,16 @@ export default function PetSettingsContent() {
 
       const newAccessory = await res.json()
       
-      // Replace optimistic accessory with real one
-      setAccessories(prev => prev.map(a => a.id === tempId ? newAccessory : a))
+      // 使用 SWR mutate 刷新資料
+      mutateAccessories()
 
       toast({
         title: 'Accessory Placed!',
         description: 'Successfully added accessory to pet.',
       })
     } catch (error: any) {
-      // Remove optimistic accessory on error
-      setAccessories(prev => prev.filter(a => a.id !== tempId))
+      // 刷新資料以恢復正確狀態
+      mutateAccessories()
       toast({
         title: 'Placement Failed',
         description: error?.message || 'Please try again later',
@@ -294,9 +277,8 @@ export default function PetSettingsContent() {
   }
 
   const handleDeleteAccessory = async (accessoryId: string) => {
-    // Optimistically remove accessory immediately
-    const accessoryToDelete = accessories.find(a => a.id === accessoryId)
-    setAccessories(prev => prev.filter(a => a.id !== accessoryId))
+    // 使用樂觀更新（暫時不更新，等待 API 回應後再刷新）
+    const accessoryToDelete = accessories.find((a: PetAccessory) => a.id === accessoryId)
 
     try {
       const res = await fetch(`/api/pet/accessories/${accessoryId}`, {
@@ -308,15 +290,16 @@ export default function PetSettingsContent() {
         throw new Error(error.error || 'Failed to delete accessory')
       }
 
+      // 使用 SWR mutate 刷新資料
+      mutateAccessories()
+
       toast({
         title: 'Accessory Removed',
         description: 'Accessory has been removed and returned to your inventory.',
       })
     } catch (error: any) {
-      // Restore accessory on error
-      if (accessoryToDelete) {
-        setAccessories(prev => [...prev, accessoryToDelete])
-      }
+      // 刷新資料以恢復正確狀態
+      mutateAccessories()
       toast({
         title: 'Delete Failed',
         description: error?.message || 'Please try again later',

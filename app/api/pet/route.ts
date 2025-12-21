@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUserRecord } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { addCorsHeaders, handleOptionsRequest } from '@/lib/cors'
 
-export const dynamic = 'force-dynamic'
+// 使用 revalidate 快取策略，60 秒內重用相同響應
+export const revalidate = 60
+
+// 處理 OPTIONS 請求（CORS preflight）
+export async function OPTIONS() {
+  return handleOptionsRequest()
+}
 
 const petUpdateSchema = z.object({
   name: z.string().min(1).max(20).optional(),
@@ -11,31 +18,17 @@ const petUpdateSchema = z.object({
 })
 
 // GET /api/pet - 取得寵物資訊
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user || !user.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // 從資料庫獲取用戶 ID，因為 session 的 ID 可能不一致
-    const userRecord = await prisma.user.findUnique({
-      where: { email: user.email },
-      select: { id: true },
-    })
-
+    const userRecord = await getCurrentUserRecord()
     if (!userRecord) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      const response = NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return addCorsHeaders(response, request)
     }
 
+    // 先只查詢 pet 基本資訊，不包含 purchases（減少 JOIN 查詢）
     let pet = await prisma.pet.findUnique({
       where: { userId: userRecord.id },
-      include: {
-        purchases: {
-          orderBy: { purchasedAt: 'desc' },
-          take: 10,
-        },
-      },
     })
 
     // 如果沒有寵物，建立一隻預設寵物
@@ -52,9 +45,7 @@ export async function GET() {
           lastDailyReset: now,
           consecutiveLoginDays: 0, // 初始連續登入天數為 0
         },
-        include: {
-          purchases: true,
-        },
+        // 不包含 purchases，減少查詢時間
       })
     }
 
@@ -130,43 +121,35 @@ export async function GET() {
       pet = await prisma.pet.update({
         where: { id: pet.id },
         data: updateData,
-        include: {
-          purchases: true,
-        },
+        // 不包含 purchases，減少查詢時間
       })
     }
 
     // Add warning flags and ensure imageUrl has default value
+    // 不返回 purchases，減少響應大小（前端可以單獨調用 inventory API）
     const petWithWarnings = {
       ...pet,
+      purchases: [], // 返回空數組，保持 API 兼容性
       imageUrl: pet.imageUrl || '/cat.png', // 如果為 null，使用預設圖片
       isUnhappy: pet.mood < 30,
       isHungry: pet.fullness < 30,
     }
 
-    return NextResponse.json(petWithWarnings)
+    const response = NextResponse.json(petWithWarnings)
+    return addCorsHeaders(response, request)
   } catch (error) {
     console.error('取得寵物資訊錯誤:', error)
-    return NextResponse.json({ error: 'Failed to get pet information' }, { status: 500 })
+    const response = NextResponse.json({ error: 'Failed to get pet information' }, { status: 500 })
+    return addCorsHeaders(response, request)
   }
 }
 
 // PUT /api/pet - 更新寵物資訊
 export async function PUT(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user || !user.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // 從資料庫獲取用戶 ID，因為 session 的 ID 可能不一致
-    const userRecord = await prisma.user.findUnique({
-      where: { email: user.email },
-      select: { id: true },
-    })
-
+    const userRecord = await getCurrentUserRecord()
     if (!userRecord) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const body = await request.json()
@@ -195,16 +178,19 @@ export async function PUT(request: NextRequest) {
     })
 
     console.log('寵物名稱更新成功:', { id: updatedPet.id, name: updatedPet.name })
-    return NextResponse.json(updatedPet)
+    const response = NextResponse.json(updatedPet)
+    return addCorsHeaders(response, request)
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: 'Validation failed', details: error.errors },
         { status: 400 }
       )
+      return addCorsHeaders(response, request)
     }
     console.error('更新寵物資訊錯誤:', error)
-    return NextResponse.json({ error: 'Failed to update pet information' }, { status: 500 })
+    const response = NextResponse.json({ error: 'Failed to update pet information' }, { status: 500 })
+    return addCorsHeaders(response, request)
   }
 }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useState, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Navigation from '@/components/dashboard/Navigation'
@@ -8,6 +8,8 @@ import TransactionDialog from '@/components/transaction/TransactionDialog'
 import { formatCurrency, formatTransactionDate } from '@/lib/utils'
 import { Plus, Edit, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useSWR } from '@/lib/swr-config'
+import { SkeletonTransactionList } from '@/components/ui/skeleton-loader'
 
 interface Transaction {
   id: string
@@ -20,44 +22,27 @@ interface Transaction {
 }
 
 export default function TransactionsContent() {
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
   const [filterType, setFilterType] = useState<string>('ALL')
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 20
 
-  const fetchTransactions = useCallback(async () => {
-    try {
-      setLoading(true)
-      const params = new URLSearchParams()
-      if (filterType !== 'ALL') {
-        params.append('type', filterType)
-      }
-      const res = await fetch(`/api/transactions?${params.toString()}`)
-      if (!res.ok) {
-        throw new Error('Failed to fetch transactions')
-      }
-      const data = await res.json()
-      // Ensure data is an array
-      if (Array.isArray(data)) {
-        setTransactions(data)
-      } else {
-        console.error('API returned non-array data:', data)
-        setTransactions([])
-      }
-    } catch (error) {
-      console.error('Failed to fetch transactions:', error)
-      setTransactions([])
-    } finally {
-      setLoading(false)
+  // 使用 SWR 獲取 transactions
+  const params = useMemo(() => {
+    const urlParams = new URLSearchParams()
+    if (filterType !== 'ALL') {
+      urlParams.append('type', filterType)
     }
+    return urlParams.toString()
   }, [filterType])
 
-  useEffect(() => {
-    fetchTransactions()
-  }, [fetchTransactions])
+  const { data: transactionsData, error: transactionsError, mutate: mutateTransactions } = useSWR<Transaction[]>(
+    `/api/transactions?${params}`
+  )
+
+  const transactions = transactionsData || []
+  const loading = !transactionsData && !transactionsError
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this transaction?')) return
@@ -68,7 +53,7 @@ export default function TransactionsContent() {
       })
 
       if (!res.ok) throw new Error('Delete failed')
-      fetchTransactions()
+      mutateTransactions()
     } catch (error) {
       console.error('Delete error:', error)
       alert('Failed to delete transaction')
@@ -83,7 +68,7 @@ export default function TransactionsContent() {
   const handleDialogClose = () => {
     setIsDialogOpen(false)
     setEditingTransaction(null)
-    fetchTransactions()
+    mutateTransactions()
   }
 
   // Ensure transactions is always an array
@@ -98,8 +83,21 @@ export default function TransactionsContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-lg text-black">Loading...</div>
+      <div className="min-h-screen bg-white flex flex-col pb-20">
+        <div className="flex-1 overflow-y-auto max-w-7xl mx-auto w-full px-4 py-6">
+          {/* Header Skeleton */}
+          <div className="flex items-center justify-between mb-6 animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-32" />
+            <div className="h-10 bg-gray-200 rounded-xl w-24" />
+          </div>
+          
+          {/* Filter Skeleton */}
+          <div className="mb-6 h-10 bg-gray-200 rounded-lg w-32 animate-pulse" />
+          
+          {/* Transaction List Skeleton */}
+          <SkeletonTransactionList />
+        </div>
+        <Navigation />
       </div>
     )
   }

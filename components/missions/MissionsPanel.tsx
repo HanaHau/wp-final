@@ -5,6 +5,7 @@ import MissionCard from './MissionCard'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Target, Calendar, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { SkeletonMissionPanel } from '@/components/ui/skeleton-loader'
 
 interface Mission {
   type: 'daily' | 'weekly'
@@ -130,8 +131,10 @@ export default function MissionsPanel({ onMissionCompleted }: MissionsPanelProps
 
   if (loading) {
     return (
-      <div className="text-center py-8">
-        <div className="text-black/60 text-sm">Loading...</div>
+      <div className="space-y-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="bg-gray-100 rounded-lg p-3 animate-pulse h-20" />
+        ))}
       </div>
     )
   }
