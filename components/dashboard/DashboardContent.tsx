@@ -567,6 +567,12 @@ export default function DashboardContent() {
           onAccessoryPlaced={() => {
             fetchDashboardSummary()
           }}
+          onPetUpdate={(updatedPet) => {
+            // 樂觀更新：立即更新 pet 狀態
+            setPet(updatedPet)
+            // 後台刷新數據
+            mutateFast()
+          }}
         />
         {/* 寵物聊天氣泡 */}
         {chatBubbles.map((bubble) => (

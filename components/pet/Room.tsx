@@ -76,6 +76,7 @@ interface RoomProps {
   onStickerPlaced?: () => void
   onPetFed?: () => void
   onAccessoryPlaced?: () => void
+  onPetUpdate?: (pet: Pet) => void // 用於樂觀更新 pet 狀態
 }
 
 const BASE_STICKERS: Record<string, { emoji: string; name: string }> = {
@@ -100,7 +101,7 @@ const STICKER_TYPES: Record<string, { emoji: string; name: string }> = {
   ...SHOP_STICKERS,
 }
 
-export default function Room({ pet, stickers = [], availableStickers = [], foodItems = [], accessories = [], availableAccessories = [], showEditPanel: externalShowEditPanel, onEditPanelChange, onStickerPlaced, onPetFed, onAccessoryPlaced }: RoomProps) {
+export default function Room({ pet, stickers = [], availableStickers = [], foodItems = [], accessories = [], availableAccessories = [], showEditPanel: externalShowEditPanel, onEditPanelChange, onStickerPlaced, onPetFed, onAccessoryPlaced, onPetUpdate }: RoomProps) {
   const [hoveredStickerId, setHoveredStickerId] = useState<string | null>(null)
   const { toast } = useToast()
   const [placingStickers, setPlacingStickers] = useState<Set<string>>(new Set())
@@ -969,12 +970,40 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
   }
 
   const handlePetPet = async () => {
-    if (isPetting) return
+    if (isPetting || !pet) return
     setIsPetting(true)
     setShowPetTooltip(false)
     if (pettingTimeout.current) {
       clearTimeout(pettingTimeout.current)
     }
+
+    // 樂觀更新：立即更新 mood 和顯示 toast（加速用戶體驗）
+    const moodIncrease = 2 // 每次撫摸 +2
+    const previousMood = pet.mood
+    const newMood = Math.min(100, pet.mood + moodIncrease)
+    
+    // 立即更新 pet 狀態（樂觀更新）
+    if (onPetUpdate && pet) {
+      onPetUpdate({
+        ...pet,
+        mood: newMood,
+      })
+    }
+    
+    // 立即顯示 toast（樂觀更新）
+    const messages = [
+      'Aww, that feels nice! 🥰',
+      'I love being petted! 💕',
+      'More please! 😊',
+      'You\'re the best! ❤️',
+      'So happy! 🎉',
+    ]
+    const randomMessage = messages[Math.floor(Math.random() * messages.length)]
+    
+    toast({
+      title: randomMessage,
+      description: `Mood +${moodIncrease}`,
+    })
 
     // 產生愛心特效
     if (petImageRef.current) {
@@ -1009,12 +1038,20 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
       }
 
       const data = await res.json()
-      toast({
-        title: data.message || 'Pet petted!',
-        description: `Mood +${data.moodGain ?? 2}`,
-      })
+      // 如果實際值與預期不同，更新 pet 狀態（但通常不會發生，因為 moodGain 是固定的 +2）
+      if (data.pet && onPetUpdate) {
+        onPetUpdate(data.pet)
+      }
+      // 注意：不更新 toast，因為已經顯示了
       onPetFed?.()
     } catch (error: any) {
+      // 回滾樂觀更新
+      if (onPetUpdate && pet) {
+        onPetUpdate({
+          ...pet,
+          mood: previousMood, // 恢復之前的 mood
+        })
+      }
       toast({
         title: 'Pet Failed',
         description: error?.message || 'Please try again later',
