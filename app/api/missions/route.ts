@@ -140,8 +140,7 @@ export async function GET() {
                 update: {},
                 create: data,
               })
-            ),
-            { timeout: 10000 } // 10秒超時
+            )
           ).catch((createError: any) => {
             console.error('❌ 批量創建任務記錄失敗:', createError)
             return []
