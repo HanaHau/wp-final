@@ -32,7 +32,7 @@ interface InitialValues {
 interface TransactionDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSuccess: (transactionDetails?: { amount: number; type: string; categoryName: string; note?: string }) => void
+  onSuccess: (transactionDetails?: { amount: number; type: string; categoryName: string; note?: string; newBalance?: number }) => void
   editingTransaction?: Transaction | null
   initialValues?: InitialValues | null
 }
@@ -375,12 +375,13 @@ export default function TransactionDialog({
         return
       }
 
-      // Get transaction details for pet response
+      // Get transaction details for pet response (包含新餘額)
       const transactionDetails = {
         amount: amountValue,
         type,
         categoryName: categoryName,
         note: note || undefined,
+        newBalance: data.newBalance, // 傳遞新餘額給父組件
       }
 
       // Reset form - but DON'T reset category if it was from initialValues
@@ -419,7 +420,7 @@ export default function TransactionDialog({
       // Close dialog first
       onOpenChange(false)
       
-      // Call onSuccess with transaction details for pet response
+      // Call onSuccess with transaction details for pet response (包含新餘額)
       onSuccess(transactionDetails)
     } catch (error) {
       console.error('Transaction error:', error)

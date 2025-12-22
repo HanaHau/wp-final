@@ -157,13 +157,13 @@ export default function TransactionsContent() {
                           {transaction.category}
                         </span>
                         <span className={`text-xs uppercase font-medium ${
-                          transaction.type === 'EXPENSE'
+                          transaction.type?.toUpperCase() === 'EXPENSE'
                             ? 'text-red-700'
-                            : transaction.type === 'INCOME'
+                            : transaction.type?.toUpperCase() === 'INCOME'
                             ? 'text-green-700'
                             : 'text-black/60'
                         }`}>
-                          {transaction.type}
+                          {transaction.type?.toUpperCase() || 'UNKNOWN'}
                         </span>
                       </div>
                       {transaction.note && (
@@ -176,16 +176,20 @@ export default function TransactionsContent() {
                     <div className="flex items-center gap-3">
                       <span
                         className={`font-bold text-lg ${
-                          transaction.type === 'EXPENSE'
+                          transaction.type?.toUpperCase() === 'EXPENSE'
                             ? 'text-red-700'
-                            : transaction.type === 'INCOME'
+                            : transaction.type?.toUpperCase() === 'INCOME'
                             ? 'text-green-700'
-                            : transaction.type === 'DEPOSIT'
+                            : transaction.type?.toUpperCase() === 'DEPOSIT'
                             ? 'text-green-700'
                             : 'text-black'
                         }`}
                       >
-                        {transaction.type === 'EXPENSE' ? '-' : transaction.type === 'DEPOSIT' ? '' : '+'}
+                        {transaction.type?.toUpperCase() === 'EXPENSE' 
+                          ? '-' 
+                          : transaction.type?.toUpperCase() === 'DEPOSIT'
+                          ? ''
+                          : '+'}
                         {formatCurrency(transaction.amount)}
                       </span>
                       <div className="flex gap-1">

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useSWR } from '@/lib/swr-config'
+import { mutate } from 'swr'
 import { Button } from '@/components/ui/button'
 import Room from '@/components/pet/Room'
 import TransactionDialog from '@/components/transaction/TransactionDialog'
@@ -231,63 +232,68 @@ export default function DashboardContent() {
     await mutateFast()
   }
 
-  const handleTransactionAdded = async (transactionDetails?: { amount: number; type: string; categoryName: string; note?: string }) => {
+  const handleTransactionAdded = async (transactionDetails?: { amount: number; type: string; categoryName: string; note?: string; newBalance?: number }) => {
     console.log('記帳完成，開始更新資料...', transactionDetails)
     setIsDialogOpen(false)
     setTransactionInitialValues(null)
     
-    // Show pet response for the transaction - do this BEFORE other updates
-    if (transactionDetails) {
-      console.log('📝 Transaction completed, getting pet response for:', transactionDetails)
-      try {
-        // Create a message for the pet based on transaction
-        const typeText = transactionDetails.type === 'EXPENSE' ? '支出' : '收入'
-        const message = `我剛剛記錄了一筆${typeText}：${transactionDetails.amount}元，分類是${transactionDetails.categoryName}`
-        
-        console.log('💬 Sending message to pet:', message)
-        
-        const res = await fetch('/api/chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ message }),
-        })
-
-        if (res.ok) {
-          const data = await res.json()
-          console.log('✅ Pet response received:', data)
-          if (data.message) {
-            const bubbleId = `bubble-${Date.now()}-${Math.random()}`
-            // Position bubble near the pet (center-left of screen, above pet area)
-            const position = { x: 30, y: 25 }
-            console.log('💭 Adding chat bubble:', bubbleId, data.message, 'at position:', position)
-            setChatBubbles((prev) => {
-              const newBubbles = [...prev, { id: bubbleId, message: data.message, position }]
-              console.log('📊 Current bubbles:', newBubbles.length, newBubbles)
-              return newBubbles
-            })
-
-            // Remove bubble after 15 seconds
-            setTimeout(() => {
-              setChatBubbles((prev) => prev.filter((b) => b.id !== bubbleId))
-            }, 15000)
-          } else {
-            console.warn('⚠️ No message in pet response')
-          }
-        } else {
-          const errorData = await res.json().catch(() => ({}))
-          console.error('❌ Failed to get pet response, status:', res.status, errorData)
-        }
-      } catch (error) {
-        console.error('❌ Failed to get pet response:', error)
-      }
-    } else {
-      console.warn('⚠️ No transaction details provided to handleTransactionAdded')
+    // 立即更新餘額（樂觀更新）- 優先執行以立即顯示
+    if (transactionDetails?.newBalance !== undefined) {
+      setUserBalance(transactionDetails.newBalance)
+      // 同時更新 monthly statistics 緩存（如果使用該 API 計算餘額）
+      const now = new Date()
+      const currentYear = now.getFullYear()
+      const currentMonth = now.getMonth() + 1
+      mutate(`/api/statistics/monthly?year=${currentYear}&month=${currentMonth}`, undefined, { revalidate: false })
     }
     
-    await new Promise(resolve => setTimeout(resolve, 100))
-    await fetchDashboardSummary()
+    // 並行執行：獲取寵物回應和更新 dashboard summary（不阻塞 UI）
+    const [petResponsePromise, dashboardUpdatePromise] = await Promise.allSettled([
+      // Show pet response for the transaction
+      transactionDetails
+        ? (async () => {
+            try {
+              const typeText = transactionDetails.type === 'EXPENSE' ? '支出' : '收入'
+              const message = `我剛剛記錄了一筆${typeText}：${transactionDetails.amount}元，分類是${transactionDetails.categoryName}`
+
+              const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ message }),
+              })
+
+              if (res.ok) {
+                const data = await res.json()
+                if (data.message) {
+                  const bubbleId = `bubble-${Date.now()}-${Math.random()}`
+                  const position = { x: 30, y: 25 }
+                  setChatBubbles((prev) => [...prev, { id: bubbleId, message: data.message, position }])
+
+                  setTimeout(() => {
+                    setChatBubbles((prev) => prev.filter((b) => b.id !== bubbleId))
+                  }, 15000)
+                }
+              }
+            } catch (error) {
+              console.error('❌ Failed to get pet response:', error)
+            }
+          })()
+        : Promise.resolve(),
+      // Update dashboard summary using SWR mutate (non-blocking)
+      mutateFast(),
+    ])
+    
+    // 在後台重新驗證 monthly statistics（確保數據同步）
+    if (transactionDetails?.newBalance !== undefined) {
+      const now = new Date()
+      const currentYear = now.getFullYear()
+      const currentMonth = now.getMonth() + 1
+      setTimeout(() => {
+        mutate(`/api/statistics/monthly?year=${currentYear}&month=${currentMonth}`, undefined, { revalidate: true })
+      }, 100)
+    }
   }
 
   const handleChatSend = async (message: string) => {
