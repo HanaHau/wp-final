@@ -206,12 +206,21 @@ export default function DashboardContent() {
 
   const checkUnclaimedMissions = async () => {
     try {
-      const { deduplicatedFetch } = await import('@/lib/fetch-utils')
-      const data = await deduplicatedFetch('/api/missions/completed')
-      const missions = data.missions || []
-      setHasUnclaimedMissions(missions.length > 0)
+      // 使用 fetch 而不是 deduplicatedFetch，確保獲取最新數據（不使用緩存）
+      const res = await fetch('/api/missions/completed', {
+        cache: 'no-store',
+        credentials: 'include',
+      })
+      if (res.ok) {
+        const data = await res.json()
+        const missions = data.missions || []
+        setHasUnclaimedMissions(missions.length > 0)
+      } else {
+        setHasUnclaimedMissions(false)
+      }
     } catch (error) {
       console.error('檢查未領取任務失敗:', error)
+      setHasUnclaimedMissions(false)
     }
   }
 

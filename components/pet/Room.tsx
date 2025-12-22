@@ -118,12 +118,52 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
   const currentTargetRef = useRef({ x: 0.5, y: 0.75 })
   const petImageRef = useRef<HTMLDivElement>(null)
   const recentDirectionsRef = useRef<('left' | 'right')[]>([])
+  
+  // 樂觀更新：本地貼紙狀態（用於即時 UI 更新）
+  const [optimisticStickers, setOptimisticStickers] = useState<RoomSticker[]>(stickers)
+  const updateDebounceRef = useRef<Map<string, NodeJS.Timeout>>(new Map())
+  const pendingUpdatesRef = useRef<Map<string, Partial<RoomSticker>>>(new Map())
+  
+  // 樂觀更新：本地可用貼紙狀態（用於即時更新倉庫計數）
+  const [optimisticAvailableStickers, setOptimisticAvailableStickers] = useState<AvailableSticker[]>(availableStickers)
+  
+  // 當 props.stickers 更新時，同步到樂觀狀態（但保留未完成的樂觀更新）
+  useEffect(() => {
+    setOptimisticStickers((prev) => {
+      // 合併 props 的更新和未完成的樂觀更新
+      const optimisticMap = new Map(prev.map(s => [s.id, s]))
+      stickers.forEach((sticker) => {
+        // 如果沒有待處理的更新，使用 props 的值
+        if (!pendingUpdatesRef.current.has(sticker.id)) {
+          optimisticMap.set(sticker.id, sticker)
+        }
+      })
+      return Array.from(optimisticMap.values())
+    })
+  }, [stickers])
+  
+  // 當 props.availableStickers 更新時，同步到樂觀狀態
+  useEffect(() => {
+    setOptimisticAvailableStickers(availableStickers)
+  }, [availableStickers])
+  
   const [editMode, setEditMode] = useState(false)
   const [internalShowEditPanel, setInternalShowEditPanel] = useState(false)
   const showEditPanel = externalShowEditPanel !== undefined ? externalShowEditPanel : internalShowEditPanel
   const setShowEditPanel = onEditPanelChange || setInternalShowEditPanel
   const [selectedItem, setSelectedItem] = useState<{ type: 'sticker' | 'accessory'; id: string } | null>(null)
   const [selectedItemPosition, setSelectedItemPosition] = useState<{ x: number; y: number } | null>(null)
+  
+  // 檢查選中的貼紙是否仍然存在，如果不存在則清除選中狀態
+  useEffect(() => {
+    if (selectedItem?.type === 'sticker') {
+      const stickerExists = optimisticStickers.some(s => s.id === selectedItem.id)
+      if (!stickerExists) {
+        setSelectedItem(null)
+        setSelectedItemPosition(null)
+      }
+    }
+  }, [optimisticStickers, selectedItem])
   const [draggingItem, setDraggingItem] = useState<{ type: string; id: string } | null>(null)
   const [dragPreview, setDragPreview] = useState<{ x: number; y: number; emoji: string } | null>(null)
   const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null)
@@ -522,57 +562,100 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
     })
   }, [editMode])
 
+  // 防抖更新函數：批量處理更新請求
+  const debouncedUpdateSticker = useCallback((stickerId: string, updates: Partial<RoomSticker>) => {
+    // 清除之前的防抖計時器
+    const existingTimer = updateDebounceRef.current.get(stickerId)
+    if (existingTimer) {
+      clearTimeout(existingTimer)
+    }
+
+    // 保存待處理的更新
+    pendingUpdatesRef.current.set(stickerId, {
+      ...pendingUpdatesRef.current.get(stickerId),
+      ...updates,
+    })
+
+    // 立即更新樂觀狀態
+    setOptimisticStickers((prev) =>
+      prev.map((s) =>
+        s.id === stickerId ? { ...s, ...updates } : s
+      )
+    )
+
+    // 設置防抖計時器（300ms 後發送 API 請求）
+    const timer = setTimeout(async () => {
+      const finalUpdates = pendingUpdatesRef.current.get(stickerId)
+      if (!finalUpdates) return
+
+      try {
+        const res = await fetch(`/api/pet/stickers/${stickerId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(finalUpdates),
+        })
+
+        if (res.ok) {
+          // 清除待處理的更新
+          pendingUpdatesRef.current.delete(stickerId)
+          // 觸發數據刷新（可選，因為樂觀更新已經顯示了）
+          onStickerPlaced?.()
+        } else {
+          // 如果失敗，恢復原始狀態
+          const originalSticker = stickers.find(s => s.id === stickerId)
+          if (originalSticker) {
+            setOptimisticStickers((prev) =>
+              prev.map((s) => (s.id === stickerId ? originalSticker : s))
+            )
+          }
+          throw new Error('Update failed')
+        }
+      } catch (error) {
+        // 恢復原始狀態
+        const originalSticker = stickers.find(s => s.id === stickerId)
+        if (originalSticker) {
+          setOptimisticStickers((prev) =>
+            prev.map((s) => (s.id === stickerId ? originalSticker : s))
+          )
+        }
+        pendingUpdatesRef.current.delete(stickerId)
+      } finally {
+        updateDebounceRef.current.delete(stickerId)
+      }
+    }, 300)
+
+    updateDebounceRef.current.set(stickerId, timer)
+  }, [stickers, onStickerPlaced])
+
   // Handle item rotation
   const handleRotateItem = useCallback(async () => {
     if (!selectedItem) return
 
-    const currentSticker = stickers.find(s => s.id === selectedItem.id)
+    const currentSticker = optimisticStickers.find(s => s.id === selectedItem.id)
     if (!currentSticker) return
 
     const newRotation = (currentSticker.rotation + 45) % 360
 
-    try {
-      const res = await fetch(`/api/pet/stickers/${selectedItem.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rotation: newRotation }),
-      })
-
-      if (res.ok) {
-        onStickerPlaced?.()
-        toast({ title: 'Rotated' })
-      }
-    } catch (error) {
-      toast({ title: 'Rotation failed', variant: 'destructive' })
-    }
-  }, [selectedItem, stickers, onStickerPlaced, toast])
+    // 使用防抖更新
+    debouncedUpdateSticker(selectedItem.id, { rotation: newRotation })
+    toast({ title: 'Rotated' })
+  }, [selectedItem, optimisticStickers, debouncedUpdateSticker, toast])
 
   // Handle item scale
   const handleScaleItem = useCallback(async () => {
     if (!selectedItem) return
 
-    const currentSticker = stickers.find(s => s.id === selectedItem.id)
+    const currentSticker = optimisticStickers.find(s => s.id === selectedItem.id)
     if (!currentSticker) return
 
     const scales = [0.5, 0.75, 1, 1.25, 1.5, 2]
     const currentIndex = scales.indexOf(currentSticker.scale)
     const newScale = scales[(currentIndex + 1) % scales.length]
 
-    try {
-      const res = await fetch(`/api/pet/stickers/${selectedItem.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scale: newScale }),
-      })
-
-      if (res.ok) {
-        onStickerPlaced?.()
-        toast({ title: `Scale: ${newScale}x` })
-      }
-    } catch (error) {
-      toast({ title: 'Scale failed', variant: 'destructive' })
-    }
-  }, [selectedItem, stickers, onStickerPlaced, toast])
+    // 使用防抖更新
+    debouncedUpdateSticker(selectedItem.id, { scale: newScale })
+    toast({ title: `Scale: ${newScale}x` })
+  }, [selectedItem, optimisticStickers, debouncedUpdateSticker, toast])
 
 
   const handleDeleteItem = useCallback(async () => {
@@ -678,7 +761,26 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
     setIsActuallyDragging(false)
   }
 
+  // 樂觀更新：本地配件狀態
+  const [optimisticAccessories, setOptimisticAccessories] = useState<PetAccessory[]>(accessories)
+  
+  // 當 props.accessories 更新時，同步到樂觀狀態
+  useEffect(() => {
+    setOptimisticAccessories(accessories)
+  }, [accessories])
+
   const handlePlaceAccessory = async (accessoryId: string, positionX: number, positionY: number) => {
+    // 樂觀更新：立即添加臨時配件
+    const tempAccessory: PetAccessory = {
+      id: `temp-${Date.now()}`,
+      accessoryId,
+      positionX,
+      positionY,
+      rotation: 0,
+      scale: 1,
+    }
+    setOptimisticAccessories((prev) => [...prev, tempAccessory])
+
     try {
       const res = await fetch('/api/pet/accessories', {
         method: 'POST',
@@ -693,11 +795,18 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
       })
 
       if (res.ok) {
+        const data = await res.json()
+        // 用真實數據替換臨時配件
+        setOptimisticAccessories((prev) =>
+          prev.map((a) => (a.id === tempAccessory.id ? data : a))
+        )
         if (onAccessoryPlaced) {
           onAccessoryPlaced()
         }
       } else {
         const error = await res.json()
+        // 如果失敗，移除臨時配件
+        setOptimisticAccessories((prev) => prev.filter((a) => a.id !== tempAccessory.id))
         toast({
           title: 'Failed to place accessory',
           description: error.error || 'Please try again',
@@ -706,8 +815,41 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
       }
     } catch (error) {
       console.error('Place accessory error:', error)
+      // 如果失敗，移除臨時配件
+      setOptimisticAccessories((prev) => prev.filter((a) => a.id !== tempAccessory.id))
       toast({
         title: 'Failed to place accessory',
+        description: 'Please try again',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const handleRemoveAccessory = async (accessoryId: string) => {
+    // 樂觀更新：立即移除配件
+    const removedAccessory = optimisticAccessories.find(a => a.id === accessoryId)
+    setOptimisticAccessories((prev) => prev.filter((a) => a.id !== accessoryId))
+
+    try {
+      const res = await fetch(`/api/pet/accessories/${accessoryId}`, {
+        method: 'DELETE',
+      })
+
+      if (!res.ok) {
+        throw new Error('Failed to remove accessory')
+      }
+
+      if (onAccessoryPlaced) {
+        onAccessoryPlaced()
+      }
+    } catch (error) {
+      // 如果失敗，恢復配件
+      if (removedAccessory) {
+        setOptimisticAccessories((prev) => [...prev, removedAccessory])
+      }
+      console.error('Remove accessory error:', error)
+      toast({
+        title: 'Failed to remove accessory',
         description: 'Please try again',
         variant: 'destructive',
       })
@@ -826,15 +968,40 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
       return
     }
 
+    const clampedX = Math.min(Math.max(positionX, 0), 1)
+    const clampedY = Math.min(Math.max(positionY, 0), 1)
+
+    // 樂觀更新：立即添加臨時貼紙
+    const tempSticker: RoomSticker = {
+      id: `temp-${Date.now()}`,
+      stickerId,
+      positionX: clampedX,
+      positionY: clampedY,
+      rotation: 0,
+      scale: 1,
+      layer,
+    }
+    setOptimisticStickers((prev) => [...prev, tempSticker])
+    
+    // 樂觀更新：立即減少倉庫中的貼紙計數
+    setOptimisticAvailableStickers((prev) =>
+      prev.map((s) =>
+        s.stickerId === stickerId && s.count > 0
+          ? { ...s, count: s.count - 1 }
+          : s
+      )
+    )
+    
     setPlacingStickers(prev => new Set(prev).add(placementKey))
+
     try {
       const res = await fetch('/api/pet/stickers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           stickerId,
-          positionX: Math.min(Math.max(positionX, 0), 1),
-          positionY: Math.min(Math.max(positionY, 0), 1),
+          positionX: clampedX,
+          positionY: clampedY,
           layer,
         }),
       })
@@ -846,25 +1013,28 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
 
       const data = await res.json()
       
-      // 先刷新數據，讓貼紙出現在正確位置（完全參考移動貼紙的邏輯）
-      onStickerPlaced?.()
+      // 用真實數據替換臨時貼紙
+      setOptimisticStickers((prev) =>
+        prev.map((s) => (s.id === tempSticker.id ? data : s))
+      )
       
-      // 等待數據刷新完成後再清理狀態（完全參考移動貼紙的邏輯）
-      // 使用 requestAnimationFrame 確保 DOM 已更新
-      // 注意：不設置 justPlaced 動畫，避免位置誤差（移動貼紙也沒有動畫）
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          // 移動貼紙時沒有動畫，新放置貼紙也不使用動畫，保持一致性
-        })
+      toast({
+        title: 'Sticker placed!',
+        description: 'Successfully added decoration to room',
       })
-
-        toast({
-          title: 'Sticker placed!',
-          description: 'Successfully added decoration to room',
-        })
-    } catch (error: any) {
-      // 如果失敗，刷新以恢復正確狀態
+      
+      // 觸發數據刷新（可選，因為樂觀更新已經顯示了）
       onStickerPlaced?.()
+    } catch (error: any) {
+      // 如果失敗，移除臨時貼紙並恢復倉庫計數
+      setOptimisticStickers((prev) => prev.filter((s) => s.id !== tempSticker.id))
+      setOptimisticAvailableStickers((prev) =>
+        prev.map((s) =>
+          s.stickerId === stickerId
+            ? { ...s, count: s.count + 1 }
+            : s
+        )
+      )
       toast({
         title: 'Placement failed',
         description: error?.message || 'Please try again later',
@@ -907,6 +1077,35 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
   }
 
   const handleDeleteSticker = async (stickerId: string) => {
+    // 樂觀更新：立即從 UI 中移除
+    const deletedSticker = optimisticStickers.find(s => s.id === stickerId)
+    setOptimisticStickers((prev) => prev.filter(s => s.id !== stickerId))
+    
+    // 如果被刪除的貼紙是當前選中的，立即清除選中狀態（讓按鈕消失）
+    if (selectedItem?.type === 'sticker' && selectedItem.id === stickerId) {
+      setSelectedItem(null)
+      setSelectedItemPosition(null)
+    }
+    
+    // 樂觀更新：立即增加倉庫中的貼紙計數
+    if (deletedSticker) {
+      setOptimisticAvailableStickers((prev) =>
+        prev.map((s) =>
+          s.stickerId === deletedSticker.stickerId
+            ? { ...s, count: s.count + 1 }
+            : s
+        )
+      )
+    }
+    
+    // 清除相關的防抖計時器和待處理更新
+    const timer = updateDebounceRef.current.get(stickerId)
+    if (timer) {
+      clearTimeout(timer)
+      updateDebounceRef.current.delete(stickerId)
+    }
+    pendingUpdatesRef.current.delete(stickerId)
+
     try {
       const res = await fetch(`/api/pet/stickers/${stickerId}`, {
         method: 'DELETE',
@@ -923,6 +1122,17 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
       })
       onStickerPlaced?.()
     } catch (error: any) {
+      // 如果失敗，恢復貼紙並減少倉庫計數
+      if (deletedSticker) {
+        setOptimisticStickers((prev) => [...prev, deletedSticker])
+        setOptimisticAvailableStickers((prev) =>
+          prev.map((s) =>
+            s.stickerId === deletedSticker.stickerId && s.count > 0
+              ? { ...s, count: s.count - 1 }
+              : s
+          )
+        )
+      }
       toast({
         title: 'Delete Failed',
         description: error?.message || 'Please try again later',
@@ -960,7 +1170,7 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
           setEditMode(false)
           setSelectedItem(null)
         }}
-        availableStickers={availableStickers}
+        availableStickers={optimisticAvailableStickers}
         foodItems={foodItems}
         availableAccessories={availableAccessories}
         onDragStart={handleDragStart}
@@ -1233,74 +1443,35 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                   layer = 'floor'
                 }
                 
-                // Update sticker position
-                const sticker = stickers.find(s => s.id === parsed.stickerId)
+                // Update sticker position (使用樂觀更新)
+                const sticker = optimisticStickers.find(s => s.id === parsed.stickerId)
                 if (sticker) {
                   // 計算新位置的屏幕座標（用於更新選項視窗位置）
                   const newScreenX = rect.left + clampedX * rect.width
                   const newScreenY = rect.top + clampedY * rect.height
                   
-                  fetch(`/api/pet/stickers/${parsed.stickerId}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      positionX: clampedX,
-                      positionY: clampedY,
-                      layer,
-                    }),
+                  // 使用防抖更新（樂觀更新）
+                  debouncedUpdateSticker(parsed.stickerId, {
+                    positionX: clampedX,
+                    positionY: clampedY,
+                    layer,
                   })
-                    .then(res => {
-                      if (res.ok) {
-                        // 先刷新數據，讓貼紙出現在新位置
-                        onStickerPlaced?.()
-                        
-                        // 等待數據刷新完成後再清理拖曳狀態
-                        // 使用 requestAnimationFrame 確保 DOM 已更新
-                        requestAnimationFrame(() => {
-                          requestAnimationFrame(() => {
-                            setDraggingItem(null)
-                            setDragPreview(null)
-                            setDragPosition(null)
-                            setIsActuallyDragging(false)
-                            draggingStickerIdRef.current = null
-                            isProcessingDrop.current = false
-                          })
-                        })
-                        
-                        // 如果這個貼紙被選中，更新選項視窗位置
-                        if (selectedItem?.type === 'sticker' && selectedItem.id === parsed.stickerId) {
-                          setSelectedItemPosition({
-                            x: newScreenX,
-                            y: newScreenY,
-                          })
-                        }
-                        toast({ 
-                          title: 'Item Moved',
-                          duration: 3000,
-                        })
-                      } else {
-                        // 移動失敗，清理拖曳狀態並刷新以恢復原位置
-                        isProcessingDrop.current = false
-                        draggingStickerIdRef.current = null
-                        setDraggingItem(null)
-                        setDragPreview(null)
-                        setDragPosition(null)
-                        setIsActuallyDragging(false)
-                        toast({ title: 'Move failed', variant: 'destructive' })
-                        onStickerPlaced?.() // 刷新以恢復原位置
-                      }
+                  
+                  // 立即清理拖曳狀態（因為樂觀更新已經顯示了新位置）
+                  isProcessingDrop.current = false
+                  draggingStickerIdRef.current = null
+                  setDraggingItem(null)
+                  setDragPreview(null)
+                  setDragPosition(null)
+                  setIsActuallyDragging(false)
+                  
+                  // 如果這個貼紙被選中，更新選項視窗位置
+                  if (selectedItem?.type === 'sticker' && selectedItem.id === parsed.stickerId) {
+                    setSelectedItemPosition({
+                      x: newScreenX,
+                      y: newScreenY,
                     })
-                    .catch(() => {
-                      // 移動失敗，清理拖曳狀態並刷新以恢復原位置
-                      isProcessingDrop.current = false
-                      draggingStickerIdRef.current = null
-                      setDraggingItem(null)
-                      setDragPreview(null)
-                      setDragPosition(null)
-                      setIsActuallyDragging(false)
-                      toast({ title: 'Move failed', variant: 'destructive' })
-                      onStickerPlaced?.() // 刷新以恢復原位置
-                    })
+                  }
                 } else {
                   isProcessingDrop.current = false
                 }
@@ -1364,7 +1535,7 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
           }}
         >
           {/* All stickers - positioned absolutely within the room */}
-          {stickers.map((sticker) => {
+          {optimisticStickers.map((sticker) => {
               // Calculate global index across all stickers for consistent z-index
               const globalIndex = stickers.findIndex((s) => s.id === sticker.id)
               const isSelected = selectedItem?.type === 'sticker' && selectedItem.id === sticker.id
@@ -1563,7 +1734,7 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                   }}
                 />
                 {/* Accessories positioned relative to pet */}
-                {accessories.map((accessory) => {
+                {optimisticAccessories.map((accessory) => {
                   // When pet flips, flip the X position as well
                   const shouldFlip = (() => {
                     if (!currentMoveDirection) return false

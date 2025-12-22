@@ -112,7 +112,7 @@ export default function EditPanel({
   return (
     <>
       {/* Panel - slides in from right */}
-      <div className={`fixed top-0 right-0 bottom-20 z-20 bg-white/95 backdrop-blur-md border-l border-black/20 w-full max-w-md flex flex-col shadow-xl transition-transform duration-300 ease-in-out ${
+      <div className={`fixed top-0 right-0 bottom-20 z-[60] bg-white/95 backdrop-blur-md border-l border-black/20 w-full max-w-md flex flex-col shadow-xl transition-transform duration-300 ease-in-out ${
         isOpen ? 'translate-x-0' : 'translate-x-full'
       }`}>
         {/* Header */}

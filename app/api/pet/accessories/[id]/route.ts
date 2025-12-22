@@ -33,27 +33,44 @@ export async function DELETE(
 ) {
   try {
     const user = await getCurrentUser()
-    if (!user) {
+    if (!user || !user.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const pet = await getOrCreatePet(user.id)
-
-    // Find the accessory and verify it belongs to the user's pet
-    const accessory = await prisma.petAccessory.findUnique({
-      where: { id: params.id },
+    // 從資料庫獲取用戶 ID，因為 session 的 ID 可能不一致
+    const userRecord = await prisma.user.findUnique({
+      where: { email: user.email },
+      select: { id: true },
     })
 
-    if (!accessory || accessory.petId !== pet.id) {
+    if (!userRecord) {
+      return NextResponse.json({ error: '用戶不存在' }, { status: 404 })
+    }
+
+    const pet = await getOrCreatePet(userRecord.id)
+
+    // 優化：在刪除時同時驗證所有權，減少查詢次數
+    const deletedAccessory = await prisma.petAccessory.deleteMany({
+      where: {
+        id: params.id,
+        petId: pet.id, // 同時驗證所有權
+      },
+    })
+
+    if (deletedAccessory.count === 0) {
       return NextResponse.json({ error: 'Accessory not found' }, { status: 404 })
     }
 
-    // Delete the accessory
-    await prisma.petAccessory.delete({
+    // 獲取被刪除的配件 ID（用於返回）
+    const accessory = await prisma.petAccessory.findUnique({
       where: { id: params.id },
-    })
+      select: { accessoryId: true },
+    }).catch(() => null)
 
-    return NextResponse.json({ success: true, accessoryId: accessory.accessoryId })
+    return NextResponse.json({ 
+      success: true, 
+      accessoryId: accessory?.accessoryId || null 
+    })
   } catch (error) {
     console.error('Delete accessory error:', error)
     const errorMessage = error instanceof Error ? error.message : String(error)

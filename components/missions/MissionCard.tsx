@@ -63,6 +63,9 @@ export default function MissionCard({ mission, onClaimed }: MissionCardProps) {
           detail: { points: pointsEarned } 
         }))
         
+        // 觸發事件通知主畫面更新未領取任務狀態（讓黑點消失）
+        window.dispatchEvent(new Event('missionClaimed'))
+        
         if (onClaimed) {
           onClaimed()
         }

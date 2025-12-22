@@ -42,22 +42,23 @@ export async function PATCH(
 ) {
   try {
     const user = await getCurrentUser()
-    if (!user) {
+    if (!user || !user.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const pet = await getOrCreatePet(user.id)
-
-    // Find the sticker and verify it belongs to the user's pet
-    const sticker = await prisma.roomSticker.findUnique({
-      where: { id: params.id },
+    // 從資料庫獲取用戶 ID，因為 session 的 ID 可能不一致
+    const userRecord = await prisma.user.findUnique({
+      where: { email: user.email },
+      select: { id: true },
     })
 
-    if (!sticker || sticker.petId !== pet.id) {
-      return NextResponse.json({ error: 'Sticker not found' }, { status: 404 })
+    if (!userRecord) {
+      return NextResponse.json({ error: '用戶不存在' }, { status: 404 })
     }
 
-    // Parse and validate update data
+    const pet = await getOrCreatePet(userRecord.id)
+
+    // Parse and validate update data first
     const body = await request.json()
     const updateData = stickerUpdateSchema.parse(body)
 
@@ -76,13 +77,25 @@ export async function PATCH(
     if (updateData.scale !== undefined) updateFields.scale = updateData.scale
     if (updateData.layer !== undefined) updateFields.layer = updateData.layer
 
-    // Update the sticker
-    const updatedSticker = await prisma.roomSticker.update({
-      where: { id: params.id },
+    // 優化：在更新時同時驗證 petId，減少查詢次數
+    const updatedSticker = await prisma.roomSticker.updateMany({
+      where: {
+        id: params.id,
+        petId: pet.id, // 同時驗證所有權
+      },
       data: updateFields,
     })
 
-    return NextResponse.json(updatedSticker)
+    if (updatedSticker.count === 0) {
+      return NextResponse.json({ error: 'Sticker not found' }, { status: 404 })
+    }
+
+    // 返回更新後的貼紙（只查詢一次）
+    const sticker = await prisma.roomSticker.findUnique({
+      where: { id: params.id },
+    })
+
+    return NextResponse.json(sticker)
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

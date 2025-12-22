@@ -54,74 +54,67 @@ export async function POST(request: Request) {
     const periodStart = type === 'weekly' ? getWeekStart() : getDayStart()
     console.log('Period start:', periodStart.toISOString())
 
-    // 查找任務定義
-    const missionDef = await prisma.mission.findUnique({
-      where: { code },
-    })
-
-    if (!missionDef) {
-      console.log('任務定義不存在:', code)
-      return NextResponse.json({ error: '任務定義不存在' }, { status: 404 })
-    }
-
-    console.log('任務定義:', { code: missionDef.code, title: missionDef.title, reward: missionDef.reward })
-
-    // 查找用戶任務記錄
-    const userMission = await prisma.missionUser.findUnique({
-      where: {
-        userId_missionId_periodStart: {
-          userId: userRecord.id,
-          missionId: missionDef.id,
-          periodStart: periodStart,
-        },
-      },
-    })
-
-    if (!userMission) {
-      console.log('任務記錄不存在')
-      return NextResponse.json({ error: '任務不存在' }, { status: 404 })
-    }
-
-    console.log('任務記錄:', { 
-      completed: userMission.completed, 
-      claimed: userMission.claimed,
-      progress: userMission.progress,
-      target: missionDef.target
-    })
-
-    if (!userMission.completed) {
-      console.log('任務尚未完成')
-      return NextResponse.json({ error: '任務尚未完成' }, { status: 400 })
-    }
-
-    if (userMission.claimed) {
-      console.log('獎勵已領取')
-      return NextResponse.json({ error: '獎勵已領取' }, { status: 400 })
-    }
-
-    // 更新任務為已領取
-    try {
-      await prisma.missionUser.update({
-        where: { id: userMission.id },
-        data: {
-          claimed: true,
-        },
-      })
-      console.log('✅ 任務標記為已領取')
-    } catch (updateError) {
-      console.error('❌ 更新任務記錄失敗:', updateError)
-      return NextResponse.json({ error: '更新任務記錄失敗' }, { status: 500 })
-    }
-
-    // 增加寵物點數
-    try {
-      const pet = await prisma.pet.findUnique({
-        where: { userId: userRecord.id },
+    // 使用事務一次性完成所有操作，確保一致性並減少查詢次數
+    const result = await prisma.$transaction(async (tx) => {
+      // 查找任務定義
+      const missionDef = await tx.mission.findUnique({
+        where: { code },
       })
 
-      if (pet) {
-        await prisma.pet.update({
+      if (!missionDef) {
+        throw new Error('任務定義不存在')
+      }
+
+      console.log('任務定義:', { code: missionDef.code, title: missionDef.title, reward: missionDef.reward })
+
+      // 查找用戶任務記錄
+      const userMission = await tx.missionUser.findUnique({
+        where: {
+          userId_missionId_periodStart: {
+            userId: userRecord.id,
+            missionId: missionDef.id,
+            periodStart: periodStart,
+          },
+        },
+      })
+
+      if (!userMission) {
+        throw new Error('任務記錄不存在')
+      }
+
+      console.log('任務記錄:', { 
+        completed: userMission.completed, 
+        claimed: userMission.claimed,
+        progress: userMission.progress,
+        target: missionDef.target
+      })
+
+      if (!userMission.completed) {
+        throw new Error('任務尚未完成')
+      }
+
+      if (userMission.claimed) {
+        throw new Error('獎勵已領取')
+      }
+
+      // 同時更新任務狀態和寵物點數
+      const [updatedMission, pet] = await Promise.all([
+        // 更新任務為已領取
+        tx.missionUser.update({
+          where: { id: userMission.id },
+          data: { claimed: true },
+        }),
+        // 查找寵物（用於更新點數）
+        tx.pet.findUnique({
           where: { userId: userRecord.id },
+          select: { id: true, points: true },
+        }),
+      ])
+
+      // 如果寵物存在，更新點數
+      if (pet) {
+        await tx.pet.update({
+          where: { id: pet.id },
           data: {
             points: {
               increment: missionDef.reward,
@@ -131,12 +124,15 @@ export async function POST(request: Request) {
         console.log(`✅ 增加寵物點數: +${missionDef.reward} (總點數: ${pet.points + missionDef.reward})`)
       } else {
         console.warn('⚠️ 寵物不存在，無法增加點數')
-        // 不返回錯誤，因為任務已經標記為已領取
       }
-    } catch (petError) {
-      console.error('❌ 更新寵物點數失敗:', petError)
-      // 不返回錯誤，因為任務已經標記為已領取
-    }
+
+      return { missionDef, updatedMission }
+    }).catch((error) => {
+      console.error('❌ 領取任務失敗:', error)
+      throw error
+    })
+
+    const { missionDef } = result
 
     return NextResponse.json({ 
       message: '已領取點數', 

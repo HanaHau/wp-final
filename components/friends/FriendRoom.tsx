@@ -361,7 +361,7 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
 
   // Handle pet click (petting)
   const handlePetClick = useCallback(async (e: React.MouseEvent) => {
-    if (isPetting || dailyMoodGain >= 5) return
+    if (isPetting) return // 移除 dailyMoodGain >= 5 的限制，允許繼續撫摸
 
     e.stopPropagation()
     setIsPetting(true)
@@ -387,49 +387,88 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
       }, 2000)
     }
 
-    try {
-      const res = await fetch(`/api/friends/${friendId}/pet`, {
+    // 檢查是否已達到每日限制
+    const isAtLimit = dailyMoodGain >= 5
+    
+    // 樂觀更新：立即更新本地狀態和顯示 toast（加速用戶體驗）
+    // 只有在未達到限制時才更新計數
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const key = `friend_mood_gain_${friendId}_${today.toISOString().split('T')[0]}`
+    const previousGain = dailyMoodGain // 保存之前的值以便回滾
+    
+    // 立即顯示 toast（樂觀更新）
+    if (isAtLimit) {
+      // 已達到每日限制，顯示提示消息
+      toast({
+        title: 'Pet pet ❤️',
+        description: 'Awww thank you❤️',
+      })
+    } else {
+      // 未達到限制，更新計數並顯示成功消息
+      const newGain = dailyMoodGain + 1
+      localStorage.setItem(key, newGain.toString())
+      setDailyMoodGain(newGain)
+      
+      toast({
+        title: 'Success ❤️',
+        description: 'Mission completed!',
+      })
+    }
+
+    // 並行執行 API 請求（不阻塞 UI）
+    // 只有在未達到限制時才發送 API 請求（避免不必要的請求）
+    if (!isAtLimit) {
+      fetch(`/api/friends/${friendId}/pet`, {
         method: 'POST',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
       })
-
-      if (res.ok) {
-        const data = await res.json()
-        
-        // Update daily mood gain
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        const key = `friend_mood_gain_${friendId}_${today.toISOString().split('T')[0]}`
-        const newGain = dailyMoodGain + 1
-        localStorage.setItem(key, newGain.toString())
-        setDailyMoodGain(newGain)
-
-        toast({
-          title: 'Success ❤️',
-          description: data.message || 'Petted friend\'s pet',
+        .then(async (res) => {
+          if (res.ok) {
+            const data = await res.json()
+            
+            // 如果 API 返回了任務完成信息，觸發事件
+            if (data.missionCompleted) {
+              window.dispatchEvent(new CustomEvent('missionCompleted', { detail: data.missionCompleted }))
+            }
+            // 注意：不更新 toast，因為已經顯示了
+          } else {
+            // API 失敗時，顯示錯誤 toast（但本地狀態已經更新，用戶體驗更好）
+            const error = await res.json()
+            toast({
+              title: 'Failed',
+              description: error.error || 'Please try again later',
+              variant: 'destructive',
+            })
+            // 回滾本地狀態
+            localStorage.setItem(key, previousGain.toString())
+            setDailyMoodGain(previousGain)
+          }
         })
-
-        if (data.missionCompleted) {
-          window.dispatchEvent(new CustomEvent('missionCompleted', { detail: data.missionCompleted }))
-        }
-      } else {
-        const error = await res.json()
-        toast({
-          title: 'Failed',
-          description: error.error || 'Please try again later',
-          variant: 'destructive',
+        .catch((error) => {
+          // 網絡錯誤時顯示錯誤 toast
+          toast({
+            title: 'Failed',
+            description: 'Please try again later',
+            variant: 'destructive',
+          })
+          // 回滾本地狀態
+          localStorage.setItem(key, previousGain.toString())
+          setDailyMoodGain(previousGain)
         })
-      }
-    } catch (error) {
-      toast({
-        title: 'Failed',
-        description: 'Please try again later',
-        variant: 'destructive',
-      })
-    } finally {
+        .finally(() => {
+          if (pettingTimeout.current) {
+            clearTimeout(pettingTimeout.current)
+          }
+          pettingTimeout.current = setTimeout(() => {
+            setIsPetting(false)
+          }, 1000)
+        })
+    } else {
+      // 達到限制時，也需要重置 isPetting 狀態
       if (pettingTimeout.current) {
         clearTimeout(pettingTimeout.current)
       }
@@ -642,7 +681,7 @@ export default function FriendRoom({ pet, user, stickers, accessories, friendId,
             >
               <div className="relative w-24 h-24 lg:w-32 lg:h-32">
                 {/* Hover hint */}
-                {isHovering && !isPetting && dailyMoodGain < 5 && (
+                {isHovering && !isPetting && (
                   <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap bg-black text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg animate-bounce z-10">
                     Pet me
                   </div>

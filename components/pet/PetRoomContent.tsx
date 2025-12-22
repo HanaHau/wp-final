@@ -314,16 +314,22 @@ export default function PetRoomContent() {
     const centerY = rect.top + rect.height / 2
     
     const newParticles = Array.from({ length: count }, (_, i) => {
-      const angle = (Math.PI * 2 * i) / count
-      const speed = 2 + Math.random() * 2
+      // 均勻分布角度，讓粒子從中心向各個方向擴散
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.3 // 添加小範圍隨機角度變化
+      // 計算速度以匹配食物飛行動畫（1.2秒移動約300px）
+      // 在 60fps 下，1.2秒 = 72幀，300px / 72 ≈ 4.17px/frame
+      // 使用稍慢一點的速度以匹配視覺效果：約 3-4px/frame
+      const speed = 3 + Math.random() * 1 // 3-4px/frame，與食物飛行速度相近
       particleCounterRef.current += 1
       return {
         id: `particle-${Date.now()}-${particleCounterRef.current}-${i}-${Math.random().toString(36).substr(2, 9)}`,
         emoji,
-        x: centerX + (Math.random() - 0.5) * 40,
-        y: centerY + (Math.random() - 0.5) * 40,
+        // 從寵物中心開始，沒有隨機偏移
+        x: centerX,
+        y: centerY,
+        // 純徑向擴散速度（從中心向外）
         vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 2,
+        vy: Math.sin(angle) * speed,
         life: 1.0
       }
     })
@@ -337,8 +343,10 @@ export default function PetRoomContent() {
           ...p,
           x: p.x + p.vx,
           y: p.y + p.vy,
-          life: p.life - 0.015,
-          vy: p.vy + 0.15 // gravity
+          // 調整生命值衰減以匹配食物動畫持續時間（約1.2秒）
+          // 在 60fps 下，1.2秒 = 72幀，所以每幀衰減 1/72 ≈ 0.014
+          life: p.life - 0.014, // 讓粒子持續約1.2秒，與食物動畫時間匹配
+          // 移除重力效果，讓粒子純粹向外擴散
         })).filter(p => p.life > 0)
         
         if (updated.length > 0) {
@@ -462,8 +470,20 @@ export default function PetRoomContent() {
     }
   }
 
+  // 樂觀更新：本地配件狀態
+  const [optimisticAccessories, setOptimisticAccessories] = useState<PetAccessory[]>(accessories || [])
+  
+  // 當 props.accessories 更新時，同步到樂觀狀態
+  useEffect(() => {
+    setOptimisticAccessories(accessories || [])
+  }, [accessories])
+
   // Handle accessory delete
   const handleAccessoryDelete = async (accessoryId: string) => {
+    // 樂觀更新：立即移除配件
+    const removedAccessory = optimisticAccessories.find(a => a.id === accessoryId)
+    setOptimisticAccessories((prev) => prev.filter((a) => a.id !== accessoryId))
+
     try {
       const res = await fetch(`/api/pet/accessories/${accessoryId}`, {
         method: 'DELETE',
@@ -472,6 +492,10 @@ export default function PetRoomContent() {
       toast({ title: 'Accessory removed' })
       mutateSummary()
     } catch (error: any) {
+      // 如果失敗，恢復配件
+      if (removedAccessory) {
+        setOptimisticAccessories((prev) => [...prev, removedAccessory])
+      }
       toast({
         title: 'Remove failed',
         description: error.message,
@@ -623,7 +647,7 @@ export default function PetRoomContent() {
                 {/* 寵物腳下的聚光燈效果 */}
                 <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-40 h-4 bg-white/10 blur-xl rounded-full" />
                 
-                {accessories.map((accessory) => (
+                {optimisticAccessories.map((accessory) => (
                   <div
                     key={accessory.id}
                     className="absolute cursor-pointer hover:scale-110 transition-transform group"

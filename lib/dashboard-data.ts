@@ -3,14 +3,15 @@ import { prisma } from '@/lib/prisma'
 import { SHOP_ITEM_MAP, DECOR_SHOP_CATEGORIES, type ShopItemCategory } from '@/data/shop-items'
 import type { DashboardSummary } from '@/contexts/DashboardContext'
 
-export async function getDashboardSummary(): Promise<DashboardSummary | null> {
+export async function getDashboardSummary(userRecordParam?: Awaited<ReturnType<typeof getCurrentUserRecord>>): Promise<DashboardSummary | null> {
   try {
-    const userRecord = await getCurrentUserRecord()
+    // 如果提供了用戶記錄參數，使用它；否則查詢
+    const userRecord = userRecordParam || await getCurrentUserRecord()
     if (!userRecord) {
       return null
     }
 
-    // 獲取或創建 pet
+    // 獲取或創建 pet（如果不存在則創建，這需要先查詢）
     let pet = await prisma.pet.findUnique({
       where: { userId: userRecord.id },
     })
@@ -197,17 +198,30 @@ export async function getDashboardSummary(): Promise<DashboardSummary | null> {
       if (t.typeId === 2) dailyStats[dateKey].income += t.amount
     })
 
-    // 處理房間貼紙（enrich with custom sticker imageUrl）
+    // 處理房間貼紙和自定義貼紙庫存（合併查詢以減少數據庫調用）
+    // 提前提取所有需要的 custom sticker IDs
     const customStickerIds = roomStickers
       .filter((s) => s.stickerId.startsWith('custom-'))
       .map((s) => s.stickerId.replace('custom-', ''))
-    const customStickers = customStickerIds.length > 0
+    
+    // 提取庫存中需要的 custom sticker IDs
+    const customStickerPurchases = petPurchases.filter((p) => p.itemId.startsWith('custom-'))
+    const customStickerIdsForInventory = customStickerPurchases.map((p) =>
+      p.itemId.replace('custom-', '')
+    )
+    
+    // 合併所有需要的 custom sticker IDs，一次性查詢（減少數據庫查詢次數）
+    const allCustomStickerIds = [...new Set([...customStickerIds, ...customStickerIdsForInventory])]
+    const allCustomStickers = allCustomStickerIds.length > 0
       ? await prisma.customSticker.findMany({
-          where: { id: { in: customStickerIds } },
-          select: { id: true, imageUrl: true },
+          where: { id: { in: allCustomStickerIds } },
+          select: { id: true, imageUrl: true, name: true, category: true },
         })
       : []
-    const customStickerMap = new Map(customStickers.map((cs) => [cs.id, cs.imageUrl]))
+    
+    // 創建多個 Map 以便快速查找
+    const customStickerMap = new Map(allCustomStickers.map((cs) => [cs.id, cs.imageUrl]))
+    const customStickerMapForInventory = new Map(allCustomStickers.map((cs) => [cs.id, cs]))
     const enrichedStickers = roomStickers.map((sticker) => {
       const baseSticker = {
         id: sticker.id,
@@ -262,21 +276,9 @@ export async function getDashboardSummary(): Promise<DashboardSummary | null> {
       })
       .filter((item): item is NonNullable<typeof item> => item !== null)
 
-    // 處理自定義貼紙庫存
-    const customStickerPurchases = petPurchases.filter((p) => p.itemId.startsWith('custom-'))
+    // 處理自定義貼紙庫存（customStickerPurchases 和 customStickerMapForInventory 已經在上面處理）
+    // 注意：customStickerPurchases 和 customStickerMapForInventory 已經在上面定義
     if (customStickerPurchases.length > 0) {
-      const customStickerIdsForInventory = customStickerPurchases.map((p) =>
-        p.itemId.replace('custom-', '')
-      )
-      const customStickersForInventory = await prisma.customSticker.findMany({
-        where: {
-          id: { in: customStickerIdsForInventory },
-          category: 'decoration',
-        },
-      })
-      const customStickerMapForInventory = new Map(
-        customStickersForInventory.map((cs) => [cs.id, cs])
-      )
 
       const customTotalBySticker: Record<string, number> = {}
       customStickerPurchases.forEach((p) => {

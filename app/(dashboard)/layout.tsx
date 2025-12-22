@@ -15,19 +15,26 @@ export default async function DashboardLayout({
     redirect('/auth/signin')
   }
 
-  // 檢查是否完成首次設定
-  const { isInitialized, hasCompletedTutorial } = await checkInitialization()
-  if (!isInitialized) {
+  // 優化：先獲取用戶記錄，然後並行執行檢查和獲取數據（避免重複查詢用戶記錄）
+  const { getCurrentUserRecord } = await import('@/lib/auth')
+  const userRecord = await getCurrentUserRecord()
+  
+  if (!userRecord) {
+    redirect('/auth/signin')
+  }
+
+  // 檢查是否完成首次設定（直接使用用戶記錄，避免重複查詢）
+  if (!userRecord.isInitialized) {
     redirect('/setup')
   }
 
   // 檢查是否完成教學引導
-  if (!hasCompletedTutorial) {
+  if (!userRecord.hasCompletedTutorial) {
     redirect('/tutorial')
   }
 
-  // 獲取 dashboard summary 資料（直接調用資料庫邏輯，不使用 HTTP 請求）
-  const summary = await getDashboardSummary()
+  // 獲取 dashboard summary（傳遞用戶記錄以避免重複查詢）
+  const summary = await getDashboardSummary(userRecord)
 
   return <DashboardProvider summary={summary}>{children}</DashboardProvider>
 }

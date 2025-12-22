@@ -21,13 +21,10 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    console.log('=== GET /api/missions 開始 ===')
-    
     // 獲取當前用戶
     let user
     try {
       user = await getCurrentUser()
-      console.log('User from getCurrentUser:', user ? { email: user.email, id: user.id } : 'null')
     } catch (authError) {
       console.error('❌ 獲取用戶失敗:', authError)
       return NextResponse.json({ error: '認證失敗' }, { status: 401 })
@@ -38,44 +35,28 @@ export async function GET() {
       return NextResponse.json({ error: '未授權' }, { status: 401 })
     }
 
-    // 查找用戶記錄
-    let userRecord
-    try {
-      userRecord = await prisma.user.findUnique({
-        where: { email: user.email },
-        select: { id: true },
-      })
-      console.log('User record from DB:', userRecord)
-    } catch (dbError) {
-      console.error('❌ 查詢用戶失敗:', dbError)
-      return NextResponse.json({ error: '資料庫查詢失敗' }, { status: 500 })
-    }
-
-    if (!userRecord) {
-      console.log('使用者不存在')
-      return NextResponse.json({ error: '使用者不存在' }, { status: 404 })
-    }
-
-    // 計算日期（確保時區正確）
+    // 計算日期（確保時區正確）- 提前計算，不依賴數據庫查詢
     const dayStart = getDayStart()
     const weekStart = getWeekStart()
-    console.log('Day start:', dayStart.toISOString(), dayStart.getTime())
-    console.log('Week start:', weekStart.toISOString(), weekStart.getTime())
 
-    // 獲取所有活躍的任務定義
-    let missionDefinitions
-    try {
-      missionDefinitions = await prisma.mission.findMany({
+    // 並行執行：查找用戶記錄和獲取任務定義（加速首次載入）
+    const [userRecord, missionDefinitions] = await Promise.all([
+      prisma.user.findUnique({
+        where: { email: user.email },
+        select: { id: true },
+      }),
+      prisma.mission.findMany({
         where: { active: true },
         orderBy: [
           { type: 'asc' },
           { code: 'asc' },
         ],
-      })
-      console.log('任務定義數量:', missionDefinitions.length)
-    } catch (dbError) {
-      console.error('❌ 查詢任務定義失敗:', dbError)
-      return NextResponse.json({ error: '查詢任務定義失敗' }, { status: 500 })
+      }),
+    ])
+
+    if (!userRecord) {
+      console.log('使用者不存在')
+      return NextResponse.json({ error: '使用者不存在' }, { status: 404 })
     }
 
     if (!missionDefinitions || missionDefinitions.length === 0) {
@@ -83,110 +64,154 @@ export async function GET() {
       return NextResponse.json([]) // 返回空數組而不是錯誤
     }
 
+    // 過濾掉已移除的任務
+    const activeMissionDefinitions = missionDefinitions.filter(
+      (def) => def.code !== 'edit_transaction' && def.code !== 'check_pet'
+    )
+
+    // 一次性查詢所有相關的 userMission 記錄（優化 N+1 查詢問題）
+    const missionIds = activeMissionDefinitions.map((def) => def.id)
+    const periodStarts = [dayStart, weekStart]
+    
+    const userMissions = await prisma.missionUser.findMany({
+      where: {
+        userId: userRecord.id,
+        missionId: { in: missionIds },
+        periodStart: { in: periodStarts },
+      },
+    })
+
+    // 創建一個 Map 以便快速查找 userMission
+    const userMissionMap = new Map<string, typeof userMissions[0]>()
+    for (const um of userMissions) {
+      const key = `${um.missionId}_${um.periodStart.getTime()}`
+      userMissionMap.set(key, um)
+    }
+
     const missions: any[] = []
 
-    for (const missionDef of missionDefinitions) {
-      // 過濾掉已移除的任務
-      if (missionDef.code === 'edit_transaction' || missionDef.code === 'check_pet') {
-        continue
-      }
+    // 批量創建缺失的任務記錄
+    const missionsToCreate: Array<{
+      userId: string
+      missionId: string
+      periodStart: Date
+      progress: number
+      completed: boolean
+      claimed: boolean
+    }> = []
+
+    for (const missionDef of activeMissionDefinitions) {
       const periodStart = missionDef.type === 'weekly' ? weekStart : dayStart
-      
-      // 先嘗試查找當前週期的任務記錄
-      let userMission = await prisma.missionUser.findUnique({
-        where: {
-          userId_missionId_periodStart: {
-            userId: userRecord.id,
-            missionId: missionDef.id,
-            periodStart: periodStart,
-          },
-        },
-      })
+      const key = `${missionDef.id}_${periodStart.getTime()}`
+      let userMission = userMissionMap.get(key)
 
-      // 如果不存在，創建新的任務記錄
       if (!userMission) {
-        try {
-          // 直接創建新的任務記錄（使用 upsert 避免並發問題）
-          userMission = await prisma.missionUser.upsert({
-            where: {
-              userId_missionId_periodStart: {
-                userId: userRecord.id,
-                missionId: missionDef.id,
-                periodStart: periodStart,
-              },
-            },
-            update: {}, // 如果已存在，不更新
-            create: {
-              userId: userRecord.id,
-              missionId: missionDef.id,
-              periodStart: periodStart,
-              progress: 0,
-              completed: false,
-              claimed: false,
-            },
-          })
-          console.log(`✅ 為用戶創建/獲取任務記錄: ${missionDef.code} (${missionDef.type}, 日期: ${periodStart.toISOString()})`)
-        } catch (createError: any) {
-          console.error(`❌ 創建任務記錄失敗: ${missionDef.code}`, createError)
-          console.error('錯誤詳情:', createError?.message, createError?.code)
-          // 如果創建失敗，嘗試再次查找
-          try {
-            userMission = await prisma.missionUser.findUnique({
-              where: {
-                userId_missionId_periodStart: {
-                  userId: userRecord.id,
-                  missionId: missionDef.id,
-                  periodStart: periodStart,
-                },
-              },
-            })
-          } catch (findError) {
-            console.error(`❌ 查找任務記錄也失敗: ${missionDef.code}`, findError)
-          }
-        }
-      } else {
-        console.log(`✓ 找到現有任務記錄: ${missionDef.code} (進度: ${userMission.progress}/${missionDef.target})`)
-      }
-
-      // 特殊處理：record_5_days 需要實時計算記帳天數
-      if (missionDef.type === 'weekly' && missionDef.code === 'record_5_days') {
-        const transactions = await prisma.transaction.findMany({
-          where: {
-            userId: userRecord.id,
-            date: {
-              gte: weekStart,
-            },
-          },
-          select: { date: true },
+        // 準備創建新記錄
+        missionsToCreate.push({
+          userId: userRecord.id,
+          missionId: missionDef.id,
+          periodStart: periodStart,
+          progress: 0,
+          completed: false,
+          claimed: false,
         })
-
-        // Count unique days
-        const uniqueDays = new Set(
-          transactions.map((t) => {
-            const d = new Date(t.date)
-            return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
-          })
-        ).size
-
-        console.log(`[record_5_days] 重新計算進度: ${uniqueDays}/${missionDef.target} 天`)
-
-        // Update the userMission with actual progress
-        if (userMission && userMission.id) {
-          const isCompleted = uniqueDays >= missionDef.target
-          await prisma.missionUser.update({
-            where: { id: userMission.id },
-            data: {
-              progress: uniqueDays,
-              completed: isCompleted,
-              completedAt: isCompleted && !userMission.completed ? new Date() : userMission.completedAt,
-            },
-          })
-          
-          // Update the local variable
-          userMission.progress = uniqueDays
-          userMission.completed = isCompleted
-        }
       }
+    }
+
+    // 處理 record_5_days 特殊任務（需要實時計算）- 並行執行以加速
+    const record5DaysDef = activeMissionDefinitions.find(
+      (def) => def.type === 'weekly' && def.code === 'record_5_days'
+    )
+    
+    // 並行執行：批量創建和 record_5_days 計算（加速首次載入）
+    const [createdMissions, record5DaysResult] = await Promise.all([
+      // 批量創建缺失的任務記錄（使用事務批量處理）
+      missionsToCreate.length > 0
+        ? prisma.$transaction(
+            missionsToCreate.map((data) =>
+              prisma.missionUser.upsert({
+                where: {
+                  userId_missionId_periodStart: {
+                    userId: data.userId,
+                    missionId: data.missionId,
+                    periodStart: data.periodStart,
+                  },
+                },
+                update: {},
+                create: data,
+              })
+            ),
+            { timeout: 10000 } // 10秒超時
+          ).catch((createError: any) => {
+            console.error('❌ 批量創建任務記錄失敗:', createError)
+            return []
+          })
+        : Promise.resolve([]),
+      
+      // record_5_days 計算（如果存在）- 並行執行
+      record5DaysDef
+        ? (async () => {
+            try {
+              const transactions = await prisma.transaction.findMany({
+                where: {
+                  userId: userRecord.id,
+                  date: { gte: weekStart },
+                },
+                select: { date: true },
+              })
+
+              const uniqueDays = new Set(
+                transactions.map((t) => {
+                  const d = new Date(t.date)
+                  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+                })
+              ).size
+
+              const key = `${record5DaysDef.id}_${weekStart.getTime()}`
+              const userMission = userMissionMap.get(key)
+              
+              if (userMission) {
+                const isCompleted = uniqueDays >= record5DaysDef.target
+                const updated = await prisma.missionUser.update({
+                  where: { id: userMission.id },
+                  data: {
+                    progress: uniqueDays,
+                    completed: isCompleted,
+                    completedAt: isCompleted && !userMission.completed ? new Date() : userMission.completedAt,
+                  },
+                })
+                
+                return { key, updated }
+              }
+              return null
+            } catch (error) {
+              console.error('❌ record_5_days 計算失敗:', error)
+              return null
+            }
+          })()
+        : Promise.resolve(null),
+    ])
+    
+    // 將新創建的記錄加入 Map
+    for (const created of createdMissions) {
+      const key = `${created.missionId}_${created.periodStart.getTime()}`
+      userMissionMap.set(key, created)
+    }
+    
+    // 更新 record_5_days 的 Map 記錄
+    if (record5DaysResult) {
+      userMissionMap.set(record5DaysResult.key, record5DaysResult.updated)
+    }
+    
+    if (createdMissions.length > 0) {
+      console.log(`✅ 批量創建 ${createdMissions.length} 個任務記錄`)
+    }
+
+    // 構建 missions 數組
+    for (const missionDef of activeMissionDefinitions) {
+      const periodStart = missionDef.type === 'weekly' ? weekStart : dayStart
+      const key = `${missionDef.id}_${periodStart.getTime()}`
+      const userMission = userMissionMap.get(key)
 
       // 如果仍然沒有找到，使用默認值（不應該發生，但以防萬一）
       if (!userMission) {
@@ -220,21 +245,11 @@ export async function GET() {
       })
     }
 
-    console.log('用戶任務進度數量:', missions.length)
-    console.log('每日任務數量:', missions.filter(m => m.type === 'daily').length)
-    console.log('每週任務數量:', missions.filter(m => m.type === 'weekly').length)
-
-    if (missions.length === 0) {
-      console.warn('⚠️ 警告：沒有返回任何任務！')
-      console.warn('任務定義數量:', missionDefinitions.length)
-      console.warn('用戶 ID:', userRecord.id)
-    }
-
-    console.log('返回任務數據:', { missionsCount: missions.length, missions })
     return NextResponse.json(missions, { 
       status: 200,
       headers: {
         'Content-Type': 'application/json',
+        'Cache-Control': 'private, no-cache, no-store, must-revalidate', // 確保數據是最新的
       },
     }) // 直接返回數組，不是對象
   } catch (error) {

@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Target, Calendar, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SkeletonMissionPanel } from '@/components/ui/skeleton-loader'
+import { useSWR } from '@/lib/swr-config'
 
 interface Mission {
   type: 'daily' | 'weekly'
@@ -23,108 +24,62 @@ interface MissionsPanelProps {
 }
 
 export default function MissionsPanel({ onMissionCompleted }: MissionsPanelProps = {}) {
-  const [missions, setMissions] = useState<Mission[]>([])
-  const [loading, setLoading] = useState(true)
   const previousMissionsRef = useRef<Mission[]>([])
 
-  useEffect(() => {
-    // 只在組件掛載時獲取一次任務
-    fetchMissions()
-  }, [])
+  // 使用 SWR 獲取 missions，自動緩存和去重請求
+  const { data: missionsData, error, isLoading: loading, mutate } = useSWR<Mission[]>(
+    '/api/missions',
+    {
+      revalidateOnFocus: false, // 避免窗口聚焦時重新驗證
+      revalidateOnReconnect: true, // 網路重連時重新驗證
+      dedupingInterval: 10000, // 10 秒內去重相同請求
+      refreshInterval: 0, // 不自動刷新
+      onSuccess: (data) => {
+        // 檢查是否有新完成的任務（任務狀態從未完成變為完成）
+        const previousMissions = previousMissionsRef.current
+        const missionsList = Array.isArray(data) ? data : []
+        const newlyCompleted = missionsList.filter((m: Mission) => {
+          const prev = previousMissions.find((pm: Mission) => pm.missionId === m.missionId)
+          // 任務剛完成（之前未完成，現在完成了）且未領取
+          return m.completed && !m.claimed && (!prev || !prev.completed)
+        })
+
+        // 如果有新完成的任務，通知父組件（只在任務完成當下）
+        if (newlyCompleted.length > 0 && onMissionCompleted) {
+          onMissionCompleted(newlyCompleted)
+        }
+
+        // 更新之前的任務狀態（在通知之後）
+        previousMissionsRef.current = missionsList
+      },
+    }
+  )
 
   // 監聽自定義事件來刷新任務列表（用於在關鍵操作後檢測任務完成）
   useEffect(() => {
     const handleRefresh = () => {
-      fetchMissions()
+      mutate() // 使用 SWR 的 mutate 來重新驗證
     }
     
     window.addEventListener('refreshMissions', handleRefresh)
     return () => {
       window.removeEventListener('refreshMissions', handleRefresh)
     }
-  }, [])
+  }, [mutate])
 
   const handleMissionClaimed = () => {
     // 領取獎勵後立即刷新任務列表
-    fetchMissions()
+    mutate() // 使用 SWR 的 mutate 來重新驗證
     // 通知其他組件更新未領取任務狀態
     window.dispatchEvent(new Event('missionClaimed'))
   }
 
-  const fetchMissions = async () => {
-    try {
-      setLoading(true)
-      console.log('開始獲取任務...')
-      const res = await fetch('/api/missions', {
-        cache: 'no-store',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-      
-      console.log('API 響應狀態:', res.status, res.statusText)
-      
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: '無法解析錯誤響應' }))
-        console.error('取得任務失敗:', res.status, res.statusText, errorData)
-        setMissions([])
-        return
-      }
-      
-      const data = await res.json()
-      console.log('任務 API 回應:', { 
-        status: res.status, 
-        data, 
-        isArray: Array.isArray(data),
-        dataType: typeof data,
-        dataKeys: data && typeof data === 'object' ? Object.keys(data) : 'N/A'
-      })
-      
-      // API 直接返回 missions 數組
-      let missionsList: Mission[] = []
-      if (Array.isArray(data)) {
-        missionsList = data
-      } else if (data && typeof data === 'object') {
-        missionsList = data.missions || data.data || []
-      }
-      
-      console.log('解析後的任務列表:', missionsList, '數量:', missionsList.length)
-      console.log('每日任務:', missionsList.filter((m: Mission) => m.type === 'daily'))
-      console.log('每週任務:', missionsList.filter((m: Mission) => m.type === 'weekly'))
-      
-      if (missionsList.length === 0) {
-        console.warn('⚠️ 任務列表為空！原始 API 返回:', JSON.stringify(data, null, 2))
-      }
-      
-      // 檢查是否有新完成的任務（任務狀態從未完成變為完成）
-      const previousMissions = previousMissionsRef.current
-      const newlyCompleted = missionsList.filter((m: Mission) => {
-        const prev = previousMissions.find((pm: Mission) => pm.missionId === m.missionId)
-        // 任務剛完成（之前未完成，現在完成了）且未領取
-        // 這確保只在任務完成當下觸發
-        return m.completed && !m.claimed && (!prev || !prev.completed)
-      })
-
-      // 更新任務列表
-      setMissions(missionsList)
-      
-      // 如果有新完成的任務，通知父組件（只在任務完成當下）
-      if (newlyCompleted.length > 0 && onMissionCompleted) {
-        // 立即通知，不延遲
-        onMissionCompleted(newlyCompleted)
-      }
-      
-      // 更新之前的任務狀態（在通知之後）
-      previousMissionsRef.current = missionsList
-    } catch (error) {
-      console.error('取得任務失敗:', error)
-      console.error('錯誤詳情:', error instanceof Error ? error.message : String(error))
-      setMissions([])
-    } finally {
-      setLoading(false)
-    }
-  }
+  // 處理數據格式
+  const missions: Mission[] = Array.isArray(missionsData) 
+    ? missionsData 
+    : missionsData && typeof missionsData === 'object' && 'missions' in missionsData
+    ? missionsData.missions || []
+    : []
 
   const dailyMissions = missions.filter((m) => m.type === 'daily')
   const weeklyMissions = missions.filter((m) => m.type === 'weekly')
@@ -153,7 +108,7 @@ export default function MissionsPanel({ onMissionCompleted }: MissionsPanelProps
       <div className="text-center py-8">
         <div className="text-black/40 text-sm mb-4">No missions</div>
         <button
-          onClick={fetchMissions}
+          onClick={() => mutate()}
           className="text-xs text-black/60 underline hover:text-black"
         >
           Click to reload
@@ -178,7 +133,7 @@ export default function MissionsPanel({ onMissionCompleted }: MissionsPanelProps
         <Button
           variant="ghost"
           size="sm"
-          onClick={fetchMissions}
+          onClick={() => mutate()}
           disabled={loading}
           className="ml-2 h-8 w-8 p-0"
           title="Refresh Missions"
