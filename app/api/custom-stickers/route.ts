@@ -103,12 +103,13 @@ export async function POST(request: NextRequest) {
     })
 
     // Deduct points, create purchase record, and update pet in a transaction
+    // 每自行創建一個貼紙 +5 mood（無上限次數）
     const [updatedPet, purchase] = await prisma.$transaction([
       prisma.pet.update({
         where: { id: pet.id },
         data: {
           points: { decrement: CREATION_COST },
-          mood: { increment: Math.min(5, Math.floor(CREATION_COST / 10)) },
+          mood: { increment: Math.min(100 - pet.mood, 5) }, // 每個貼紙 +5，確保不超過 100
         },
       }),
       prisma.petPurchase.create({

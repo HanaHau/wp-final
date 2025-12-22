@@ -66,17 +66,30 @@ export async function POST(request: NextRequest) {
     }
 
     // 扣除點數並記錄購買
+    // 每購買一個飾品或食物 +3 mood（無上限次數）
+    const moodIncrease = (item.category === 'accessory' || item.category === 'food') 
+      ? validatedData.quantity * 3  // 每個物品 +3
+      : 0  // 其他類別（如 decoration）不增加 mood
+    
+    const updateData: {
+      points: { decrement: number }
+      mood?: { increment: number }
+    } = {
+      points: {
+        decrement: totalCost,
+      },
+    }
+    
+    if (moodIncrease > 0) {
+      updateData.mood = {
+        increment: Math.min(100 - pet.mood, moodIncrease), // 確保不超過 100
+      }
+    }
+    
     const [updatedPet, purchase] = await prisma.$transaction([
       prisma.pet.update({
         where: { id: pet.id },
-        data: {
-          points: {
-            decrement: totalCost,
-          },
-          mood: {
-            increment: Math.min(5, Math.floor(totalCost / 10)), // 購買增加心情
-          },
-        },
+        data: updateData,
       }),
       prisma.petPurchase.create({
         data: {

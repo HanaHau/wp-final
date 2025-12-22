@@ -63,12 +63,7 @@ export async function POST(
       return NextResponse.json({ error: '好友還沒有寵物' }, { status: 404 })
     }
 
-    // Update pet mood (limited increase for friend interactions)
-    const newMood = Math.min(100, friendPet.mood + 1)
-    await prisma.pet.update({
-      where: { id: friendPet.id },
-      data: { mood: newMood },
-    })
+    // 移除撫摸好友寵物時的 mood 增加（根據新需求，只有自己的寵物撫摸才會增加 mood）
 
     // 更新每週任務：與3位好友互動（只計算不同的好友）
     // 在創建記錄之前檢查
@@ -128,7 +123,7 @@ export async function POST(
 
     return NextResponse.json({
       message: '已撫摸好友的寵物',
-      moodGain: 1,
+      moodGain: 0, // 撫摸好友寵物不再增加 mood
       missionCompleted: missionCompleted || undefined,
     })
   } catch (error) {
