@@ -211,7 +211,7 @@ export async function getDashboardSummary(userRecordParam?: Awaited<ReturnType<t
     )
     
     // 合併所有需要的 custom sticker IDs，一次性查詢（減少數據庫查詢次數）
-    const allCustomStickerIds = [...new Set([...customStickerIds, ...customStickerIdsForInventory])]
+    const allCustomStickerIds = Array.from(new Set([...customStickerIds, ...customStickerIdsForInventory]))
     const allCustomStickers = allCustomStickerIds.length > 0
       ? await prisma.customSticker.findMany({
           where: { id: { in: allCustomStickerIds } },

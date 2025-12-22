@@ -74,11 +74,9 @@ export default function MissionsPanel({ onMissionCompleted }: MissionsPanelProps
     window.dispatchEvent(new Event('missionClaimed'))
   }
 
-  // 處理數據格式
+  // 處理數據格式（API 直接返回 Mission[] 數組）
   const missions: Mission[] = Array.isArray(missionsData) 
     ? missionsData 
-    : missionsData && typeof missionsData === 'object' && 'missions' in missionsData
-    ? missionsData.missions || []
     : []
 
   const dailyMissions = missions.filter((m) => m.type === 'daily')
