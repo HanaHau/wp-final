@@ -127,6 +127,9 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
   // 樂觀更新：本地可用貼紙狀態（用於即時更新倉庫計數）
   const [optimisticAvailableStickers, setOptimisticAvailableStickers] = useState<AvailableSticker[]>(availableStickers)
   
+  // 樂觀更新：本地可用配件狀態（用於即時更新倉庫計數）
+  const [optimisticAvailableAccessories, setOptimisticAvailableAccessories] = useState<AvailableAccessory[]>(availableAccessories || [])
+  
   // 當 props.stickers 更新時，同步到樂觀狀態（但保留未完成的樂觀更新）
   useEffect(() => {
     setOptimisticStickers((prev) => {
@@ -146,6 +149,11 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
   useEffect(() => {
     setOptimisticAvailableStickers(availableStickers)
   }, [availableStickers])
+  
+  // 當 props.availableAccessories 更新時，同步到樂觀狀態
+  useEffect(() => {
+    setOptimisticAvailableAccessories(availableAccessories || [])
+  }, [availableAccessories])
   
   const [editMode, setEditMode] = useState(false)
   const [internalShowEditPanel, setInternalShowEditPanel] = useState(false)
@@ -513,6 +521,14 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
           const relativeY = 0.5 + (y - petPosition.y) / 0.5
           const clampedX = Math.min(Math.max(relativeX, 0), 1)
           const clampedY = Math.min(Math.max(relativeY, 0), 1)
+          
+          // 立即清理拖放狀態，讓配件立即顯示（樂觀更新）
+          setDraggingItem(null)
+          setDragPreview(null)
+          setDragPosition(null)
+          setIsActuallyDragging(false)
+          
+          // 調用 handlePlaceAccessory（已經有樂觀更新，會立即顯示配件）
           handlePlaceAccessory(draggingItem.id, clampedX, clampedY)
         } else {
           toast({
@@ -741,7 +757,7 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
     setDragPosition({ x: event.clientX, y: event.clientY })
     
     // Set drag preview for accessory
-    const availableAccessory = availableAccessories.find(a => a.accessoryId === accessoryId)
+    const availableAccessory = optimisticAvailableAccessories.find(a => a.accessoryId === accessoryId)
     const shopItem = SHOP_ITEM_MAP[accessoryId]
     const emoji = availableAccessory?.emoji || shopItem?.emoji || '🎀'
     
@@ -780,6 +796,21 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
       scale: 1,
     }
     setOptimisticAccessories((prev) => [...prev, tempAccessory])
+    
+    // 樂觀更新：立即減少倉庫中的配件計數
+    setOptimisticAvailableAccessories((prev) =>
+      prev.map((a) =>
+        a.accessoryId === accessoryId && a.count > 0
+          ? { ...a, count: a.count - 1 }
+          : a
+      )
+    )
+    
+    // 立即顯示 toast（樂觀更新）
+    toast({
+      title: 'Accessory equipped!',
+      description: 'Successfully added accessory to pet',
+    })
 
     try {
       const res = await fetch('/api/pet/accessories', {
@@ -805,8 +836,15 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
         }
       } else {
         const error = await res.json()
-        // 如果失敗，移除臨時配件
+        // 如果失敗，移除臨時配件並恢復倉庫計數
         setOptimisticAccessories((prev) => prev.filter((a) => a.id !== tempAccessory.id))
+        setOptimisticAvailableAccessories((prev) =>
+          prev.map((a) =>
+            a.accessoryId === accessoryId
+              ? { ...a, count: a.count + 1 }
+              : a
+          )
+        )
         toast({
           title: 'Failed to place accessory',
           description: error.error || 'Please try again',
@@ -815,11 +853,18 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
       }
     } catch (error) {
       console.error('Place accessory error:', error)
-      // 如果失敗，移除臨時配件
+      // 如果失敗，移除臨時配件並恢復倉庫計數
       setOptimisticAccessories((prev) => prev.filter((a) => a.id !== tempAccessory.id))
+      setOptimisticAvailableAccessories((prev) =>
+        prev.map((a) =>
+          a.accessoryId === accessoryId
+            ? { ...a, count: a.count + 1 }
+            : a
+        )
+      )
       toast({
         title: 'Failed to place accessory',
-        description: 'Please try again',
+        description: 'Please try again later',
         variant: 'destructive',
       })
     }
@@ -829,6 +874,15 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
     // 樂觀更新：立即移除配件
     const removedAccessory = optimisticAccessories.find(a => a.id === accessoryId)
     setOptimisticAccessories((prev) => prev.filter((a) => a.id !== accessoryId))
+    
+    // 樂觀更新：立即增加倉庫中的配件計數
+    setOptimisticAvailableAccessories((prev) =>
+      prev.map((a) =>
+        a.accessoryId === removedAccessory?.accessoryId
+          ? { ...a, count: a.count + 1 }
+          : a
+      )
+    )
 
     try {
       const res = await fetch(`/api/pet/accessories/${accessoryId}`, {
@@ -843,9 +897,16 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
         onAccessoryPlaced()
       }
     } catch (error) {
-      // 如果失敗，恢復配件
+      // 如果失敗，恢復配件並回滾倉庫計數
       if (removedAccessory) {
         setOptimisticAccessories((prev) => [...prev, removedAccessory])
+        setOptimisticAvailableAccessories((prev) =>
+          prev.map((a) =>
+            a.accessoryId === removedAccessory.accessoryId
+              ? { ...a, count: Math.max(0, a.count - 1) }
+              : a
+          )
+        )
       }
       console.error('Remove accessory error:', error)
       toast({
@@ -1191,7 +1252,7 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
         }}
         availableStickers={optimisticAvailableStickers}
         foodItems={foodItems}
-        availableAccessories={availableAccessories}
+        availableAccessories={optimisticAvailableAccessories}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onFoodDragStart={handleFoodDragStart}
@@ -1269,7 +1330,7 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
 
       {/* Drag overlay for accessories */}
       {draggingItem && draggingItem.type === 'accessory' && dragPosition && (() => {
-        const availableAccessory = availableAccessories.find(a => a.accessoryId === draggingItem.id)
+        const availableAccessory = optimisticAvailableAccessories.find(a => a.accessoryId === draggingItem.id)
         const shopItem = SHOP_ITEM_MAP[draggingItem.id]
         const emoji = availableAccessory?.emoji || shopItem?.emoji || '🎀'
         
@@ -1393,13 +1454,14 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
                   const clampedX = Math.min(Math.max(relativeX, 0), 1)
                   const clampedY = Math.min(Math.max(relativeY, 0), 1)
 
-                  handlePlaceAccessory(parsed.accessoryId, clampedX, clampedY).finally(() => {
-                    // Clean up drag state after placing accessory
-                    setDraggingItem(null)
-                    setDragPreview(null)
-                    setDragPosition(null)
-                    setIsActuallyDragging(false)
-                  })
+                  // 立即清理拖放狀態，讓配件立即顯示（樂觀更新）
+                  setDraggingItem(null)
+                  setDragPreview(null)
+                  setDragPosition(null)
+                  setIsActuallyDragging(false)
+
+                  // 調用 handlePlaceAccessory（已經有樂觀更新，會立即顯示配件）
+                  handlePlaceAccessory(parsed.accessoryId, clampedX, clampedY)
                   return
                 }
                 // Clean up drag state on invalid drop
@@ -1958,10 +2020,10 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
         {/* Accessories palette */}
         <div className="relative flex flex-col w-full min-h-[180px] rounded-xl border border-black/20 bg-white/90 backdrop-blur-sm px-3 py-2 shadow-sm">
           <h3 className="text-xs text-black/60 uppercase tracking-wide mb-2 sticky top-0 bg-white">Accessories</h3>
-          {availableAccessories.length > 0 ? (
+          {optimisticAvailableAccessories.length > 0 ? (
             <>
               <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-1">
-                {availableAccessories.map((accessory) => (
+                {optimisticAvailableAccessories.map((accessory) => (
                   <div
                     key={accessory.accessoryId}
                     draggable={accessory.count > 0}
