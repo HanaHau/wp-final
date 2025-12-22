@@ -859,6 +859,22 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
   const handleFeedPet = async (itemId: string): Promise<void> => {
     if (feeding) return Promise.resolve()
     setFeeding(true)
+
+    // 計算預期的 fullnessGain（樂觀更新）
+    let expectedFullnessGain: number
+    if (itemId.startsWith('custom-')) {
+      expectedFullnessGain = 10 // 預設值，API 會返回實際值
+    } else {
+      const item = SHOP_ITEM_MAP[itemId]
+      expectedFullnessGain = item?.fullnessRecovery ?? item?.cost ?? 10
+    }
+
+    // 樂觀更新：立即顯示 toast（加速用戶體驗）
+    toast({
+      title: 'Pet fed!',
+      description: `Fullness +${expectedFullnessGain}`,
+    })
+
     try {
       const res = await fetch('/api/pet/feed', {
         method: 'POST',
@@ -872,10 +888,13 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
       }
 
       const data = await res.json()
-      toast({
-        title: data.message || 'Pet fed!',
-        description: `Mood: +10, Fullness: +15`,
-      })
+      // 如果實際值與預期不同，更新 toast（但通常不會發生）
+      if (data.fullnessGain !== expectedFullnessGain) {
+        toast({
+          title: data.message || 'Pet fed!',
+          description: `Fullness +${data.fullnessGain}`,
+        })
+      }
       onPetFed?.()
     } catch (error: any) {
       toast({

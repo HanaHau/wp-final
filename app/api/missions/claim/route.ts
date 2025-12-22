@@ -56,57 +56,57 @@ export async function POST(request: Request) {
 
     // 使用事務一次性完成所有操作，確保一致性並減少查詢次數
     const result = await prisma.$transaction(async (tx) => {
-      // 查找任務定義
+    // 查找任務定義
       const missionDef = await tx.mission.findUnique({
-        where: { code },
-      })
+      where: { code },
+    })
 
-      if (!missionDef) {
+    if (!missionDef) {
         throw new Error('任務定義不存在')
-      }
+    }
 
-      console.log('任務定義:', { code: missionDef.code, title: missionDef.title, reward: missionDef.reward })
+    console.log('任務定義:', { code: missionDef.code, title: missionDef.title, reward: missionDef.reward })
 
-      // 查找用戶任務記錄
+    // 查找用戶任務記錄
       const userMission = await tx.missionUser.findUnique({
-        where: {
-          userId_missionId_periodStart: {
-            userId: userRecord.id,
-            missionId: missionDef.id,
-            periodStart: periodStart,
-          },
+      where: {
+        userId_missionId_periodStart: {
+          userId: userRecord.id,
+          missionId: missionDef.id,
+          periodStart: periodStart,
         },
-      })
+      },
+    })
 
-      if (!userMission) {
+    if (!userMission) {
         throw new Error('任務記錄不存在')
-      }
+    }
 
-      console.log('任務記錄:', { 
-        completed: userMission.completed, 
-        claimed: userMission.claimed,
-        progress: userMission.progress,
-        target: missionDef.target
-      })
+    console.log('任務記錄:', { 
+      completed: userMission.completed, 
+      claimed: userMission.claimed,
+      progress: userMission.progress,
+      target: missionDef.target
+    })
 
-      if (!userMission.completed) {
+    if (!userMission.completed) {
         throw new Error('任務尚未完成')
-      }
+    }
 
-      if (userMission.claimed) {
+    if (userMission.claimed) {
         throw new Error('獎勵已領取')
-      }
+    }
 
       // 同時更新任務狀態和寵物點數
       const [updatedMission, pet] = await Promise.all([
-        // 更新任務為已領取
+    // 更新任務為已領取
         tx.missionUser.update({
-          where: { id: userMission.id },
+        where: { id: userMission.id },
           data: { claimed: true },
         }),
         // 查找寵物（用於更新點數）
         tx.pet.findUnique({
-          where: { userId: userRecord.id },
+        where: { userId: userRecord.id },
           select: { id: true, points: true },
         }),
       ])

@@ -369,7 +369,30 @@ export default function PetRoomContent() {
   const handleFeedPet = async (itemId: string) => {
     if (isPetDead) return // 寵物死亡時不執行操作
     const food = foodItems.find(f => f.itemId === itemId)
-    if (!food || !petImageRef.current) return
+    if (!food || !petImageRef.current || !pet) return
+
+    // 計算預期的 fullnessGain（樂觀更新）
+    let expectedFullnessGain: number
+    if (itemId.startsWith('custom-')) {
+      // 對於自訂食物，需要從 API 獲取，但先使用預估值（通常等於價格）
+      // 如果失敗會回滾
+      expectedFullnessGain = 10 // 預設值，API 會返回實際值
+    } else {
+      // 對於普通食物，從 SHOP_ITEM_MAP 獲取
+      const item = SHOP_ITEM_MAP[itemId]
+      expectedFullnessGain = item?.fullnessRecovery ?? item?.cost ?? 10
+    }
+
+    // 樂觀更新：立即更新 fullness 和顯示 toast（加速用戶體驗）
+    const previousFullness = pet.fullness
+    const newFullness = Math.min(100, pet.fullness + expectedFullnessGain)
+    setPet(prev => prev ? { ...prev, fullness: newFullness } : null)
+
+    // 立即顯示 toast（樂觀更新）
+    toast({
+      title: 'Feed successful!',
+      description: `Fullness +${expectedFullnessGain}`,
+    })
 
     // Get panel and pet positions for animation
     const panelElement = document.querySelector('[data-feed-panel]') as HTMLElement
@@ -405,28 +428,25 @@ export default function PetRoomContent() {
       if (!res.ok) throw new Error('Failed to feed')
       const data = await res.json()
       
-      // Show success effects
-      setTimeout(() => {
-        showParticleEffect('❤️', 5)
-        showParticleEffect('⭐', 3)
-      }, 600)
+      // 使用實際的 fullnessGain 更新（如果與預期不同）
+      if (data.fullnessGain !== expectedFullnessGain && pet) {
+        const actualNewFullness = Math.min(100, previousFullness + data.fullnessGain)
+        setPet(prev => prev ? { ...prev, fullness: actualNewFullness } : null)
+      }
       
-      toast({
-        title: 'Feed successful!',
-        description: `Fullness +${data.fullnessGain}`,
-      })
-      
-      // Reset states
+      // Reset states（減少延遲以加速）
       setTimeout(() => {
         setFeedingAnimation(null)
         setPetState('idle')
-      }, 1200)
+      }, 600) // 從 1200ms 減少到 600ms
       
-      // 使用 SWR mutate 刷新資料
+      // 使用 SWR mutate 刷新資料（減少延遲以加速）
       setTimeout(() => {
         mutateSummary()
-      }, 1200)
+      }, 600) // 從 1200ms 減少到 600ms
     } catch (error: any) {
+      // 回滾樂觀更新
+      setPet(prev => prev ? { ...prev, fullness: previousFullness } : null)
       setFeedingAnimation(null)
       setPetState('idle')
       toast({

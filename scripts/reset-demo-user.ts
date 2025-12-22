@@ -7,7 +7,7 @@ async function main() {
 
   // 1. 找到用戶
   const user = await prisma.user.findUnique({
-    where: { email: 'demo@example.com' },
+    where: { email: 'demo2@example.com' },
     include: {
       pet: true,
     },
