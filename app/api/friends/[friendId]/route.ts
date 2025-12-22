@@ -14,6 +14,9 @@ export async function GET(
       return NextResponse.json({ error: '未授權' }, { status: 401 })
     }
 
+    const { friendId } = params
+
+    // 獲取用戶記錄
     const userRecord = await prisma.user.findUnique({
       where: { email: user.email! },
       select: { id: true },
@@ -23,55 +26,51 @@ export async function GET(
       return NextResponse.json({ error: '使用者不存在' }, { status: 404 })
     }
 
-    const { friendId } = params
-
-    // Check if they are friends
-    const friendship = await prisma.friend.findFirst({
-      where: {
-        AND: [
-          { status: 'accepted' },
-          {
-            OR: [
-              { userId: userRecord.id, friendId },
-              { userId: friendId, friendId: userRecord.id },
-            ],
+    // 並行執行：檢查好友關係、獲取好友寵物數據和用戶信息（加速訪問）
+    const [friendship, friendPet, friendUser] = await Promise.all([
+      prisma.friend.findFirst({
+        where: {
+          AND: [
+            { status: 'accepted' },
+            {
+              OR: [
+                { userId: userRecord.id, friendId },
+                { userId: friendId, friendId: userRecord.id },
+              ],
+            },
+          ],
+        },
+      }),
+      prisma.pet.findUnique({
+        where: { userId: friendId },
+        include: {
+          stickers: true,
+          accessories: true,
+          purchases: {
+            orderBy: { purchasedAt: 'desc' },
+            take: 50,
           },
-        ],
-      },
-    })
+        },
+      }),
+      prisma.user.findUnique({
+        where: { id: friendId },
+        select: {
+          id: true,
+          email: true,
+          userID: true,
+          name: true,
+          image: true,
+        },
+      }),
+    ])
 
     if (!friendship) {
       return NextResponse.json({ error: '不是好友關係' }, { status: 403 })
     }
 
-    // Get friend's pet data
-    const friendPet = await prisma.pet.findUnique({
-      where: { userId: friendId },
-      include: {
-        stickers: true,
-        accessories: true,
-        purchases: {
-          orderBy: { purchasedAt: 'desc' },
-          take: 50,
-        },
-      },
-    })
-
     if (!friendPet) {
       return NextResponse.json({ error: '好友還沒有寵物' }, { status: 404 })
     }
-
-    // Get friend user info
-    const friendUser = await prisma.user.findUnique({
-      where: { id: friendId },
-      select: {
-        id: true,
-        email: true,
-        userID: true,
-        name: true,
-        image: true,
-      },
-    })
 
     // 更新任務：拜訪好友
     const missionCompleted = await updateMissionProgress(userRecord.id, 'daily', 'visit_friend', 1)

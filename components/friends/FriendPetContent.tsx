@@ -70,7 +70,8 @@ export default function FriendPetContent({ friendId }: { friendId: string }) {
   }
 
   const handleLeave = () => {
-    router.push('/friends')
+    // 使用 back() 立即返回上一頁，不等待動畫
+    router.back()
   }
 
   if (loading) {
