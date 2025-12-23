@@ -76,7 +76,10 @@ interface RoomProps {
   onStickerPlaced?: () => void
   onPetFed?: () => void
   onAccessoryPlaced?: () => void
-  onPetUpdate?: (pet: Pet) => void // 用於樂觀更新 pet 狀態
+  onPetUpdate?: (pet: Pet) => void
+  onPetPositionChange?: (position: { x: number; y: number }) => void
+  chatBubbles?: Array<{ id: string; message: string; position: { x: number; y: number } }>
+  onChatBubbleClose?: (id: string) => void
 }
 
 const BASE_STICKERS: Record<string, { emoji: string; name: string }> = {
@@ -101,7 +104,7 @@ const STICKER_TYPES: Record<string, { emoji: string; name: string }> = {
   ...SHOP_STICKERS,
 }
 
-export default function Room({ pet, stickers = [], availableStickers = [], foodItems = [], accessories = [], availableAccessories = [], showEditPanel: externalShowEditPanel, onEditPanelChange, onStickerPlaced, onPetFed, onAccessoryPlaced, onPetUpdate }: RoomProps) {
+export default function Room({ pet, stickers = [], availableStickers = [], foodItems = [], accessories = [], availableAccessories = [], showEditPanel: externalShowEditPanel, onEditPanelChange, onStickerPlaced, onPetFed, onAccessoryPlaced, onPetUpdate, onPetPositionChange, chatBubbles = [], onChatBubbleClose }: RoomProps) {
   const [hoveredStickerId, setHoveredStickerId] = useState<string | null>(null)
   const { toast } = useToast()
   const [placingStickers, setPlacingStickers] = useState<Set<string>>(new Set())
@@ -184,6 +187,11 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
 
   // Track if position has been initialized
   const positionInitializedRef = useRef(false)
+
+  // Track pet position changes and notify parent
+  useEffect(() => {
+    onPetPositionChange?.(petPosition)
+  }, [petPosition, onPetPositionChange])
 
   // Optimized pet movement with smooth transitions and natural behavior
   useEffect(() => {
@@ -1916,6 +1924,36 @@ export default function Room({ pet, stickers = [], availableStickers = [], foodI
             </div>
           )}
         </div>
+        
+        {/* 寵物聊天氣泡 - 使用 absolute 定位，類似 tooltip */}
+        {chatBubbles.map((bubble) => (
+          <div
+            key={bubble.id}
+            className="absolute z-40 pointer-events-auto"
+            style={{
+              left: `${bubble.position.x * 100}%`,
+              top: `${bubble.position.y * 100}%`,
+              transform: 'translate(-50%, -180px)', // 水平置中，向上移動固定距離（增加高度）
+            }}
+          >
+            <div 
+              className="bg-white/95 backdrop-blur-sm rounded-2xl border-2 border-black/20 px-4 py-3 shadow-xl"
+              onClick={() => onChatBubbleClose?.(bubble.id)}
+              style={{
+                minWidth: '200px',
+                maxWidth: '400px',
+                wordWrap: 'break-word',
+                whiteSpace: 'normal',
+              }}
+            >
+              <div className="text-sm text-black leading-relaxed whitespace-pre-wrap break-words">
+                {bubble.message}
+              </div>
+              {/* 氣泡指向符 */}
+              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full w-0 h-0 border-l-[8px] border-r-[8px] border-t-[8px] border-l-transparent border-r-transparent border-t-white/95"></div>
+            </div>
+          </div>
+        ))}
       </div>
           )}
 

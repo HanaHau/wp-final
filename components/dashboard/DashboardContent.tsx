@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useSWR } from '@/lib/swr-config'
 import { mutate } from 'swr'
@@ -13,7 +13,6 @@ import { Plus, Package, ListChecks } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
 import { ToastAction } from '@/components/ui/toast'
 import ChatInput from '@/components/chat/ChatInput'
-import PetChatBubble from '@/components/chat/PetChatBubble'
 
 interface Pet {
   id: string
@@ -101,6 +100,8 @@ export default function DashboardContent() {
   const [chatBubbles, setChatBubbles] = useState<Array<{ id: string; message: string; position: { x: number; y: number } }>>([])
   const [isChatLoading, setIsChatLoading] = useState(false)
   const [transactionInitialValues, setTransactionInitialValues] = useState<any>(null)
+  const [petPosition, setPetPosition] = useState({ x: 0.5, y: 0.75 })
+  const roomRef = useRef<HTMLDivElement>(null)
 
   // 使用 SWR 獲取 fast dashboard summary（快速資料）
   const { data: fastSummary, error: fastError, isLoading: fastLoading, mutate: mutateFast } = useSWR('/api/dashboard/summary/fast')
@@ -324,8 +325,8 @@ export default function DashboardContent() {
       // Show pet response as chat bubble
       if (data.message) {
         const bubbleId = `bubble-${Date.now()}-${Math.random()}`
-        const position = { x: 50, y: 30 } // Position near pet's head (center-top of room)
-        setChatBubbles((prev) => [...prev, { id: bubbleId, message: data.message, position }])
+        // Use current pet position when creating the bubble
+        setChatBubbles((prev) => [...prev, { id: bubbleId, message: data.message, position: petPosition }])
 
         // Remove bubble after 15 seconds (longer duration for better readability)
         setTimeout(() => {
@@ -553,37 +554,32 @@ export default function DashboardContent() {
 
       {/* 主內容區 - 房間顯示 */}
       <main className="flex-1 flex items-start justify-start px-4 pb-20 pt-24 gap-4 relative">
-        <Room
-          pet={pet}
-          stickers={stickers}
-          availableStickers={availableStickers}
-          foodItems={foodItems}
-          accessories={accessories}
-          availableAccessories={availableAccessories}
-          showEditPanel={showEditPanel}
-          onEditPanelChange={setShowEditPanel}
-          onStickerPlaced={handleStickerPlaced}
-          onPetFed={handlePetFed}
-          onAccessoryPlaced={() => {
-            fetchDashboardSummary()
-          }}
-          onPetUpdate={(updatedPet) => {
-            // 樂觀更新：立即更新 pet 狀態
-            setPet(updatedPet)
-            // 後台刷新數據
-            mutateFast()
-          }}
-        />
-        {/* 寵物聊天氣泡 */}
-        {chatBubbles.map((bubble) => (
-          <PetChatBubble
-            key={bubble.id}
-            message={bubble.message}
-            position={bubble.position}
-            onClose={() => removeChatBubble(bubble.id)}
-            duration={15000}
+        <div ref={roomRef} className="flex-1 w-full">
+          <Room
+            pet={pet}
+            stickers={stickers}
+            availableStickers={availableStickers}
+            foodItems={foodItems}
+            accessories={accessories}
+            availableAccessories={availableAccessories}
+            showEditPanel={showEditPanel}
+            onEditPanelChange={setShowEditPanel}
+            onStickerPlaced={handleStickerPlaced}
+            onPetFed={handlePetFed}
+            onAccessoryPlaced={() => {
+              fetchDashboardSummary()
+            }}
+            onPetUpdate={(updatedPet) => {
+              // 樂觀更新：立即更新 pet 狀態
+              setPet(updatedPet)
+              // 後台刷新數據
+              mutateFast()
+            }}
+            onPetPositionChange={setPetPosition}
+            chatBubbles={chatBubbles}
+            onChatBubbleClose={removeChatBubble}
           />
-        ))}
+        </div>
       </main>
 
       {/* 記帳對話框 */}
