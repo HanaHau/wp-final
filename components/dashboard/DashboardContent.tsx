@@ -165,9 +165,9 @@ export default function DashboardContent() {
     }
   }, [monthlyStats])
 
-  useEffect(() => {
-    checkUnclaimedMissions()
-  }, [])
+  // 注意：不再需要在這裡調用 checkUnclaimedMissions()
+  // 因為 fastSummary 已經包含了 unclaimedMissions 資料
+  // 這樣可以減少一次不必要的 API 請求
 
   // Listen for mission updates to refresh unclaimed missions indicator
   useEffect(() => {

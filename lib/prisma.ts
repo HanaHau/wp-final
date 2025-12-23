@@ -9,34 +9,45 @@ const globalForPrisma = globalThis as unknown as {
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+    // 減少日誌輸出以提升效能
+    log: process.env.NODE_ENV === 'development' ? ['error'] : [],
     datasources: {
       db: {
         url: process.env.DATABASE_URL,
       },
     },
-    // 優化連線池配置以減少連線建立時間
-    // 在 Vercel 等 serverless 環境中，這些參數可以幫助減少冷啟動時間
   })
 
 // Ensure the same instance is reused in all environments (avoid connection pool exhaustion)
-globalForPrisma.prisma = prisma
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma
+} else {
+  // 在生產環境中也確保重用
+  globalForPrisma.prisma = prisma
+}
 
 // Gracefully disconnect when application closes
+// 注意：在 serverless 環境中，這些事件處理器可能不會被觸發
+// 但保留它們以確保在傳統伺服器環境中正確清理
 if (typeof window === 'undefined') {
-  // Only execute on server side
-  process.on('beforeExit', async () => {
+  const cleanup = async () => {
     await prisma.$disconnect()
-  })
+  }
   
-  process.on('SIGINT', async () => {
-    await prisma.$disconnect()
-    process.exit(0)
-  })
-  
-  process.on('SIGTERM', async () => {
-    await prisma.$disconnect()
-    process.exit(0)
-  })
+  // 只註冊一次事件處理器
+  const handlers = (globalThis as any).__prismaCleanupHandlers
+  if (!handlers) {
+    (globalThis as any).__prismaCleanupHandlers = true
+    
+    process.on('beforeExit', cleanup)
+    process.on('SIGINT', async () => {
+      await cleanup()
+      process.exit(0)
+    })
+    process.on('SIGTERM', async () => {
+      await cleanup()
+      process.exit(0)
+    })
+  }
 }
 

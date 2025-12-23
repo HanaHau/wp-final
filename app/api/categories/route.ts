@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUserRecord } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
-// 使用 revalidate 快取策略，300 秒內重用相同響應（類別不常變動，使用較長的快取時間）
-export const revalidate = 300
+// 使用 revalidate 快取策略，600 秒內重用相同響應（類別不常變動，使用較長的快取時間）
+export const revalidate = 600
 
 const categorySchema = z.object({
   name: z.string().min(1),
@@ -15,7 +15,8 @@ const categorySchema = z.object({
 // GET /api/categories - Get category list
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
+    // 優化：直接使用 getCurrentUserRecord，避免額外查詢
+    const user = await getCurrentUserRecord()
     if (!user) {
       return NextResponse.json({ error: '未授權' }, { status: 401 })
     }
@@ -65,7 +66,8 @@ export async function GET(request: NextRequest) {
 // POST /api/categories - Create category
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
+    // 優化：直接使用 getCurrentUserRecord，避免額外查詢
+    const user = await getCurrentUserRecord()
     if (!user) {
       return NextResponse.json({ error: '未授權' }, { status: 401 })
     }

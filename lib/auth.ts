@@ -1,6 +1,22 @@
-import { getServerSession } from 'next-auth'
+import { getServerSession, Session } from 'next-auth'
 import { authOptions } from '@/lib/auth-options'
 import { prisma } from '@/lib/prisma'
+
+// 快取：避免在同一請求中重複查詢
+let cachedSession: Session | null = null
+let cachedUserRecord: Awaited<ReturnType<typeof ensureUserRecord>> | null = null
+let cacheTimestamp = 0
+const CACHE_TTL = 100 // 100ms - 足夠覆蓋同一請求週期內的多次調用
+
+function clearCache() {
+  cachedSession = null
+  cachedUserRecord = null
+  cacheTimestamp = 0
+}
+
+function isCacheValid() {
+  return Date.now() - cacheTimestamp < CACHE_TTL
+}
 
 async function ensureUserRecord(sessionUser: {
   id?: string
@@ -54,7 +70,14 @@ async function ensureUserRecord(sessionUser: {
 }
 
 export async function getSession() {
-  return await getServerSession(authOptions)
+  // 使用快取避免重複調用
+  if (cachedSession && isCacheValid()) {
+    return cachedSession
+  }
+  
+  cachedSession = await getServerSession(authOptions)
+  cacheTimestamp = Date.now()
+  return cachedSession
 }
 
 export async function getCurrentUser() {
@@ -63,19 +86,25 @@ export async function getCurrentUser() {
     return null
   }
 
-  await ensureUserRecord(session.user)
+  // 確保用戶記錄存在（會更新快取）
+  await getCurrentUserRecord()
   return session.user
 }
 
 // 獲取當前用戶的資料庫記錄（包含 ID）
 export async function getCurrentUserRecord() {
+  // 使用快取避免重複查詢
+  if (cachedUserRecord && isCacheValid()) {
+    return cachedUserRecord
+  }
+  
   const session = await getSession()
   if (!session?.user?.email) {
     return null
   }
 
-  const userRecord = await ensureUserRecord(session.user)
-  return userRecord
+  cachedUserRecord = await ensureUserRecord(session.user)
+  return cachedUserRecord
 }
 
 export async function checkInitialization() {
@@ -96,5 +125,10 @@ export async function checkInitialization() {
       image: userRecord.image,
     },
   }
+}
+
+// 清除快取（在需要時調用，例如登出後）
+export function clearAuthCache() {
+  clearCache()
 }
 

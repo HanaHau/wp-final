@@ -1,25 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUserRecord } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
-// 使用 revalidate 快取策略，60 秒內重用相同響應（僅對 GET 請求有效）
-export const revalidate = 60
+// 使用 revalidate 快取策略，30 秒內重用相同響應
+export const revalidate = 30
 
 // Get friends list
 export async function GET() {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const userRecord = await prisma.user.findUnique({
-      where: { email: user.email! },
-      select: { id: true },
-    })
-
+    // 優化：直接使用 getCurrentUserRecord，避免額外查詢
+    const userRecord = await getCurrentUserRecord()
     if (!userRecord) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Get friends where current user is either userId or friendId
@@ -85,18 +77,10 @@ export async function GET() {
 // Add friend
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const userRecord = await prisma.user.findUnique({
-      where: { email: user.email! },
-      select: { id: true },
-    })
-
+    // 優化：直接使用 getCurrentUserRecord，避免額外查詢
+    const userRecord = await getCurrentUserRecord()
     if (!userRecord) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const body = await request.json()

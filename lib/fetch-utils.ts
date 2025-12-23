@@ -2,8 +2,8 @@
 const pendingRequests = new Map<string, Promise<any>>()
 const responseCache = new Map<string, { data: any; timestamp: number }>()
 
-// 快取過期時間（毫秒）：30 秒（延長快取時間以減少重複請求）
-const CACHE_TTL = 30000
+// 快取過期時間（毫秒）：60 秒（進一步延長快取時間以減少重複請求）
+const CACHE_TTL = 60000
 
 /**
  * 帶去重和快取的 fetch 函數

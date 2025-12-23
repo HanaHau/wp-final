@@ -554,7 +554,7 @@ export async function getDashboardSummaryFast(): Promise<Partial<DashboardSummar
       return null
     }
 
-    // 獲取或創建 pet
+    // 第一階段：獲取 pet（需要 pet.id 才能進行後續查詢）
     let pet = await prisma.pet.findUnique({
       where: { userId: userRecord.id },
     })
@@ -575,7 +575,7 @@ export async function getDashboardSummaryFast(): Promise<Partial<DashboardSummar
       })
     }
 
-    // 處理每日重置邏輯
+    // 處理每日重置邏輯（計算更新數據，但不立即執行）
     const now = new Date()
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const lastReset = pet.lastDailyReset ? new Date(pet.lastDailyReset) : null
@@ -629,15 +629,12 @@ export async function getDashboardSummaryFast(): Promise<Partial<DashboardSummar
       updateData.consecutiveLoginDays = 1
     }
 
-    if (Object.keys(updateData).length > 0) {
-      pet = await prisma.pet.update({
-        where: { id: pet.id },
-        data: updateData,
-      })
-    }
-
-    // 並行查詢快速資料（不包含 transactions）
+    // 第二階段：並行查詢所有資料（包含 pet 更新）
+    // 將 pet 更新和其他查詢合併到同一個 Promise.all 中
+    const needsPetUpdate = Object.keys(updateData).length > 0
+    
     const [
+      updatedPet,
       roomStickers,
       petPurchases,
       placedStickers,
@@ -646,6 +643,14 @@ export async function getDashboardSummaryFast(): Promise<Partial<DashboardSummar
       friendInvitations,
       petAccessories,
     ] = await Promise.all([
+      // Pet 更新（如果需要）
+      needsPetUpdate 
+        ? prisma.pet.update({
+            where: { id: pet.id },
+            data: updateData,
+          })
+        : Promise.resolve(pet),
+      // 其他查詢
       prisma.roomSticker.findMany({
         where: { petId: pet.id },
         orderBy: { createdAt: 'asc' },
@@ -688,21 +693,24 @@ export async function getDashboardSummaryFast(): Promise<Partial<DashboardSummar
         orderBy: { createdAt: 'asc' },
       }),
     ])
+    
+    // 使用更新後的 pet
+    pet = updatedPet
 
-    // 收集所有 custom sticker IDs（房間貼紙 + 食物 + 配件）
+    // 收集所有 custom sticker IDs（房間貼紙 + 食物 + 配件）- 同步操作，不需要 await
     const allCustomStickerIds = new Set<string>()
-    roomStickers.forEach((s) => {
+    for (const s of roomStickers) {
       if (s.stickerId.startsWith('custom-')) {
         allCustomStickerIds.add(s.stickerId.replace('custom-', ''))
       }
-    })
-    petPurchases.forEach((p) => {
+    }
+    for (const p of petPurchases) {
       if (p.itemId.startsWith('custom-')) {
         allCustomStickerIds.add(p.itemId.replace('custom-', ''))
       }
-    })
+    }
 
-    // 一次性查詢所有 custom stickers
+    // 一次性查詢所有 custom stickers（這是唯一需要的後續查詢）
     const customStickers = allCustomStickerIds.size > 0
       ? await prisma.customSticker.findMany({
           where: { id: { in: Array.from(allCustomStickerIds) } },

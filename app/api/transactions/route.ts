@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUserRecord } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { updateMissionProgress } from '@/lib/missions'
 
-// 使用 revalidate 快取策略，60 秒內重用相同響應（僅對 GET 請求有效）
-export const revalidate = 60
+// 使用 revalidate 快取策略，30 秒內重用相同響應（僅對 GET 請求有效）
+export const revalidate = 30
 
 const transactionSchema = z.object({
   amount: z.number().positive(),
@@ -78,7 +78,8 @@ async function findOrCreateCategory(
 // GET /api/transactions - Get transaction list
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
+    // 優化：直接使用 getCurrentUserRecord，避免額外查詢
+    const user = await getCurrentUserRecord()
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -170,7 +171,8 @@ export async function GET(request: NextRequest) {
 // POST /api/transactions - Create transaction
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
+    // 優化：直接使用 getCurrentUserRecord，避免額外查詢
+    const user = await getCurrentUserRecord()
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -234,7 +236,6 @@ export async function POST(request: NextRequest) {
         },
       })
       newBalance = updatedUser.balance
-      console.log(`Balance updated: typeId=${typeId}, amount=${validatedData.amount}, delta=${balanceDelta}, new balance=${newBalance}`)
     } else {
       // 如果沒有餘額變化，也需要獲取當前餘額
       const currentUser = await prisma.user.findUnique({

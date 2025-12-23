@@ -1,29 +1,18 @@
 import { NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUserRecord } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
-export const dynamic = 'force-dynamic'
+// 使用 revalidate 快取策略，30 秒內重用相同響應
+export const revalidate = 30
 
 export async function GET() {
   try {
-    console.log('=== GET /api/missions/completed 開始 ===')
-    const user = await getCurrentUser()
-    if (!user || !user.email) {
-      console.log('未授權：沒有用戶或 email')
+    // 優化：直接使用 getCurrentUserRecord，避免兩次查詢
+    const userRecord = await getCurrentUserRecord()
+    if (!userRecord) {
       return NextResponse.json({ error: '未授權' }, { status: 401 })
     }
 
-    const userRecord = await prisma.user.findUnique({
-      where: { email: user.email },
-      select: { id: true },
-    })
-
-    if (!userRecord) {
-      console.log('使用者不存在')
-      return NextResponse.json({ error: '使用者不存在' }, { status: 404 })
-    }
-
-    console.log('查詢已完成但未領取的任務...')
     
     const completedMissions = await prisma.missionUser.findMany({
       where: {
@@ -39,7 +28,6 @@ export async function GET() {
       },
       orderBy: { completedAt: 'desc' },
     })
-    console.log('已完成但未領取的任務數量:', completedMissions.length)
 
     const missions = completedMissions.map((m) => ({
       missionId: m.mission.code, // 保持向後兼容

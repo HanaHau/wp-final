@@ -11,6 +11,7 @@ import AddFriendDialog from './AddFriendDialog'
 import InvitationDialog from './InvitationDialog'
 import FriendActivityLog from './FriendActivityLog'
 import FriendActivityToast from './FriendActivityToast'
+import { useSWR } from '@/lib/swr-config'
 import { UserPlus, Search, Mail, BookOpen } from 'lucide-react'
 
 interface Friend {
@@ -23,54 +24,48 @@ interface Friend {
 }
 
 interface FriendsBoardProps {
-  initialFriends: Friend[]
+  initialFriends?: Friend[] // 改為可選
 }
 
 export default function FriendsBoard({ initialFriends }: FriendsBoardProps) {
   const router = useRouter()
   const { toast } = useToast()
-  const [friends, setFriends] = useState<Friend[]>(initialFriends)
   const [searchFilter, setSearchFilter] = useState('')
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showInvitationDialog, setShowInvitationDialog] = useState(false)
   const [showActivityLog, setShowActivityLog] = useState(false)
-  const [invitationCount, setInvitationCount] = useState(0)
-  const [unreadActivityCount, setUnreadActivityCount] = useState(0)
 
-  const fetchInvitationCount = async () => {
-    try {
-      const res = await fetch('/api/friends/invitations/count')
-      if (res.ok) {
-        const data = await res.json()
-        setInvitationCount(data.count || 0)
-      }
-    } catch (error) {
-      console.error('取得邀請數量失敗:', error)
+  // 使用 SWR 獲取好友列表（支持快取和即時更新）
+  const { data: friendsData, error: friendsError, isLoading: friendsLoading, mutate: mutateFriends } = useSWR<Friend[]>(
+    '/api/friends',
+    {
+      fallbackData: initialFriends, // 如果有 initialFriends，使用它作為初始數據
+      revalidateOnFocus: false,
+      dedupingInterval: 30000, // 30 秒內去重
     }
-  }
+  )
 
-  const fetchActivityCount = async () => {
-    try {
-      const res = await fetch('/api/friend-activities')
-      if (res.ok) {
-        const data = await res.json()
-        setUnreadActivityCount(data.unreadCount || 0)
-      }
-    } catch (error) {
-      console.error('取得活動數量失敗:', error)
+  // 使用 SWR 獲取邀請數量
+  const { data: invitationData, mutate: mutateInvitation } = useSWR<{ count: number }>(
+    '/api/friends/invitations/count',
+    {
+      revalidateOnFocus: false,
+      refreshInterval: 30000, // 每 30 秒自動刷新
     }
-  }
+  )
 
-  useEffect(() => {
-    fetchInvitationCount()
-    fetchActivityCount()
-    // 每30秒刷新一次邀請和活動數量
-    const interval = setInterval(() => {
-      fetchInvitationCount()
-      fetchActivityCount()
-    }, 30000)
-    return () => clearInterval(interval)
-  }, [])
+  // 使用 SWR 獲取活動數量
+  const { data: activityData, mutate: mutateActivity } = useSWR<{ unreadCount: number }>(
+    '/api/friend-activities',
+    {
+      revalidateOnFocus: false,
+      refreshInterval: 30000, // 每 30 秒自動刷新
+    }
+  )
+
+  const friends = friendsData || []
+  const invitationCount = invitationData?.count || 0
+  const unreadActivityCount = activityData?.unreadCount || 0
 
   const filteredFriends = useMemo(() => {
     if (!searchFilter.trim()) {
@@ -87,22 +82,54 @@ export default function FriendsBoard({ initialFriends }: FriendsBoardProps) {
   }, [friends, searchFilter])
 
   const handleFriendAdded = () => {
-    window.location.reload()
+    // 使用 SWR mutate 刷新數據，不需要完整頁面重新載入
+    mutateFriends()
   }
 
   const handleInvitationAccepted = () => {
-    fetchInvitationCount()
-    window.location.reload()
+    // 刷新邀請數量和好友列表
+    mutateInvitation()
+    mutateFriends()
   }
 
   const handleUpdateFriend = (friendId: string, updates: { mood?: number; fullness?: number }) => {
-    setFriends((prev) =>
-      prev.map((friend) => {
+    // 樂觀更新：立即更新 UI
+    mutateFriends(
+      friends.map((friend) => {
         if (friend.id === friendId) {
           return { ...friend, ...updates }
         }
         return friend
-      })
+      }),
+      false // 不重新驗證
+    )
+  }
+
+  // 載入狀態
+  if (friendsLoading && !initialFriends) {
+    return (
+      <div className="min-h-screen bg-white pb-20">
+        <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-black/20">
+          <div className="max-w-7xl mx-auto px-4 py-4">
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+              <div className="h-8 w-40 bg-gray-200 rounded animate-pulse" />
+              <div className="flex gap-2 w-full sm:w-auto">
+                <div className="h-10 flex-1 sm:w-64 bg-gray-200 rounded animate-pulse" />
+                <div className="h-10 w-24 bg-gray-200 rounded animate-pulse" />
+                <div className="h-10 w-24 bg-gray-200 rounded animate-pulse" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-48 bg-gray-200 rounded-xl animate-pulse" />
+            ))}
+          </div>
+        </div>
+        <Navigation />
+      </div>
     )
   }
 
@@ -190,7 +217,7 @@ export default function FriendsBoard({ initialFriends }: FriendsBoardProps) {
           setShowInvitationDialog(open)
           if (!open) {
             // 關閉對話框時刷新邀請數量
-            fetchInvitationCount()
+            mutateInvitation()
           }
         }}
         onInvitationAccepted={handleInvitationAccepted}
@@ -215,7 +242,7 @@ export default function FriendsBoard({ initialFriends }: FriendsBoardProps) {
       {showActivityLog && (
         <FriendActivityLog
           onClose={() => setShowActivityLog(false)}
-          onUnreadCountUpdate={(count) => setUnreadActivityCount(count)}
+          onUnreadCountUpdate={() => mutateActivity()}
         />
       )}
 

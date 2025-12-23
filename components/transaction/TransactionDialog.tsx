@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/components/ui/use-toast'
 import { ToastAction } from '@/components/ui/toast'
+import { useSWR } from '@/lib/swr-config'
 import CalculatorInput from './CalculatorInput'
 import CategorySelector from './CategorySelector'
 
@@ -82,26 +83,38 @@ export default function TransactionDialog({
     }
   }
 
+  // 使用 SWR 快取 categories - 不再每次都重新獲取
+  const typeId = getTypeId(type)
+  const { data: categoriesData, isLoading: swrLoadingCategories } = useSWR(
+    open ? `/api/categories?typeId=${typeId}` : null, // 只在對話框打開時獲取
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 60000, // 60 秒內去重
+    }
+  )
+
+  // 當 SWR 資料更新時，同步到 categories state
+  useEffect(() => {
+    if (categoriesData && Array.isArray(categoriesData)) {
+      setCategories(categoriesData)
+    }
+  }, [categoriesData])
+
+  // 更新 loadingCategories 狀態
+  useEffect(() => {
+    setLoadingCategories(swrLoadingCategories)
+  }, [swrLoadingCategories])
+
   const fetchCategories = useCallback(async () => {
+    // 使用 SWR 快取，這個函數現在主要用於強制刷新
     // NEVER set any default category - categories are ONLY set by:
     // 1. User selection (handleCategorySelect)
     // 2. initialValues (from chat API)
     // 3. editingTransaction (when editing)
-    setLoadingCategories(true)
-    try {
-      const typeId = getTypeId(type)
-      const res = await fetch(`/api/categories?typeId=${typeId}`)
-      if (res.ok) {
-        const data = await res.json()
-        setCategories(data)
-        console.log('✅ Categories loaded - NO default category will be set')
-      }
-    } catch (error) {
-      console.error('Failed to fetch categories:', error)
-    } finally {
-      setLoadingCategories(false)
+    if (categoriesData && Array.isArray(categoriesData)) {
+      setCategories(categoriesData)
     }
-  }, [type]) // Only depend on type, nothing else!
+  }, [categoriesData]) // Only depend on categoriesData
 
   // Fetch categories when dialog opens or type changes
   // CRITICAL: Never reset or set any category here - only fetch the list

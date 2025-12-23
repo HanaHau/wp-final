@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUserRecord } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
-// 使用 revalidate 快取策略，60 秒內重用相同響應
-export const revalidate = 60
+// 使用 revalidate 快取策略，120 秒內重用相同響應（增加快取時間）
+export const revalidate = 120
 
 // GET /api/statistics/monthly - 取得月統計
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
+    // 優化：直接使用 getCurrentUserRecord，避免額外查詢
+    const user = await getCurrentUserRecord()
     if (!user) {
       return NextResponse.json({ error: '未授權' }, { status: 401 })
     }

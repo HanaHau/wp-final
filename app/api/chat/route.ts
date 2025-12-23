@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUserRecord } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
-export const dynamic = 'force-dynamic'
+// Chat API 需要即時回應，但可以使用短暫快取
+export const revalidate = 0 // 不快取，因為聊天需要即時
 
 // Initialize Gemini API - will be set when API key is available
 let genAI: GoogleGenerativeAI | null = null
@@ -33,7 +34,8 @@ interface ChatResponse {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
+    // 優化：直接使用 getCurrentUserRecord，避免額外查詢
+    const user = await getCurrentUserRecord()
     if (!user) {
       return NextResponse.json({ error: '未授權' }, { status: 401 })
     }
@@ -42,7 +44,6 @@ export async function POST(request: NextRequest) {
     try {
       getGenAI()
     } catch (error: any) {
-      console.error('Gemini API initialization error:', error)
       return NextResponse.json(
         {
           message: 'API 設定錯誤，請聯繫管理員',
@@ -58,28 +59,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
 
-    // Get user's categories for context
-    const categories = await prisma.category.findMany({
-      where: {
-        OR: [
-          { userId: null }, // Default categories
-          { userId: user.id }, // User's own categories
+    // 優化：並行獲取 categories 和 pet（減少等待時間）
+    const [categories, pet] = await Promise.all([
+      prisma.category.findMany({
+        where: {
+          OR: [
+            { userId: null }, // Default categories
+            { userId: user.id }, // User's own categories
+          ],
+        },
+        include: {
+          type: true,
+        },
+        orderBy: [
+          { typeId: 'asc' },
+          { sortOrder: 'asc' },
+          { name: 'asc' },
         ],
-      },
-      include: {
-        type: true,
-      },
-      orderBy: [
-        { typeId: 'asc' },
-        { sortOrder: 'asc' },
-        { name: 'asc' },
-      ],
-    })
-
-    // Get pet info for context
-    const pet = await prisma.pet.findUnique({
-      where: { userId: user.id },
-    })
+      }),
+      prisma.pet.findUnique({
+        where: { userId: user.id },
+        select: { name: true }, // 只選擇需要的欄位
+      }),
+    ])
 
     // Build category list for prompt
     const expenseCategories = categories
@@ -159,12 +161,10 @@ Response format:
 Be warm, empathetic, and engaging. Use emojis occasionally. For chat, respond naturally and conversationally (can be longer than 1-2 sentences if appropriate). For transactions, keep confirmation messages brief.`
 
     // Use gemini-2.5-flash (latest available model, faster and cheaper)
-    // According to the API, available models are: gemini-2.5-flash, gemini-2.5-pro
     const ai = getGenAI()
     const model = ai.getGenerativeModel({ 
       model: 'gemini-2.5-flash',
     })
-    console.log('Using model: gemini-2.5-flash')
 
     const chatPrompt = `${systemPrompt}
 
@@ -177,8 +177,6 @@ IMPORTANT: Respond ONLY with valid JSON. Do not include any markdown formatting,
       // Use the correct API format - generateContent accepts a string directly
       result = await model.generateContent(chatPrompt)
     } catch (error: any) {
-      console.error('Gemini API call failed:', error)
-      console.error('Error details:', JSON.stringify(error, null, 2))
       
       // Check for specific error types
       if (error.message?.includes('API_KEY_INVALID') || error.message?.includes('API key')) {
@@ -212,7 +210,6 @@ IMPORTANT: Respond ONLY with valid JSON. Do not include any markdown formatting,
     try {
       text = response.text().trim()
     } catch (error: any) {
-      console.error('Failed to get text from response:', error)
       // Try alternative method to get response
       const candidates = response.candidates
       if (candidates && candidates.length > 0 && candidates[0].content) {
@@ -245,9 +242,7 @@ IMPORTANT: Respond ONLY with valid JSON. Do not include any markdown formatting,
       if (jsonMatch) {
         try {
           chatResponse = JSON.parse(jsonMatch[0])
-          console.log('Parsed Gemini response:', chatResponse)
         } catch (parseError) {
-          console.error('JSON parse error:', parseError, 'JSON string:', jsonMatch[0])
           // Fallback: treat as regular message
           chatResponse = {
             message: cleanedText || '我聽不懂，請再試一次！',
@@ -256,14 +251,12 @@ IMPORTANT: Respond ONLY with valid JSON. Do not include any markdown formatting,
         }
       } else {
         // Fallback: treat as regular message
-        console.warn('No JSON found in response, treating as regular message:', cleanedText)
         chatResponse = {
           message: cleanedText || '我聽不懂，請再試一次！',
           isTransaction: false,
         }
       }
     } catch (error) {
-      console.error('Failed to parse Gemini response:', error, 'Response text:', text)
       // If parsing fails, treat as regular message
       chatResponse = {
         message: text || '我聽不懂，請再試一次！',
@@ -277,7 +270,6 @@ IMPORTANT: Respond ONLY with valid JSON. Do not include any markdown formatting,
 
       // Validate amount
       if (!amount || amount <= 0 || isNaN(amount)) {
-        console.warn('Invalid amount:', amount)
         chatResponse.isTransaction = false
         chatResponse.message = '我無法理解金額，請再試一次！'
         delete chatResponse.transactionData
@@ -285,7 +277,6 @@ IMPORTANT: Respond ONLY with valid JSON. Do not include any markdown formatting,
 
       // Validate type
       if (type !== 'EXPENSE' && type !== 'INCOME') {
-        console.warn('Invalid type:', type)
         chatResponse.isTransaction = false
         chatResponse.message = '我無法理解這是支出還是收入，請再試一次！'
         delete chatResponse.transactionData
@@ -297,25 +288,20 @@ IMPORTANT: Respond ONLY with valid JSON. Do not include any markdown formatting,
           (c) => c.name === categoryName && c.typeId === (type === 'EXPENSE' ? 1 : 2)
         )
         if (!categoryExists) {
-          console.warn('Category not found:', categoryName, 'Available categories:', categories.map(c => c.name))
           chatResponse.isTransaction = false
           chatResponse.message = `我找不到「${categoryName}」這個分類，請確認分類名稱是否正確。`
           delete chatResponse.transactionData
         }
       } else {
-        console.warn('Category name missing')
         chatResponse.isTransaction = false
         chatResponse.message = '我無法理解分類，請再試一次！'
         delete chatResponse.transactionData
       }
     }
 
-    console.log('Final chat response:', JSON.stringify(chatResponse, null, 2))
     return NextResponse.json(chatResponse)
   } catch (error: any) {
-    console.error('Chat API error:', error)
     const errorMessage = error?.message || '未知錯誤'
-    console.error('Error details:', errorMessage)
     
     return NextResponse.json(
       {
